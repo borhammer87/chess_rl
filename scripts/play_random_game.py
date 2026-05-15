@@ -1,5 +1,5 @@
-from src.chess_rl.env.chess_env import ChessEnv
-from src.chess_rl.agents.random_agent import RandomAgent
+from chess_rl.env.chess_env import ChessEnv
+from chess_rl.agents.random_agent import RandomAgent
 
 
 def main():
