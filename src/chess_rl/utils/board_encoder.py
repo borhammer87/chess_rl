@@ -1,5 +1,6 @@
 import chess
 import numpy as np
+import torch
 
 
 PIECE_TO_CHANNEL = {
@@ -30,4 +31,10 @@ def encode_board(board: chess.Board) -> np.ndarray:
 
         tensor[row, col, channel] = 1.0
 
-    return tensor
+    """return tensor"""
+    tensor = np.transpose(tensor, (2, 0, 1))
+
+    return torch.tensor(
+        tensor,
+        dtype=torch.float32
+    )
