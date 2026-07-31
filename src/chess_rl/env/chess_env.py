@@ -2,50 +2,103 @@ import chess
 
 
 class ChessEnv:
-    def __init__(self):
+    """
+    Minimal chess environment based on python-chess.
+
+    Responsibilities:
+    - Maintain the current board.
+    - Reset the game.
+    - Expose legal moves.
+    - Apply legal moves.
+    - Return terminal rewards.
+    """
+
+    def __init__(self) -> None:
         self.board = chess.Board()
         self.done = False
 
-    def reset(self):
-        self.board = chess.Board()
+    def reset(self) -> chess.Board:
+        """
+        Reset the environment to the initial chess position.
+        """
+        self.board.reset()
         self.done = False
+
         return self.get_state()
 
-    def get_state(self):
+    def get_state(self) -> chess.Board:
         """
-        Devuelve el estado actual del tablero.
-        Por ahora devolvemos el objeto board directamente.
-        Más adelante lo convertiremos a tensor.
-        """
-        return self.board
+        Return a copy of the current board state.
 
-    def legal_moves(self):
+        Returning a copy prevents external code from modifying
+        the environment's internal board accidentally.
+        """
+        return self.board.copy(stack=False)
+
+    def legal_moves(self) -> list[chess.Move]:
+        """
+        Return all legal moves in the current position.
+        """
         return list(self.board.legal_moves)
 
-    def step(self, move):
+    def step(
+        self,
+        move: chess.Move,
+    ) -> tuple[chess.Board, float, bool, dict]:
         """
-        move: objeto chess.Move
-        """
+        Apply one legal chess move.
 
+        Args:
+            move: Move to apply.
+
+        Returns:
+            next_state: Copy of the board after the move.
+            reward: Terminal reward from White's perspective.
+            done: Whether the game has ended.
+            info: Additional environment information.
+        """
         if self.done:
-            raise Exception("La partida ya terminó")
+            raise RuntimeError("Cannot apply a move: the game has already ended.")
 
-        # aplicar movimiento
+        if not isinstance(move, chess.Move):
+            raise TypeError("move must be an instance of chess.Move.")
+
+        if move not in self.board.legal_moves:
+            raise ValueError(f"Illegal move: {move.uci()}")
+
         self.board.push(move)
-
-        # comprobar fin de partida
         self.done = self.board.is_game_over()
 
-        reward = 0
+        reward = self._calculate_reward()
 
-        if self.done:
-            result = self.board.result()
+        info = {
+            "result": self.board.result() if self.done else None,
+            "termination": (
+                self.board.outcome().termination.name
+                if self.done and self.board.outcome() is not None
+                else None
+            ),
+        }
 
-            if result == "1-0":
-                reward = 1
-            elif result == "0-1":
-                reward = -1
-            else:
-                reward = 0
+        return self.get_state(), reward, self.done, info
 
-        return self.get_state(), reward, self.done, {}
+    def _calculate_reward(self) -> float:
+        """
+        Return the terminal reward from White's perspective.
+
+        White win: +1
+        Black win: -1
+        Draw or unfinished game: 0
+        """
+        if not self.done:
+            return 0.0
+
+        result = self.board.result()
+
+        if result == "1-0":
+            return 1.0
+
+        if result == "0-1":
+            return -1.0
+
+        return 0.0

@@ -1,6 +1,7 @@
 # tests/test_env.py
 
 import chess
+import pytest
 
 from chess_rl.env.chess_env import ChessEnv
 
@@ -82,3 +83,54 @@ def test_new_game_is_not_done():
     env.reset()
 
     assert env.board.is_game_over() is False
+
+
+
+def test_env_rejects_illegal_move():
+    env = ChessEnv()
+    env.reset()
+
+    illegal_move = chess.Move.from_uci("e2e5")
+
+    with pytest.raises(ValueError, match="Illegal move"):
+        env.step(illegal_move)
+
+
+def test_env_rejects_non_move_objects():
+    env = ChessEnv()
+    env.reset()
+
+    with pytest.raises(TypeError):
+        env.step("e2e4")
+
+
+def test_get_state_returns_independent_board():
+    env = ChessEnv()
+    state = env.reset()
+
+    state.push(chess.Move.from_uci("e2e4"))
+
+    assert env.board.fen() == chess.Board().fen()
+
+
+def test_env_raises_when_game_is_already_done():
+    env = ChessEnv()
+    env.done = True
+
+    move = chess.Move.from_uci("e2e4")
+
+    with pytest.raises(RuntimeError):
+        env.step(move)
+
+
+def test_step_returns_info_dictionary():
+    env = ChessEnv()
+    env.reset()
+
+    move = chess.Move.from_uci("e2e4")
+
+    _, _, _, info = env.step(move)
+
+    assert isinstance(info, dict)
+    assert info["result"] is None
+    assert info["termination"] is None
