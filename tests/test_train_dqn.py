@@ -1,0 +1,424 @@
+import chess
+import pytest
+import torch
+
+from chess_rl.agents.dqn_agent import DQNAgent
+from chess_rl.env.chess_env import ChessEnv
+from chess_rl.utils.action_encoder import encode_move
+from chess_rl.utils.replay_buffer import ReplayBuffer
+
+from chess_rl.training.train_dqn import (
+    EpisodeResult,
+    StepResult,
+    run_and_store_step,
+    run_episode,
+    run_single_step,
+)
+
+from chess_rl.agents.random_agent import RandomAgent
+
+from chess_rl.training.train_dqn import (
+    EpisodeResult,
+    StepResult,
+    VsRandomEpisodeResult,
+    run_and_store_step,
+    run_dqn_vs_random_episode,
+    run_episode,
+    run_single_step,
+)
+
+def test_run_single_step_returns_step_result():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    env.reset()
+
+    result = run_single_step(
+        env=env,
+        agent=agent,
+    )
+
+    assert isinstance(result, StepResult)
+
+
+def test_run_single_step_returns_correct_tensor_shapes():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    env.reset()
+
+    result = run_single_step(
+        env=env,
+        agent=agent,
+    )
+
+    assert result.state.shape == (12, 8, 8)
+    assert result.next_state.shape == (12, 8, 8)
+
+    assert isinstance(result.state, torch.Tensor)
+    assert isinstance(result.next_state, torch.Tensor)
+
+
+def test_run_single_step_selects_legal_move():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    board_before = env.reset()
+    legal_moves_before = list(board_before.legal_moves)
+
+    result = run_single_step(
+        env=env,
+        agent=agent,
+    )
+
+    assert result.move in legal_moves_before
+    assert result.action == encode_move(result.move)
+
+
+def test_run_single_step_changes_board():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    board_before = env.reset()
+    initial_fen = board_before.fen()
+
+    run_single_step(
+        env=env,
+        agent=agent,
+    )
+
+    assert env.get_state().fen() != initial_fen
+
+
+def test_run_single_step_returns_non_terminal_reward_initially():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    env.reset()
+
+    result = run_single_step(
+        env=env,
+        agent=agent,
+    )
+
+    assert result.reward == 0.0
+    assert result.done is False
+    assert result.info["result"] is None
+
+
+def test_run_single_step_rejects_finished_game():
+    env = ChessEnv()
+    agent = DQNAgent()
+
+    env.done = True
+
+    with pytest.raises(
+        RuntimeError,
+        match="game has already ended",
+    ):
+        run_single_step(
+            env=env,
+            agent=agent,
+        )
+
+def test_run_and_store_step_adds_transition_to_buffer():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    env.reset()
+
+    assert len(replay_buffer) == 0
+
+    run_and_store_step(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    assert len(replay_buffer) == 1
+
+
+def test_stored_transition_matches_step_result():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    env.reset()
+
+    result = run_and_store_step(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    transition = replay_buffer.buffer[0]
+
+    assert torch.equal(
+        transition.state,
+        result.state,
+    )
+    assert transition.action == result.action
+    assert transition.reward == result.reward
+    assert torch.equal(
+        transition.next_state,
+        result.next_state,
+    )
+    assert transition.done == result.done
+
+
+def test_run_and_store_step_returns_step_result():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    env.reset()
+
+    result = run_and_store_step(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    assert isinstance(result, StepResult)
+
+
+def test_multiple_steps_grow_replay_buffer():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    env.reset()
+
+    for _ in range(4):
+        run_and_store_step(
+            env=env,
+            agent=agent,
+            replay_buffer=replay_buffer,
+        )
+
+    assert len(replay_buffer) == 4
+
+def test_run_episode_returns_episode_result():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_episode(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+        max_steps=5,
+    )
+
+    assert isinstance(result, EpisodeResult)
+
+
+def test_run_episode_stores_one_transition_per_step():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_episode(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+        max_steps=5,
+    )
+
+    assert len(replay_buffer) == result.steps
+
+
+def test_run_episode_respects_max_steps():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_episode(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+        max_steps=4,
+    )
+
+    assert result.steps <= 4
+
+    if not result.done:
+        assert result.steps == 4
+        assert result.truncated is True
+
+
+def test_run_episode_marks_completed_game_as_not_truncated():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=1_000)
+
+    result = run_episode(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+        max_steps=1_000,
+    )
+
+    if result.done:
+        assert result.truncated is False
+
+
+def test_run_episode_rejects_zero_max_steps():
+    env = ChessEnv()
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="greater than zero",
+    ):
+        run_episode(
+            env=env,
+            agent=agent,
+            replay_buffer=replay_buffer,
+            max_steps=0,
+        )
+
+
+def test_run_episode_resets_environment():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    env.step(chess.Move.from_uci("e2e4"))
+
+    run_episode(
+        env=env,
+        agent=agent,
+        replay_buffer=replay_buffer,
+        max_steps=1,
+    )
+
+    assert len(env.board.move_stack) == 1
+
+def test_dqn_vs_random_returns_expected_result():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    assert isinstance(
+        result,
+        VsRandomEpisodeResult,
+    )
+
+
+def test_dqn_vs_random_stores_only_dqn_transitions():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=3,
+    )
+
+    assert len(replay_buffer) == result.agent_steps
+
+
+def test_one_agent_step_contains_white_and_black_moves():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    assert result.agent_steps == 1
+    assert result.total_plies == 2
+    assert len(replay_buffer) == 1
+
+    # After White and Black have moved, it is White's turn again.
+    assert env.board.turn == chess.WHITE
+
+
+def test_dqn_vs_random_transition_spans_opponent_response():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    transition = replay_buffer.buffer[0]
+
+    assert transition.state.shape == (12, 8, 8)
+    assert transition.next_state.shape == (12, 8, 8)
+
+    assert not torch.equal(
+        transition.state,
+        transition.next_state,
+    )
+
+    assert transition.reward == 0.0
+    assert transition.done is False
+
+
+def test_dqn_vs_random_respects_agent_step_limit():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=2,
+    )
+
+    assert result.agent_steps <= 2
+
+    if not result.done:
+        assert result.agent_steps == 2
+        assert result.truncated is True
+
+
+def test_dqn_vs_random_rejects_invalid_step_limit():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="greater than zero",
+    ):
+        run_dqn_vs_random_episode(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            max_agent_steps=0,
+        )

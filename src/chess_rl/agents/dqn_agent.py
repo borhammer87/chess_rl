@@ -1,8 +1,12 @@
 import random
 import torch
 import torch.nn.functional as F
+import chess
 
 from chess_rl.models.dqn_cnn import DQNCNN
+from chess_rl.utils.action_encoder import encode_move
+from chess_rl.utils.action_masking import mask_illegal_moves
+
 
 
 class DQNAgent:
@@ -38,23 +42,40 @@ class DQNAgent:
     # -------------------------
     # ACTION SELECTION
     # -------------------------
-    def select_action(self, state: torch.Tensor, legal_mask: torch.Tensor = None) -> int:
+    def select_action(
+    self,
+    state: torch.Tensor,
+    legal_moves: list[chess.Move],
+        ) -> int:
         """
-        Epsilon-greedy action selection with optional legal move masking.
-        """
+        Select an action using an epsilon-greedy policy.
 
-        # random exploration
+        Exploration:
+            Select a random legal move.
+
+        Exploitation:
+            Predict all Q-values, mask illegal moves and select
+            the legal action with the highest Q-value.
+        """
+        if not legal_moves:
+            raise ValueError("Cannot select an action without legal moves.")
+
+        # Exploration: choose one legal move and encode it.
         if random.random() < self.epsilon:
-            return random.randint(0, 4095)
+            random_move = random.choice(legal_moves)
+            return encode_move(random_move)
 
+        # Exploitation: predict every action value.
         with torch.no_grad():
             q_values = self.policy_net(state.unsqueeze(0))[0]
 
-        # apply legal mask (if provided)
-        if legal_mask is not None:
-            q_values = q_values + legal_mask  # illegal moves should be -inf or large negative
+        # Prevent illegal actions from being selected.
+        masked_q_values = mask_illegal_moves(
+            q_values=q_values,
+            legal_moves=legal_moves,
+        )
 
-        return int(torch.argmax(q_values).item())
+        return int(torch.argmax(masked_q_values).item())
 
     # -------------------------
     # TRAINING STEP

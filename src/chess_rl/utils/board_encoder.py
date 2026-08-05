@@ -20,7 +20,7 @@ PIECE_TO_CHANNEL = {
 }
 
 
-def encode_board(board: chess.Board) -> np.ndarray:
+def encode_board(board: chess.Board) -> torch.Tensor:
     tensor = np.zeros((8, 8, 12), dtype=np.float32)
 
     for square, piece in board.piece_map().items():
