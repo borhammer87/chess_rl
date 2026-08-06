@@ -398,3 +398,53 @@ def main() -> None:
     print(f"Truncated: {episode.truncated}")
     print(f"Final info: {episode.final_info}")
     print(f"Replay buffer size: {len(replay_buffer)}")
+
+def train_against_random(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: RandomAgent,
+    replay_buffer: ReplayBuffer,
+    episodes: int,
+    max_agent_steps: int = 150,
+    batch_size: int = 32,
+    min_replay_size: int = 1_000,
+) -> list[VsRandomEpisodeResult]:
+    """
+    Run multiple DQN-versus-random episodes.
+
+    The same agent and replay buffer are reused across all episodes,
+    allowing replay memory to accumulate transitions from different
+    games.
+
+    Args:
+        env: Chess environment reused across episodes.
+        agent: DQN agent trained during the episodes.
+        opponent: Random opponent playing Black.
+        replay_buffer: Shared replay memory.
+        episodes: Number of episodes to run.
+        max_agent_steps: Maximum DQN decisions per episode.
+        batch_size: Number of transitions sampled per training update.
+        min_replay_size: Minimum replay size before training begins.
+
+    Returns:
+        One result for each completed or truncated episode.
+    """
+    if episodes <= 0:
+        raise ValueError("episodes must be greater than zero.")
+
+    results: list[VsRandomEpisodeResult] = []
+
+    for _ in range(episodes):
+        result = run_dqn_vs_random_episode(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            max_agent_steps=max_agent_steps,
+            batch_size=batch_size,
+            min_replay_size=min_replay_size,
+        )
+
+        results.append(result)
+
+    return results

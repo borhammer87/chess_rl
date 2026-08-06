@@ -40,6 +40,18 @@ from chess_rl.training.train_dqn import (
 
 import chess_rl.training.train_dqn as train_dqn_module
 
+from chess_rl.training.train_dqn import (
+    EpisodeResult,
+    StepResult,
+    VsRandomEpisodeResult,
+    run_and_store_step,
+    run_dqn_vs_random_episode,
+    run_episode,
+    run_single_step,
+    train_against_random,
+    train_from_replay,
+)
+
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
@@ -507,3 +519,185 @@ def test_dqn_vs_random_attempts_training_after_storing_transition(
         assert received_calls[0]["buffer_size"] == 1
         assert received_calls[0]["batch_size"] == 2
         assert received_calls[0]["min_replay_size"] == 4
+
+def test_train_against_random_returns_one_result_per_episode(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    fake_result = VsRandomEpisodeResult(
+        agent_steps=1,
+        total_plies=2,
+        total_reward=0.0,
+        done=False,
+        truncated=True,
+        final_info={},
+    )
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+    ):
+        return fake_result
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    results = train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert len(results) == 3
+    assert all(
+        isinstance(result, VsRandomEpisodeResult)
+        for result in results
+    )
+
+def test_train_against_random_reuses_same_replay_buffer(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    received_buffers = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+    ):
+        received_buffers.append(replay_buffer)
+
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert len(received_buffers) == 3
+    assert all(
+        received_buffer is replay_buffer
+        for received_buffer in received_buffers
+    )
+
+def test_train_against_random_passes_training_configuration(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    received_calls = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+    ):
+        received_calls.append(
+            {
+                "max_agent_steps": max_agent_steps,
+                "batch_size": batch_size,
+                "min_replay_size": min_replay_size,
+            }
+        )
+
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=2,
+        max_agent_steps=20,
+        batch_size=8,
+        min_replay_size=50,
+    )
+
+    assert len(received_calls) == 2
+
+    for call in received_calls:
+        assert call["max_agent_steps"] == 20
+        assert call["batch_size"] == 8
+        assert call["min_replay_size"] == 50
+
+def test_train_against_random_rejects_zero_episodes():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    with pytest.raises(
+        ValueError,
+        match="episodes must be greater than zero",
+    ):
+        train_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=0,
+        )
