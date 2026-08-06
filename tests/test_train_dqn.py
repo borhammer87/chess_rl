@@ -701,3 +701,136 @@ def test_train_against_random_rejects_zero_episodes():
             replay_buffer=replay_buffer,
             episodes=0,
         )
+
+def test_train_against_random_updates_target_at_configured_frequency(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    target_update_calls = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+    ):
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+        )
+
+    def fake_update_target():
+        target_update_calls.append(True)
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    monkeypatch.setattr(
+        agent,
+        "update_target",
+        fake_update_target,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=5,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+        target_update_frequency=2,
+    )
+
+    assert len(target_update_calls) == 2
+
+def test_train_against_random_does_not_update_target_too_early(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    target_update_calls = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+    ):
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+        )
+
+    def fake_update_target():
+        target_update_calls.append(True)
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    monkeypatch.setattr(
+        agent,
+        "update_target",
+        fake_update_target,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+        target_update_frequency=5,
+    )
+
+    assert target_update_calls == []
+
+def test_train_against_random_rejects_invalid_target_update_frequency():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    with pytest.raises(
+        ValueError,
+        match="target_update_frequency must be greater than zero",
+    ):
+        train_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            target_update_frequency=0,
+        )

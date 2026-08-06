@@ -408,11 +408,17 @@ def train_against_random(
     max_agent_steps: int = 150,
     batch_size: int = 32,
     min_replay_size: int = 1_000,
+    target_update_frequency: int = 10,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
 
     The same agent and replay buffer are reused across all episodes,
+    allowing replay memory to accumulate transitions from different
+    games.
+
+    The target network is periodically synchronized with the policy
+    network after the configured number of episodes.The same agent and replay buffer are reused across all episodes,
     allowing replay memory to accumulate transitions from different
     games.
 
@@ -425,6 +431,8 @@ def train_against_random(
         max_agent_steps: Maximum DQN decisions per episode.
         batch_size: Number of transitions sampled per training update.
         min_replay_size: Minimum replay size before training begins.
+        target_update_frequency: Number of completed episodes between
+        target-network synchronizations.
 
     Returns:
         One result for each completed or truncated episode.
@@ -432,9 +440,14 @@ def train_against_random(
     if episodes <= 0:
         raise ValueError("episodes must be greater than zero.")
 
+    if target_update_frequency <= 0:
+        raise ValueError(
+            "target_update_frequency must be greater than zero."
+        )
+
     results: list[VsRandomEpisodeResult] = []
 
-    for _ in range(episodes):
+    for episode_index in range(episodes):
         result = run_dqn_vs_random_episode(
             env=env,
             agent=agent,
@@ -446,5 +459,10 @@ def train_against_random(
         )
 
         results.append(result)
+
+        completed_episodes = episode_index + 1
+
+        if completed_episodes % target_update_frequency == 0:
+            agent.update_target()
 
     return results
