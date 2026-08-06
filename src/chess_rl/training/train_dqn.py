@@ -150,21 +150,38 @@ def train_from_replay(
     agent: DQNAgent,
     replay_buffer: ReplayBuffer,
     batch_size: int,
+    min_replay_size: int,
 ) -> float | None:
     """
     Train the DQN agent using one random batch from replay memory.
 
-    Training starts only when the buffer contains at least
-    batch_size transitions.
+    Training starts only when the replay buffer contains at least
+    min_replay_size transitions.
+
+    Args:
+        agent: DQN agent to train.
+        replay_buffer: Memory containing previous transitions.
+        batch_size: Number of transitions sampled for one update.
+        min_replay_size: Minimum number of stored transitions required
+            before training begins.
 
     Returns:
-        The training loss, or None when there are not enough
-        transitions available.
+        The training loss, or None when replay memory is not ready.
     """
     if batch_size <= 0:
         raise ValueError("batch_size must be greater than zero.")
 
-    if len(replay_buffer) < batch_size:
+    if min_replay_size <= 0:
+        raise ValueError(
+            "min_replay_size must be greater than zero."
+        )
+
+    if min_replay_size < batch_size:
+        raise ValueError(
+            "min_replay_size must be at least batch_size."
+        )
+
+    if len(replay_buffer) < min_replay_size:
         return None
 
     batch = replay_buffer.sample(batch_size)

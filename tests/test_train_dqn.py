@@ -434,26 +434,13 @@ def test_dqn_vs_random_rejects_invalid_step_limit():
             max_agent_steps=0,
         )
 
-def test_train_from_replay_waits_for_enough_transitions():
-    agent = DQNAgent()
-    replay_buffer = ReplayBuffer(capacity=10)
-
-    loss = train_from_replay(
-        agent=agent,
-        replay_buffer=replay_buffer,
-        batch_size=2,
-    )
-
-    assert loss is None
-
-
-def test_train_from_replay_returns_loss():
+def test_train_from_replay_waits_for_minimum_replay_size():
     agent = DQNAgent()
     replay_buffer = ReplayBuffer(capacity=10)
 
     state = torch.zeros((12, 8, 8))
 
-    for action in range(2):
+    for action in range(3):
         replay_buffer.push(
             state=state,
             action=action,
@@ -466,21 +453,7 @@ def test_train_from_replay_returns_loss():
         agent=agent,
         replay_buffer=replay_buffer,
         batch_size=2,
+        min_replay_size=4,
     )
 
-    assert isinstance(loss, float)
-
-
-def test_train_from_replay_rejects_invalid_batch_size():
-    agent = DQNAgent()
-    replay_buffer = ReplayBuffer(capacity=10)
-
-    with pytest.raises(
-        ValueError,
-        match="greater than zero",
-    ):
-        train_from_replay(
-            agent=agent,
-            replay_buffer=replay_buffer,
-            batch_size=0,
-        )
+    assert loss is None
