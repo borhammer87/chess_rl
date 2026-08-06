@@ -240,6 +240,8 @@ def run_dqn_vs_random_episode(
     opponent: RandomAgent,
     replay_buffer: ReplayBuffer,
     max_agent_steps: int = 150,
+    batch_size: int = 32,
+    min_replay_size: int = 1_000,
 ) -> VsRandomEpisodeResult:
     """
     Run one episode with:
@@ -255,8 +257,11 @@ def run_dqn_vs_random_episode(
         -> next state for the DQN
 
     Only DQN decisions are stored in replay memory.
-    No neural-network training is performed here yet.
+
+    After each stored transition, one training update is attempted.
+    Training begins only when replay memory reaches min_replay_size.
     """
+
     if max_agent_steps <= 0:
         raise ValueError(
             "max_agent_steps must be greater than zero."
@@ -310,6 +315,13 @@ def run_dqn_vs_random_episode(
                 done=True,
             )
 
+            train_from_replay(
+                agent=agent,
+                replay_buffer=replay_buffer,
+                batch_size=batch_size,
+                min_replay_size=min_replay_size,
+            )
+
             total_reward += reward
             break
 
@@ -336,6 +348,13 @@ def run_dqn_vs_random_episode(
             reward=reward,
             next_state=next_state,
             done=done,
+        )
+
+        train_from_replay(
+            agent=agent,
+            replay_buffer=replay_buffer,
+            batch_size=batch_size,
+            min_replay_size=min_replay_size,
         )
 
         total_reward += reward

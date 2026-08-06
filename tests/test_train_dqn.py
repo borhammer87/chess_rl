@@ -38,6 +38,8 @@ from chess_rl.training.train_dqn import (
     train_from_replay,
 )
 
+import chess_rl.training.train_dqn as train_dqn_module
+
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
@@ -457,3 +459,51 @@ def test_train_from_replay_waits_for_minimum_replay_size():
     )
 
     assert loss is None
+
+
+def test_dqn_vs_random_attempts_training_after_storing_transition(
+    monkeypatch,
+    ):
+        env = ChessEnv()
+        agent = DQNAgent(epsilon=1.0)
+        opponent = RandomAgent()
+        replay_buffer = ReplayBuffer(capacity=100)
+
+        received_calls = []
+
+        def fake_train_from_replay(
+            agent,
+            replay_buffer,
+            batch_size,
+            min_replay_size,
+        ):
+            received_calls.append(
+                {
+                    "buffer_size": len(replay_buffer),
+                    "batch_size": batch_size,
+                    "min_replay_size": min_replay_size,
+                }
+            )
+            return None
+
+        monkeypatch.setattr(
+            train_dqn_module,
+            "train_from_replay",
+            fake_train_from_replay,
+        )
+
+        result = run_dqn_vs_random_episode(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            max_agent_steps=1,
+            batch_size=2,
+            min_replay_size=4,
+        )
+
+        assert result.agent_steps == 1
+        assert len(received_calls) == 1
+        assert received_calls[0]["buffer_size"] == 1
+        assert received_calls[0]["batch_size"] == 2
+        assert received_calls[0]["min_replay_size"] == 4
