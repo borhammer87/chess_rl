@@ -146,6 +146,31 @@ def run_and_store_step(
 
     return result
 
+def train_from_replay(
+    agent: DQNAgent,
+    replay_buffer: ReplayBuffer,
+    batch_size: int,
+) -> float | None:
+    """
+    Train the DQN agent using one random batch from replay memory.
+
+    Training starts only when the buffer contains at least
+    batch_size transitions.
+
+    Returns:
+        The training loss, or None when there are not enough
+        transitions available.
+    """
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero.")
+
+    if len(replay_buffer) < batch_size:
+        return None
+
+    batch = replay_buffer.sample(batch_size)
+
+    return agent.train_step(batch)
+
 def run_episode(
     env: ChessEnv,
     agent: DQNAgent,

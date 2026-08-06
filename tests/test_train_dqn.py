@@ -27,6 +27,17 @@ from chess_rl.training.train_dqn import (
     run_single_step,
 )
 
+from chess_rl.training.train_dqn import (
+    EpisodeResult,
+    StepResult,
+    VsRandomEpisodeResult,
+    run_and_store_step,
+    run_dqn_vs_random_episode,
+    run_episode,
+    run_single_step,
+    train_from_replay,
+)
+
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
@@ -421,4 +432,55 @@ def test_dqn_vs_random_rejects_invalid_step_limit():
             opponent=opponent,
             replay_buffer=replay_buffer,
             max_agent_steps=0,
+        )
+
+def test_train_from_replay_waits_for_enough_transitions():
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    loss = train_from_replay(
+        agent=agent,
+        replay_buffer=replay_buffer,
+        batch_size=2,
+    )
+
+    assert loss is None
+
+
+def test_train_from_replay_returns_loss():
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros((12, 8, 8))
+
+    for action in range(2):
+        replay_buffer.push(
+            state=state,
+            action=action,
+            reward=0.0,
+            next_state=state,
+            done=False,
+        )
+
+    loss = train_from_replay(
+        agent=agent,
+        replay_buffer=replay_buffer,
+        batch_size=2,
+    )
+
+    assert isinstance(loss, float)
+
+
+def test_train_from_replay_rejects_invalid_batch_size():
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="greater than zero",
+    ):
+        train_from_replay(
+            agent=agent,
+            replay_buffer=replay_buffer,
+            batch_size=0,
         )
