@@ -1,13 +1,20 @@
 # CURRENT STATE
 
 ## Estado actual
+
 - Entorno implementado
 - DQNAgent implementado
 - ReplayBuffer implementado
-- Pipeline parcial implementado
+- DQN vs RandomAgent implementado
+- Entrenamiento desde ReplayBuffer implementado
+- Entrenamiento multi-episodio implementado
+- Sincronización periódica de la target network implementada
+- Epsilon decay aplicado tras cada actualización real de entrenamiento
 
 ## Trabajo actual
-DQN (blancas) vs RandomAgent (negras).
+
+Validar el comportamiento del entrenamiento y comenzar a registrar métricas de aprendizaje.
 
 ## Siguiente paso
-Entrenamiento real usando ReplayBuffer.sample().
+
+Añadir métricas de entrenamiento (loss, recompensa por episodio y evolución de epsilon) para evaluar el progreso del agente.

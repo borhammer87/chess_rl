@@ -1,9 +1,10 @@
 # ROADMAP
 
 - [x] Infraestructura
-- [ ] DQN vs RandomAgent
+- [x] DQN vs RandomAgent
+- [ ] Métricas de entrenamiento
+- [ ] Checkpoints del modelo
+- [ ] Evaluación del agente entrenado
 - [ ] Alternar colores
 - [ ] Self-play
-- [ ] Evaluación
-- [ ] Checkpoints
 - [ ] v1.0
