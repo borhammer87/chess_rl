@@ -186,7 +186,11 @@ def train_from_replay(
 
     batch = replay_buffer.sample(batch_size)
 
-    return agent.train_step(batch)
+    loss = agent.train_step(batch)
+
+    agent.decay_epsilon()
+
+    return loss
 
 def run_episode(
     env: ChessEnv,
@@ -373,31 +377,6 @@ def run_dqn_vs_random_episode(
         final_info=final_info,
     )
 
-def main() -> None:
-    """
-    Run one DQN-versus-random episode without training.
-    """
-
-    env = ChessEnv()
-    agent = DQNAgent(epsilon=1.0)
-    opponent = RandomAgent()
-    replay_buffer = ReplayBuffer(capacity=1_000)
-
-    episode = run_dqn_vs_random_episode(
-        env=env,
-        agent=agent,
-        opponent=opponent,
-        replay_buffer=replay_buffer,
-        max_agent_steps=100,
-    )
-
-    print(f"DQN decisions: {episode.agent_steps}")
-    print(f"Total plies: {episode.total_plies}")
-    print(f"Total reward: {episode.total_reward}")
-    print(f"Done: {episode.done}")
-    print(f"Truncated: {episode.truncated}")
-    print(f"Final info: {episode.final_info}")
-    print(f"Replay buffer size: {len(replay_buffer)}")
 
 def train_against_random(
     env: ChessEnv,
@@ -418,9 +397,10 @@ def train_against_random(
     games.
 
     The target network is periodically synchronized with the policy
-    network after the configured number of episodes.The same agent and replay buffer are reused across all episodes,
-    allowing replay memory to accumulate transitions from different
-    games.
+    network after the configured number of episodes.
+
+    Exploration is reduced after every completed episode by applying
+    the agent's configured epsilon decay.
 
     Args:
         env: Chess environment reused across episodes.
@@ -433,6 +413,9 @@ def train_against_random(
         min_replay_size: Minimum replay size before training begins.
         target_update_frequency: Number of completed episodes between
         target-network synchronizations.
+
+    Exploration is reduced after every completed episode by applying
+    the agent's configured epsilon decay.
 
     Returns:
         One result for each completed or truncated episode.
@@ -464,5 +447,32 @@ def train_against_random(
 
         if completed_episodes % target_update_frequency == 0:
             agent.update_target()
+        agent.decay_epsilon()
 
     return results
+
+def main() -> None:
+    """
+    Run one DQN-versus-random episode without training.
+    """
+
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=1_000)
+
+    episode = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=100,
+    )
+
+    print(f"DQN decisions: {episode.agent_steps}")
+    print(f"Total plies: {episode.total_plies}")
+    print(f"Total reward: {episode.total_reward}")
+    print(f"Done: {episode.done}")
+    print(f"Truncated: {episode.truncated}")
+    print(f"Final info: {episode.final_info}")
+    print(f"Replay buffer size: {len(replay_buffer)}")
