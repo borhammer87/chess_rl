@@ -399,9 +399,6 @@ def train_against_random(
     The target network is periodically synchronized with the policy
     network after the configured number of episodes.
 
-    Exploration is reduced after every completed episode by applying
-    the agent's configured epsilon decay.
-
     Args:
         env: Chess environment reused across episodes.
         agent: DQN agent trained during the episodes.
@@ -413,9 +410,6 @@ def train_against_random(
         min_replay_size: Minimum replay size before training begins.
         target_update_frequency: Number of completed episodes between
         target-network synchronizations.
-
-    Exploration is reduced after every completed episode by applying
-    the agent's configured epsilon decay.
 
     Returns:
         One result for each completed or truncated episode.
@@ -447,7 +441,6 @@ def train_against_random(
 
         if completed_episodes % target_update_frequency == 0:
             agent.update_target()
-        agent.decay_epsilon()
 
     return results
 

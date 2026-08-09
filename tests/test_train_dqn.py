@@ -828,7 +828,9 @@ def test_train_against_random_does_not_update_target_too_early(
 
     assert target_update_calls == []
 
-def test_train_against_random_rejects_invalid_target_update_frequency():
+def test_train_against_random_rejects_invalid_target_update_frequency(
+    monkeypatch
+):
     env = ChessEnv()
     agent = DQNAgent()
     opponent = RandomAgent()
@@ -847,42 +849,31 @@ def test_train_against_random_rejects_invalid_target_update_frequency():
             target_update_frequency=0,
         )
 
-def test_train_against_random_decays_epsilon_after_each_episode(
+
+    monkeypatch,
+
+def test_train_from_replay_decays_epsilon_once_after_training(
+        
     monkeypatch,
 ):
-    env = ChessEnv()
     agent = DQNAgent()
-    opponent = RandomAgent()
-    replay_buffer = ReplayBuffer(capacity=100)
+    replay_buffer = ReplayBuffer(capacity=10)
 
-    epsilon_decay_calls = []
+    state = torch.zeros((12, 8, 8))
 
-    def fake_run_dqn_vs_random_episode(
-        env,
-        agent,
-        opponent,
-        replay_buffer,
-        max_agent_steps,
-        batch_size,
-        min_replay_size,
-    ):
-        return VsRandomEpisodeResult(
-            agent_steps=1,
-            total_plies=2,
-            total_reward=0.0,
+    for action in range(4):
+        replay_buffer.push(
+            state=state,
+            action=action,
+            reward=0.0,
+            next_state=state,
             done=False,
-            truncated=True,
-            final_info={},
         )
 
-    def fake_decay_epsilon():
-        epsilon_decay_calls.append(True)
+    decay_calls = []
 
-    monkeypatch.setattr(
-        train_dqn_module,
-        "run_dqn_vs_random_episode",
-        fake_run_dqn_vs_random_episode,
-    )
+    def fake_decay_epsilon():
+        decay_calls.append(True)
 
     monkeypatch.setattr(
         agent,
@@ -890,21 +881,18 @@ def test_train_against_random_decays_epsilon_after_each_episode(
         fake_decay_epsilon,
     )
 
-    train_against_random(
-        env=env,
+    loss = train_from_replay(
         agent=agent,
-        opponent=opponent,
         replay_buffer=replay_buffer,
-        episodes=3,
-        max_agent_steps=1,
         batch_size=2,
         min_replay_size=4,
     )
 
-    assert len(epsilon_decay_calls) == 3
+    assert isinstance(loss, float)
+    assert len(decay_calls) == 1
 
-def test_train_against_random_reduces_epsilon(
-        monkeypatch,        
+def test_train_against_random_does_not_decay_epsilon_without_training(
+    monkeypatch,
 ):
     env = ChessEnv()
     agent = DQNAgent(
@@ -944,48 +932,10 @@ def test_train_against_random_reduces_epsilon(
         agent=agent,
         opponent=opponent,
         replay_buffer=replay_buffer,
-        episodes=2,
+        episodes=3,
         max_agent_steps=1,
         batch_size=2,
         min_replay_size=4,
     )
 
-    assert agent.epsilon == 0.25
-
-def test_train_from_replay_decays_epsilon_once_after_training(
-    monkeypatch,
-):
-    agent = DQNAgent()
-    replay_buffer = ReplayBuffer(capacity=10)
-
-    state = torch.zeros((12, 8, 8))
-
-    for action in range(4):
-        replay_buffer.push(
-            state=state,
-            action=action,
-            reward=0.0,
-            next_state=state,
-            done=False,
-        )
-
-    decay_calls = []
-
-    def fake_decay_epsilon():
-        decay_calls.append(True)
-
-    monkeypatch.setattr(
-        agent,
-        "decay_epsilon",
-        fake_decay_epsilon,
-    )
-
-    loss = train_from_replay(
-        agent=agent,
-        replay_buffer=replay_buffer,
-        batch_size=2,
-        min_replay_size=4,
-    )
-
-    assert isinstance(loss, float)
-    assert len(decay_calls) == 1
+    assert agent.epsilon == 1.0
