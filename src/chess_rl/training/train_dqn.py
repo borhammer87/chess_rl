@@ -55,7 +55,19 @@ class VsRandomEpisodeResult:
     final_info: dict
     training_losses: list[float]
     final_epsilon: float
-    replay_size:int
+    replay_size: int
+
+@dataclass
+class TrainingSummary:
+    """
+    Aggregate metrics from a multi-episode training run.
+    """
+
+    episodes: int
+    average_reward: float
+    average_loss: float | None
+    final_epsilon: float
+    replay_size: int
 
 def run_single_step(
     env: ChessEnv,
@@ -96,8 +108,8 @@ def run_single_step(
     )
 
     move = decode_legal_action(
-    action=action,
-    legal_moves=legal_moves,
+        action=action,
+        legal_moves=legal_moves,
     )   
 
     next_board, reward, done, info = env.step(move)
@@ -456,6 +468,43 @@ def train_against_random(
             agent.update_target()
 
     return results
+def summarize_training(
+    results: list[VsRandomEpisodeResult],
+) -> TrainingSummary:
+    """
+    Aggregate metrics collected across multiple training episodes.
+    """
+    if not results:
+        raise ValueError(
+            "results must contain at least one episode."
+        )
+
+    average_reward = sum(
+        result.total_reward
+        for result in results
+    ) / len(results)
+
+    losses = [
+        loss
+        for result in results
+        for loss in result.training_losses
+    ]
+
+    average_loss = (
+        sum(losses) / len(losses)
+        if losses
+        else None
+    )
+
+    final_result = results[-1]
+
+    return TrainingSummary(
+        episodes=len(results),
+        average_reward=average_reward,
+        average_loss=average_loss,
+        final_epsilon=final_result.final_epsilon,
+        replay_size=final_result.replay_size,
+    )
 
 def main() -> None:
     """

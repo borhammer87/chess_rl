@@ -1,29 +1,19 @@
-# Chess RL
+## Current capabilities
 
-Proyecto de Reinforcement Learning para ajedrez con DQN.
+The project currently implements a complete DQN training pipeline.
 
-## Objetivo
+Implemented features:
 
-Comprender y construir todos los componentes de una IA de ajedrez basada en DQN.
+- Chess environment based on python-chess.
+- Board encoding using tensors.
+- CNN-based DQN.
+- Replay Buffer.
+- Random replay sampling.
+- Multi-episode training.
+- Target network synchronization.
+- Epsilon decay after successful training updates.
+- Training metrics collection.
+- Aggregated training summaries.
 
-## Filosofía
-
-- Desarrollo incremental
-- Tests primero
-- Arquitectura antes que velocidad
-- Decisiones documentadas
-
-## Estado actual
-
-Actualmente el proyecto implementa un pipeline completo de entrenamiento DQN contra un oponente aleatorio:
-
-- Entorno de ajedrez basado en python-chess.
-- Codificación del tablero mediante tensores.
-- CNN para estimación de Q-values.
-- Replay Buffer con muestreo aleatorio.
-- Entrenamiento mediante mini-batches.
-- Entrenamiento durante múltiples episodios.
-- Sincronización periódica de la target network.
-- Reducción progresiva de epsilon tras cada actualización real de entrenamiento.
-
-El siguiente objetivo es incorporar métricas de entrenamiento para evaluar la evolución del aprendizaje del agente.
+The next goal is to execute complete training sessions, monitor their
+progress and begin evaluating the learned policy.

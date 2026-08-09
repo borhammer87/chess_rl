@@ -6,37 +6,7 @@ from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.env.chess_env import ChessEnv
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.replay_buffer import ReplayBuffer
-
-from chess_rl.training.train_dqn import (
-    EpisodeResult,
-    StepResult,
-    run_and_store_step,
-    run_episode,
-    run_single_step,
-)
-
 from chess_rl.agents.random_agent import RandomAgent
-
-from chess_rl.training.train_dqn import (
-    EpisodeResult,
-    StepResult,
-    VsRandomEpisodeResult,
-    run_and_store_step,
-    run_dqn_vs_random_episode,
-    run_episode,
-    run_single_step,
-)
-
-from chess_rl.training.train_dqn import (
-    EpisodeResult,
-    StepResult,
-    VsRandomEpisodeResult,
-    run_and_store_step,
-    run_dqn_vs_random_episode,
-    run_episode,
-    run_single_step,
-    train_from_replay,
-)
 
 import chess_rl.training.train_dqn as train_dqn_module
 
@@ -44,13 +14,16 @@ from chess_rl.training.train_dqn import (
     EpisodeResult,
     StepResult,
     VsRandomEpisodeResult,
+    TrainingSummary,
     run_and_store_step,
     run_dqn_vs_random_episode,
     run_episode,
     run_single_step,
     train_against_random,
     train_from_replay,
+    summarize_training, 
 )
+
 
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
@@ -1084,3 +1057,65 @@ def test_dqn_vs_random_records_replay_size():
 
     assert result.replay_size == 1
     assert result.replay_size == len(replay_buffer)
+
+def test_summarize_training_returns_expected_metrics():
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=2,
+            total_plies=4,
+            total_reward=1.0,
+            done=True,
+            truncated=False,
+            final_info={},
+            training_losses=[0.8, 0.6],
+            final_epsilon=0.8,
+            replay_size=10,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=3,
+            total_plies=6,
+            total_reward=-1.0,
+            done=True,
+            truncated=False,
+            final_info={},
+            training_losses=[0.4],
+            final_epsilon=0.7,
+            replay_size=20,
+        ),
+    ]
+
+    summary = summarize_training(results)
+
+    assert isinstance(summary, TrainingSummary)
+    assert summary.episodes == 2
+    assert summary.average_reward == 0.0
+    assert summary.average_loss == pytest.approx(0.6)
+    assert summary.final_epsilon == 0.7
+    assert summary.replay_size == 20
+
+def test_summarize_training_returns_none_without_losses():
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=2,
+            total_plies=4,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=1.0,
+            replay_size=2,
+        ),
+    ]
+
+    summary = summarize_training(results)
+
+    assert summary.average_loss is None
+
+def test_summarize_training_rejects_empty_results():
+    with pytest.raises(
+        ValueError,
+        match="at least one episode",
+    ):
+        summarize_training([])
+

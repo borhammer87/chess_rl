@@ -2,8 +2,8 @@
 
 ## Objective
 
-Build a complete and robust DQN training pipeline before attempting
-large-scale training or self-play.
+Build a complete DQN training pipeline before attempting long training
+sessions or self-play.
 
 ---
 
@@ -38,30 +38,36 @@ large-scale training or self-play.
 - [x] Mini-batch training
 - [x] Epsilon decay after successful training updates
 
+### Metrics
+
+- [x] Episode reward
+- [x] Training losses
+- [x] Final epsilon
+- [x] Replay buffer size
+- [x] Training summary
+
 ---
 
 ## Not implemented yet
 
-- [ ] Training metrics
-- [ ] Loss history
-- [ ] Reward history
-- [ ] Epsilon history
+- [ ] Training execution from main()
+- [ ] Progress reporting
 - [ ] Model checkpoints
 - [ ] Evaluation matches
-- [ ] TensorBoard support (optional)
+- [ ] TensorBoard integration (optional)
 
 ---
 
 ## Current limitations
 
 - Only White is controlled by the DQN agent.
-- Black is played by RandomAgent.
-- The objective is validating the complete training pipeline before
-  introducing stronger opponents or self-play.
+- Black is always played by RandomAgent.
+- No model persistence.
+- No evaluation workflow yet.
 
 ---
 
 ## Next milestone
 
-Implement training metrics to observe learning progress before running
-long training sessions.
+Run multi-episode training from the main program and report aggregated
+training metrics after each execution.

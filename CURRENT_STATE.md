@@ -1,20 +1,44 @@
 # CURRENT STATE
 
-## Estado actual
+## Status
 
-- Entorno implementado
-- DQNAgent implementado
-- ReplayBuffer implementado
-- DQN vs RandomAgent implementado
-- Entrenamiento desde ReplayBuffer implementado
-- Entrenamiento multi-episodio implementado
-- Sincronización periódica de la target network implementada
-- Epsilon decay aplicado tras cada actualización real de entrenamiento
+The core DQN training pipeline is now implemented and fully tested.
 
-## Trabajo actual
+Implemented components:
 
-Validar el comportamiento del entrenamiento y comenzar a registrar métricas de aprendizaje.
+- Chess environment
+- Board encoder
+- Action encoder
+- Legal action masking
+- DQN CNN
+- Replay Buffer
+- DQN vs RandomAgent training
+- Multi-episode training
+- Replay sampling
+- Target network synchronization
+- Epsilon decay after successful training updates
+- Training metrics collection
+- Training summary generation
 
-## Siguiente paso
+Current training metrics include:
 
-Añadir métricas de entrenamiento (loss, recompensa por episodio y evolución de epsilon) para evaluar el progreso del agente.
+- Episode reward
+- Training losses
+- Final epsilon
+- Replay buffer size
+
+## Current focus
+
+The infrastructure is complete.
+
+The next objective is to improve training usability and begin evaluating
+whether the agent is actually learning.
+
+## Next milestone
+
+Implement:
+
+- Training execution from `main()`
+- Human-readable training summaries
+- Model checkpoints
+- Evaluation matches against RandomAgent
