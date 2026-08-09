@@ -54,6 +54,7 @@ class VsRandomEpisodeResult:
     truncated: bool
     final_info: dict
     training_losses: list[float]
+    final_epsilon: float
 
 def run_single_step(
     env: ChessEnv,
@@ -384,6 +385,7 @@ def run_dqn_vs_random_episode(
         truncated=truncated,
         final_info=final_info,
         training_losses=training_losses,
+        final_epsilon=agent.epsilon,
     )
 
 

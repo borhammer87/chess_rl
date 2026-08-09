@@ -549,6 +549,7 @@ def test_train_against_random_returns_one_result_per_episode(
         truncated=True,
         final_info={},
         training_losses=[],
+        final_epsilon=agent.epsilon,
     )
 
     def fake_run_dqn_vs_random_episode(
@@ -614,6 +615,7 @@ def test_train_against_random_reuses_same_replay_buffer(
             truncated=True,
             final_info={},
             training_losses=[],
+            final_epsilon=agent.epsilon,
         )
 
     monkeypatch.setattr(
@@ -674,6 +676,7 @@ def test_train_against_random_passes_training_configuration(
             truncated=True,
             final_info={},
             training_losses=[],
+            final_epsilon=agent.epsilon,
         )
 
     monkeypatch.setattr(
@@ -745,6 +748,7 @@ def test_train_against_random_updates_target_at_configured_frequency(
             truncated=True,
             final_info={},
             training_losses=[],
+            final_epsilon=agent.epsilon,
         )
 
     def fake_update_target():
@@ -803,6 +807,7 @@ def test_train_against_random_does_not_update_target_too_early(
             truncated=True,
             final_info={},
             training_losses=[],
+            final_epsilon=agent.epsilon,
         )
 
     def fake_update_target():
@@ -926,6 +931,7 @@ def test_train_against_random_does_not_decay_epsilon_without_training(
             truncated=True,
             final_info={},
             training_losses=[],
+            final_epsilon=agent.epsilon,
         )
 
     monkeypatch.setattr(
@@ -1014,3 +1020,42 @@ def test_dqn_vs_random_ignores_missing_training_loss(
     )
 
     assert result.training_losses == []
+
+def test_dqn_vs_random_records_final_epsilon(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(
+        epsilon=1.0,
+        epsilon_min=0.1,
+        epsilon_decay=0.5,
+    )
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    def fake_train_from_replay(
+        agent,
+        replay_buffer,
+        batch_size,
+        min_replay_size,
+    ):
+        agent.decay_epsilon()
+        return 0.25
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_from_replay",
+        fake_train_from_replay,
+    )
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert result.final_epsilon == 0.5
