@@ -1,3 +1,5 @@
+## Current version: **0.2.0**
+
 ## Current capabilities
 
 The project currently implements a complete DQN training pipeline.
