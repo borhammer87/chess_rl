@@ -53,6 +53,7 @@ class VsRandomEpisodeResult:
     done: bool
     truncated: bool
     final_info: dict
+    training_losses: list[float]
 
 def run_single_step(
     env: ChessEnv,
@@ -277,6 +278,7 @@ def run_dqn_vs_random_episode(
     total_plies = 0
     total_reward = 0.0
     final_info: dict = {}
+    training_losses: list[float] = []
 
     while not env.done and agent_steps < max_agent_steps:
         # The DQN currently plays only as White.
@@ -319,12 +321,15 @@ def run_dqn_vs_random_episode(
                 done=True,
             )
 
-            train_from_replay(
+            loss =train_from_replay(
                 agent=agent,
                 replay_buffer=replay_buffer,
                 batch_size=batch_size,
                 min_replay_size=min_replay_size,
             )
+
+            if loss is not None:
+                training_losses.append(loss)
 
             total_reward += reward
             break
@@ -354,12 +359,15 @@ def run_dqn_vs_random_episode(
             done=done,
         )
 
-        train_from_replay(
+        loss = train_from_replay(
             agent=agent,
             replay_buffer=replay_buffer,
             batch_size=batch_size,
             min_replay_size=min_replay_size,
         )
+
+        if loss is not None:
+            training_losses.append(loss)
 
         total_reward += reward
 
@@ -375,6 +383,7 @@ def run_dqn_vs_random_episode(
         done=env.done,
         truncated=truncated,
         final_info=final_info,
+        training_losses=training_losses,
     )
 
 

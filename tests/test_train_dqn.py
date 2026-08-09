@@ -446,6 +446,7 @@ def test_dqn_vs_random_rejects_invalid_step_limit():
             opponent=opponent,
             replay_buffer=replay_buffer,
             max_agent_steps=0,
+            
         )
 
 def test_train_from_replay_waits_for_minimum_replay_size():
@@ -547,6 +548,7 @@ def test_train_against_random_returns_one_result_per_episode(
         done=False,
         truncated=True,
         final_info={},
+        training_losses=[],
     )
 
     def fake_run_dqn_vs_random_episode(
@@ -611,6 +613,7 @@ def test_train_against_random_reuses_same_replay_buffer(
             done=False,
             truncated=True,
             final_info={},
+            training_losses=[],
         )
 
     monkeypatch.setattr(
@@ -670,6 +673,7 @@ def test_train_against_random_passes_training_configuration(
             done=False,
             truncated=True,
             final_info={},
+            training_losses=[],
         )
 
     monkeypatch.setattr(
@@ -740,6 +744,7 @@ def test_train_against_random_updates_target_at_configured_frequency(
             done=False,
             truncated=True,
             final_info={},
+            training_losses=[],
         )
 
     def fake_update_target():
@@ -797,6 +802,7 @@ def test_train_against_random_does_not_update_target_too_early(
             done=False,
             truncated=True,
             final_info={},
+            training_losses=[],
         )
 
     def fake_update_target():
@@ -919,6 +925,7 @@ def test_train_against_random_does_not_decay_epsilon_without_training(
             done=False,
             truncated=True,
             final_info={},
+            training_losses=[],
         )
 
     monkeypatch.setattr(
@@ -939,3 +946,71 @@ def test_train_against_random_does_not_decay_epsilon_without_training(
     )
 
     assert agent.epsilon == 1.0
+
+def test_dqn_vs_random_records_training_loss(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    def fake_train_from_replay(
+        agent,
+        replay_buffer,
+        batch_size,
+        min_replay_size,
+    ):
+        return 0.25
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_from_replay",
+        fake_train_from_replay,
+    )
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert result.training_losses == [0.25]
+
+def test_dqn_vs_random_ignores_missing_training_loss(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    def fake_train_from_replay(
+        agent,
+        replay_buffer,
+        batch_size,
+        min_replay_size,
+    ):
+        return None
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_from_replay",
+        fake_train_from_replay,
+    )
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert result.training_losses == []
