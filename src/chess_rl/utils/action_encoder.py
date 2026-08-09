@@ -63,7 +63,7 @@ def uci_to_action(uci_move: str) -> int:
 def decode_legal_action(
     action: int,
     legal_moves: list[chess.Move],
-) -> chess.Move:
+    ) -> chess.Move:
     """
     Convert an encoded action into a legal chess move.
 

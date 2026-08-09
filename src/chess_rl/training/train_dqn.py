@@ -55,6 +55,7 @@ class VsRandomEpisodeResult:
     final_info: dict
     training_losses: list[float]
     final_epsilon: float
+    replay_size:int
 
 def run_single_step(
     env: ChessEnv,
@@ -322,7 +323,7 @@ def run_dqn_vs_random_episode(
                 done=True,
             )
 
-            loss =train_from_replay(
+            loss = train_from_replay(
                 agent=agent,
                 replay_buffer=replay_buffer,
                 batch_size=batch_size,
@@ -386,6 +387,7 @@ def run_dqn_vs_random_episode(
         final_info=final_info,
         training_losses=training_losses,
         final_epsilon=agent.epsilon,
+        replay_size=len(replay_buffer),
     )
 
 

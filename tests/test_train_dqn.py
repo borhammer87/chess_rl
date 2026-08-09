@@ -550,6 +550,7 @@ def test_train_against_random_returns_one_result_per_episode(
         final_info={},
         training_losses=[],
         final_epsilon=agent.epsilon,
+        replay_size=len(replay_buffer),
     )
 
     def fake_run_dqn_vs_random_episode(
@@ -616,6 +617,7 @@ def test_train_against_random_reuses_same_replay_buffer(
             final_info={},
             training_losses=[],
             final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
         )
 
     monkeypatch.setattr(
@@ -677,6 +679,7 @@ def test_train_against_random_passes_training_configuration(
             final_info={},
             training_losses=[],
             final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
         )
 
     monkeypatch.setattr(
@@ -749,6 +752,7 @@ def test_train_against_random_updates_target_at_configured_frequency(
             final_info={},
             training_losses=[],
             final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
         )
 
     def fake_update_target():
@@ -808,6 +812,7 @@ def test_train_against_random_does_not_update_target_too_early(
             final_info={},
             training_losses=[],
             final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
         )
 
     def fake_update_target():
@@ -932,6 +937,7 @@ def test_train_against_random_does_not_decay_epsilon_without_training(
             final_info={},
             training_losses=[],
             final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
         )
 
     monkeypatch.setattr(
@@ -1059,3 +1065,22 @@ def test_dqn_vs_random_records_final_epsilon(
     )
 
     assert result.final_epsilon == 0.5
+
+def test_dqn_vs_random_records_replay_size():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert result.replay_size == 1
+    assert result.replay_size == len(replay_buffer)
