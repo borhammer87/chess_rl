@@ -541,3 +541,6 @@ def main() -> None:
 
     print(f"Final epsilon: {summary.final_epsilon:.4f}")
     print(f"Replay buffer size: {summary.replay_size}")
+
+if __name__ == "__main__":
+    main()
