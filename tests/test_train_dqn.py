@@ -22,6 +22,7 @@ from chess_rl.training.train_dqn import (
     train_against_random,
     train_from_replay,
     summarize_training, 
+    main,
 )
 
 
@@ -1119,3 +1120,67 @@ def test_summarize_training_rejects_empty_results():
     ):
         summarize_training([])
 
+def test_main_runs_multi_episode_training(
+    monkeypatch,
+    capsys,
+):
+    fake_results = [
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=1.0,
+            done=True,
+            truncated=False,
+            final_info={},
+            training_losses=[0.4, 0.2],
+            final_epsilon=0.8,
+            replay_size=100,
+        ),
+    ]
+
+    received_training_args = {}
+
+    def fake_train_against_random(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        episodes,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        target_update_frequency,
+    ):
+        received_training_args["episodes"] = episodes
+        received_training_args["max_agent_steps"] = max_agent_steps
+        received_training_args["batch_size"] = batch_size
+        received_training_args["min_replay_size"] = min_replay_size
+        received_training_args["target_update_frequency"] = (
+            target_update_frequency
+        )
+
+        return fake_results
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_random",
+        fake_train_against_random,
+    )
+
+    main()
+
+    assert received_training_args == {
+        "episodes": 100,
+        "max_agent_steps": 150,
+        "batch_size": 32,
+        "min_replay_size": 1_000,
+        "target_update_frequency": 10,
+    }
+
+    output = capsys.readouterr().out
+
+    assert "Episodes: 1" in output
+    assert "Average reward: 1.0000" in output
+    assert "Average loss: 0.3000" in output
+    assert "Final epsilon: 0.8000" in output
+    assert "Replay buffer size: 100" in output

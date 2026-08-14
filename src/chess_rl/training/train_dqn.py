@@ -508,26 +508,36 @@ def summarize_training(
 
 def main() -> None:
     """
-    Run one DQN-versus-random episode without training.
+    Run multi-episode DQN training against RandomAgent
+    and print a concise training summary.
     """
 
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
     opponent = RandomAgent()
-    replay_buffer = ReplayBuffer(capacity=1_000)
+    replay_buffer = ReplayBuffer(capacity=10_000)
 
-    episode = run_dqn_vs_random_episode(
+    results = train_against_random(
         env=env,
         agent=agent,
         opponent=opponent,
         replay_buffer=replay_buffer,
-        max_agent_steps=100,
+        episodes=100,
+        max_agent_steps=150,
+        batch_size=32,
+        min_replay_size=1_000,
+        target_update_frequency=10,
     )
 
-    print(f"DQN decisions: {episode.agent_steps}")
-    print(f"Total plies: {episode.total_plies}")
-    print(f"Total reward: {episode.total_reward}")
-    print(f"Done: {episode.done}")
-    print(f"Truncated: {episode.truncated}")
-    print(f"Final info: {episode.final_info}")
-    print(f"Replay buffer size: {len(replay_buffer)}")
+    summary = summarize_training(results)
+
+    print(f"Episodes: {summary.episodes}")
+    print(f"Average reward: {summary.average_reward:.4f}")
+
+    if summary.average_loss is None:
+        print("Average loss: N/A")
+    else:
+        print(f"Average loss: {summary.average_loss:.4f}")
+
+    print(f"Final epsilon: {summary.final_epsilon:.4f}")
+    print(f"Replay buffer size: {summary.replay_size}")
