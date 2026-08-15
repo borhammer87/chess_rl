@@ -9,7 +9,7 @@ from chess_rl.utils.action_encoder import decode_legal_action
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.agents.random_agent import RandomAgent
-
+from collections.abc import Callable
 
 @dataclass
 class StepResult:
@@ -413,6 +413,10 @@ def train_against_random(
     batch_size: int = 32,
     min_replay_size: int = 1_000,
     target_update_frequency: int = 10,
+    progress_callback: Callable[
+        [int, int, VsRandomEpisodeResult], 
+        None,
+        ] | None = None,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -435,6 +439,10 @@ def train_against_random(
         min_replay_size: Minimum replay size before training begins.
         target_update_frequency: Number of completed episodes between
         target-network synchronizations.
+
+        progress_callback: Optional function called after each episode.
+        It receives completed episodes, total episodes, and the
+        latest episode result.
 
     Returns:
         One result for each completed or truncated episode.
@@ -463,6 +471,13 @@ def train_against_random(
         results.append(result)
 
         completed_episodes = episode_index + 1
+
+        if progress_callback is not None:
+            progress_callback(
+                completed_episodes,
+                episodes,
+                result,
+            )
 
         if completed_episodes % target_update_frequency == 0:
             agent.update_target()
@@ -511,6 +526,17 @@ def main() -> None:
     Run multi-episode DQN training against RandomAgent
     and print a concise training summary.
     """
+    def print_training_progress(
+        completed_episodes: int,
+        total_episodes: int,
+        result: VsRandomEpisodeResult,
+    ) -> None:
+        print(
+            f"Episode {completed_episodes}/{total_episodes} "
+            f"- reward: {result.total_reward:.4f} "
+            f"- epsilon: {result.final_epsilon:.4f} "
+            f"- replay: {result.replay_size}"
+        )
 
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
@@ -527,6 +553,7 @@ def main() -> None:
         batch_size=32,
         min_replay_size=1_000,
         target_update_frequency=10,
+        progress_callback=print_training_progress,
     )
 
     summary = summarize_training(results)

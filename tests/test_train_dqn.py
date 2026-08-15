@@ -1150,6 +1150,7 @@ def test_main_runs_multi_episode_training(
         batch_size,
         min_replay_size,
         target_update_frequency,
+        progress_callback,
     ):
         received_training_args["episodes"] = episodes
         received_training_args["max_agent_steps"] = max_agent_steps
@@ -1158,6 +1159,7 @@ def test_main_runs_multi_episode_training(
         received_training_args["target_update_frequency"] = (
             target_update_frequency
         )
+        received_training_args["progress_callback"] = progress_callback
 
         return fake_results
 
@@ -1169,13 +1171,12 @@ def test_main_runs_multi_episode_training(
 
     main()
 
-    assert received_training_args == {
-        "episodes": 100,
-        "max_agent_steps": 150,
-        "batch_size": 32,
-        "min_replay_size": 1_000,
-        "target_update_frequency": 10,
-    }
+    assert received_training_args["episodes"] == 100
+    assert received_training_args["max_agent_steps"] == 150
+    assert received_training_args["batch_size"] == 32
+    assert received_training_args["min_replay_size"] == 1_000
+    assert received_training_args["target_update_frequency"] == 10
+    assert callable(received_training_args["progress_callback"])
 
     output = capsys.readouterr().out
 
@@ -1184,3 +1185,64 @@ def test_main_runs_multi_episode_training(
     assert "Average loss: 0.3000" in output
     assert "Final epsilon: 0.8000" in output
     assert "Replay buffer size: 100" in output
+
+def test_train_against_random_reports_progress(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    fake_result = VsRandomEpisodeResult(
+        agent_steps=1,
+        total_plies=2,
+        total_reward=0.0,
+        done=False,
+        truncated=True,
+        final_info={},
+        training_losses=[],
+        final_epsilon=1.0,
+        replay_size=1,
+    )
+
+    def fake_run_dqn_vs_random_episode(*args, **kwargs):
+        return fake_result
+
+    received_progress = []
+
+    def progress_callback(
+        completed_episodes,
+        total_episodes,
+        result,
+    ):
+        received_progress.append(
+            (
+                completed_episodes,
+                total_episodes,
+                result,
+            )
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        progress_callback=progress_callback,
+    )
+
+    assert len(received_progress) == 3
+    assert received_progress[0][0] == 1
+    assert received_progress[-1][0] == 3
+    assert all(
+        progress[1] == 3
+        for progress in received_progress
+    )
