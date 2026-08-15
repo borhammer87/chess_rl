@@ -69,6 +69,18 @@ class TrainingSummary:
     final_epsilon: float
     replay_size: int
 
+@dataclass
+class EvaluationSummary:
+    """
+    Aggregate results from evaluation games against RandomAgent.
+    """
+
+    episodes: int
+    wins: int
+    draws: int
+    losses: int
+    truncated: int
+
 def run_single_step(
     env: ChessEnv,
     agent: DQNAgent,
@@ -519,6 +531,82 @@ def summarize_training(
         average_loss=average_loss,
         final_epsilon=final_result.final_epsilon,
         replay_size=final_result.replay_size,
+    )
+
+def evaluate_against_random(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: RandomAgent,
+    episodes: int,
+    max_agent_steps: int = 150,
+) -> EvaluationSummary:
+    """
+    Evaluate the current greedy DQN policy against RandomAgent.
+
+    Evaluation does not train the agent, decay epsilon, synchronize
+    networks, or modify the training replay buffer.
+    """
+    if episodes <= 0:
+        raise ValueError("episodes must be greater than zero.")
+
+    if max_agent_steps <= 0:
+        raise ValueError(
+            "max_agent_steps must be greater than zero."
+        )
+
+    original_epsilon = agent.epsilon
+
+    evaluation_buffer = ReplayBuffer(
+        capacity=max_agent_steps,
+    )
+
+    results: list[VsRandomEpisodeResult] = []
+
+    try:
+        agent.epsilon = 0.0
+
+        for _ in range(episodes):
+            result = run_dqn_vs_random_episode(
+                env=env,
+                agent=agent,
+                opponent=opponent,
+                replay_buffer=evaluation_buffer,
+                max_agent_steps=max_agent_steps,
+                batch_size=1,
+                min_replay_size=max_agent_steps + 1,
+            )
+
+            results.append(result)
+
+    finally:
+        agent.epsilon = original_epsilon
+
+    wins = sum(
+        result.final_info.get("result") == "1-0"
+        for result in results
+    )
+
+    draws = sum(
+        result.final_info.get("result") == "1/2-1/2"
+        for result in results
+    )
+
+    losses = sum(
+        result.final_info.get("result") == "0-1"
+        for result in results
+    )
+
+    truncated = sum(
+        result.truncated
+        for result in results
+    )
+
+    return EvaluationSummary(
+        episodes=len(results),
+        wins=wins,
+        draws=draws,
+        losses=losses,
+        truncated=truncated,
     )
 
 def main() -> None:

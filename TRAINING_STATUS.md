@@ -2,8 +2,8 @@
 
 ## Objective
 
-Build a complete DQN training pipeline before attempting long training
-sessions or self-play.
+Build a complete DQN training and evaluation pipeline before attempting
+self-play or large-scale experiments.
 
 ---
 
@@ -38,7 +38,7 @@ sessions or self-play.
 - [x] Mini-batch training
 - [x] Epsilon decay after successful training updates
 
-### Metrics
+### Training metrics
 
 - [x] Episode reward
 - [x] Training losses
@@ -46,14 +46,20 @@ sessions or self-play.
 - [x] Replay buffer size
 - [x] Training summary
 
+### Evaluation
+
+- [x] Greedy policy evaluation
+- [x] Wins / Draws / Losses
+- [x] Truncated games summary
+
 ---
 
 ## Not implemented yet
 
-- [ ] Training execution from main()
-- [ ] Progress reporting
 - [ ] Model checkpoints
-- [ ] Evaluation matches
+- [ ] Loading trained models
+- [ ] Alternate White / Black
+- [ ] Self-play
 - [ ] TensorBoard integration (optional)
 
 ---
@@ -62,12 +68,11 @@ sessions or self-play.
 
 - Only White is controlled by the DQN agent.
 - Black is always played by RandomAgent.
-- No model persistence.
-- No evaluation workflow yet.
+- Models cannot yet be saved or restored.
 
 ---
 
 ## Next milestone
 
-Run multi-episode training from the main program and report aggregated
-training metrics after each execution.
+Implement model checkpointing so training can be resumed and evaluated
+across multiple sessions.

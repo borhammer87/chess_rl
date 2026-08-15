@@ -21,7 +21,9 @@ from chess_rl.training.train_dqn import (
     run_single_step,
     train_against_random,
     train_from_replay,
-    summarize_training, 
+    summarize_training,
+    EvaluationSummary,
+    evaluate_against_random, 
     main,
 )
 
@@ -1246,3 +1248,110 @@ def test_train_against_random_reports_progress(
         progress[1] == 3
         for progress in received_progress
     )
+
+def test_evaluate_against_random_summarizes_results(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=0.4)
+    opponent = RandomAgent()
+
+    fake_results = iter([
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=1.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "1-0"},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=10,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=0.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "1/2-1/2"},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=20,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=-1.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "0-1"},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=30,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={"result": None},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=40,
+        ),
+    ])
+
+    observed_epsilons = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+    ):
+        observed_epsilons.append(agent.epsilon)
+        return next(fake_results)
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    summary = evaluate_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=4,
+    )
+
+    assert isinstance(summary, EvaluationSummary)
+    assert summary.episodes == 4
+    assert summary.wins == 1
+    assert summary.draws == 1
+    assert summary.losses == 1
+    assert summary.truncated == 1
+
+    assert observed_epsilons == [0.0, 0.0, 0.0, 0.0]
+    assert agent.epsilon == 0.4
+
+def test_evaluate_against_random_rejects_zero_episodes():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    with pytest.raises(
+        ValueError,
+        match="episodes must be greater than zero",
+    ):
+        evaluate_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            episodes=0,
+        )

@@ -21,17 +21,18 @@
 
 ## Phase 3 — Training workflow
 
-- [ ] Training execution
-- [ ] Progress reporting
-- [ ] Model checkpoints
+- [x] Training execution
+- [x] Progress reporting
 
 ## Phase 4 — Evaluation
 
-- [ ] Evaluation against RandomAgent
+- [x] Evaluation against RandomAgent
 - [ ] Alternate playing White and Black
 
 ## Phase 5 — Future work
 
+- [ ] Model checkpoints
+- [ ] Load trained models
 - [ ] Self-play
 - [ ] Stronger opponents
 - [ ] Hyperparameter tuning

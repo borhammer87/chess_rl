@@ -31,7 +31,7 @@ instead of making assumptions.
 CURRENT PROJECT STATUS
 ------------------------------------------------------------
 
-The project already contains a complete DQN training pipeline.
+The project contains a complete DQN training and evaluation pipeline.
 
 Implemented:
 
@@ -48,10 +48,11 @@ Implemented:
 - Epsilon decay after successful training updates
 - Episode metrics
 - Training summary generation
+- Evaluation against RandomAgent
 
 The current focus is no longer implementing the DQN algorithm itself.
 
-The next phase is improving the usability of the training workflow.
+The next phase is improving the long-term training workflow.
 
 ------------------------------------------------------------
 WORKFLOW
@@ -71,8 +72,8 @@ NEXT OBJECTIVE
 
 The next recommended task is:
 
-Run multi-episode training from the main program and present a concise
-training summary after execution.
+Implement model checkpointing.
 
-The summary should use the existing TrainingSummary infrastructure
-instead of duplicating calculations.
+The project should be able to save and later reload the policy network so
+that long training sessions can be resumed and previously trained models
+can be evaluated without retraining.

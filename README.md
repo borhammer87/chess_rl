@@ -1,8 +1,7 @@
-## Current version: **0.2.0**
-
 ## Current capabilities
 
-The project currently implements a complete DQN training pipeline.
+The project currently implements a complete DQN training and evaluation
+pipeline.
 
 Implemented features:
 
@@ -16,6 +15,6 @@ Implemented features:
 - Epsilon decay after successful training updates.
 - Training metrics collection.
 - Aggregated training summaries.
+- Evaluation against RandomAgent.
 
-The next goal is to execute complete training sessions, monitor their
-progress and begin evaluating the learned policy.
+The next goal is adding model persistence and longer training workflows.
