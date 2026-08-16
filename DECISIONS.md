@@ -406,16 +406,16 @@ Incremental integration makes failures easier to locate and ensures every compon
 
 ## Known limitations
 
-The current architecture has these known limitations:
+The current implementation intentionally keeps the scope focused on a
+single-agent DQN training pipeline.
 
-- Promotions are always resolved as queen promotions.
-- The board encoding omits castling rights, en passant state, halfmove clock, repetition state, and side-to-move information unless represented elsewhere.
-- The reward model is sparse.
-- Reward perspective for black-side learning is not yet finalized.
-- DQN does not perform search.
-- The action space computes many illegal outputs.
-- No Double DQN, Dueling DQN, prioritized replay, or n-step returns are implemented.
-- Checkpointing, evaluation, and metrics are not implemented yet.
+Current limitations include:
+
+- Models cannot yet be saved or restored.
+- The DQN agent always plays White.
+- The opponent is always a RandomAgent.
+- Self-play is not implemented yet.
+
 
 ---
 

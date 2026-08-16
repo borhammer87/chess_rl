@@ -134,3 +134,40 @@ def test_epsilon_decay_respects_minimum():
     agent.decay_epsilon()
 
     assert agent.epsilon == 0.1
+
+def test_checkpoint_restores_network_parameters(tmp_path):
+    agent = DQNAgent()
+
+    checkpoint_path = tmp_path / "checkpoint.pt"
+
+    original_parameters = [
+        parameter.detach().clone()
+        for parameter in agent.policy_net.parameters()
+    ]
+
+    agent.save_checkpoint(str(checkpoint_path))
+
+    with torch.no_grad():
+        for parameter in agent.policy_net.parameters():
+            parameter.add_(1.0)
+
+    agent.load_checkpoint(str(checkpoint_path))
+
+    for restored, original in zip(
+        agent.policy_net.parameters(),
+        original_parameters,
+    ):
+        assert torch.equal(restored, original)
+
+def test_checkpoint_restores_epsilon(tmp_path):
+    agent = DQNAgent(epsilon=0.4)
+
+    checkpoint_path = tmp_path / "checkpoint.pt"
+
+    agent.save_checkpoint(str(checkpoint_path))
+
+    agent.epsilon = 0.9
+
+    agent.load_checkpoint(str(checkpoint_path))
+
+    assert agent.epsilon == 0.4

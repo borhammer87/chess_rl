@@ -125,3 +125,39 @@ class DQNAgent:
         Reduce exploration over time.
         """
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+
+    def save_checkpoint(self, path: str) -> None:
+        """
+        Save the current training state to disk.
+        """
+        checkpoint = {
+            "policy_net": self.policy_net.state_dict(),
+            "target_net": self.target_net.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "epsilon": self.epsilon,
+        }
+
+        torch.save(checkpoint, path)
+
+    def load_checkpoint(self, path: str) -> None:
+        """
+        Restore a previously saved training state.
+        """
+        checkpoint = torch.load(
+            path,
+            weights_only=False,
+        )
+
+        self.policy_net.load_state_dict(
+            checkpoint["policy_net"]
+        )
+
+        self.target_net.load_state_dict(
+            checkpoint["target_net"]
+        )
+
+        self.optimizer.load_state_dict(
+            checkpoint["optimizer"]
+        )
+
+        self.epsilon = checkpoint["epsilon"]
