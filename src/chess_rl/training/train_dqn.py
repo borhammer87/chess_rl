@@ -10,6 +10,7 @@ from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.agents.random_agent import RandomAgent
 from collections.abc import Callable
+from pathlib import Path   
 
 @dataclass
 class StepResult:
@@ -645,6 +646,15 @@ def main() -> None:
     )
 
     summary = summarize_training(results)
+
+    checkpoint_dir = Path("checkpoints")
+    checkpoint_dir.mkdir(exist_ok=True)
+
+    checkpoint_path = checkpoint_dir / "latest.pt"
+
+    agent.save_checkpoint(str(checkpoint_path))
+
+    print(f"Checkpoint saved to: {checkpoint_path}")
 
     print(f"Episodes: {summary.episodes}")
     print(f"Average reward: {summary.average_reward:.4f}")

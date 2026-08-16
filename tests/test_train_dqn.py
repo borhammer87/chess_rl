@@ -1165,6 +1165,17 @@ def test_main_runs_multi_episode_training(
 
         return fake_results
 
+    saved_paths = []
+
+    def fake_save_checkpoint(self, path):
+        saved_paths.append(path)
+
+    monkeypatch.setattr(
+        DQNAgent,
+        "save_checkpoint",
+        fake_save_checkpoint,
+    )
+
     monkeypatch.setattr(
         train_dqn_module,
         "train_against_random",
@@ -1187,6 +1198,8 @@ def test_main_runs_multi_episode_training(
     assert "Average loss: 0.3000" in output
     assert "Final epsilon: 0.8000" in output
     assert "Replay buffer size: 100" in output
+    assert len(saved_paths) == 1
+    assert saved_paths[0].endswith("latest.pt")
 
 def test_train_against_random_reports_progress(
     monkeypatch,
