@@ -415,7 +415,6 @@ def run_dqn_vs_random_episode(
         replay_size=len(replay_buffer),
     )
 
-
 def train_against_random(
     env: ChessEnv,
     agent: DQNAgent,
@@ -427,9 +426,14 @@ def train_against_random(
     min_replay_size: int = 1_000,
     target_update_frequency: int = 10,
     progress_callback: Callable[
-        [int, int, VsRandomEpisodeResult], 
+        [int, int, VsRandomEpisodeResult],
         None,
-        ] | None = None,
+    ] | None = None,
+    checkpoint_frequency: int | None = None,
+    checkpoint_callback: Callable[
+        [int, DQNAgent],
+        None,
+    ] | None = None,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -451,11 +455,15 @@ def train_against_random(
         batch_size: Number of transitions sampled per training update.
         min_replay_size: Minimum replay size before training begins.
         target_update_frequency: Number of completed episodes between
-        target-network synchronizations.
-
+            target-network synchronizations.
         progress_callback: Optional function called after each episode.
-        It receives completed episodes, total episodes, and the
-        latest episode result.
+            It receives completed episodes, total episodes, and the
+            latest episode result.
+        checkpoint_frequency: Number of completed episodes between
+            checkpoint saves. None disables periodic checkpointing.
+        checkpoint_callback: Optional function called when a checkpoint
+            should be saved. It receives the completed episode count
+            and the agent.
 
     Returns:
         One result for each completed or truncated episode.
@@ -466,6 +474,23 @@ def train_against_random(
     if target_update_frequency <= 0:
         raise ValueError(
             "target_update_frequency must be greater than zero."
+        )
+
+    if (
+        checkpoint_frequency is not None
+        and checkpoint_frequency <= 0
+    ):
+        raise ValueError(
+            "checkpoint_frequency must be greater than zero."
+        )
+
+    if (
+        checkpoint_frequency is not None
+        and checkpoint_callback is None
+    ):
+        raise ValueError(
+            "checkpoint_callback is required when "
+            "checkpoint_frequency is set."
         )
 
     results: list[VsRandomEpisodeResult] = []
@@ -495,7 +520,17 @@ def train_against_random(
         if completed_episodes % target_update_frequency == 0:
             agent.update_target()
 
+        if (
+            checkpoint_frequency is not None
+            and completed_episodes % checkpoint_frequency == 0
+        ):
+            checkpoint_callback(
+                completed_episodes,
+                agent,
+            )
+
     return results
+    
 def summarize_training(
     results: list[VsRandomEpisodeResult],
 ) -> TrainingSummary:
@@ -637,6 +672,16 @@ def main() -> None:
 
     checkpoint_path = checkpoint_dir / "latest.pt"
 
+    def save_training_checkpoint(
+        completed_episodes: int,
+        agent: DQNAgent,
+    ) -> None:
+        agent.save_checkpoint(str(checkpoint_path))
+        print(
+            f"Checkpoint saved after episode "
+            f"{completed_episodes}: {checkpoint_path}"
+        )
+
     if checkpoint_path.exists():
         print(f"Loading checkpoint: {checkpoint_path}")
         agent.load_checkpoint(str(checkpoint_path))
@@ -654,12 +699,11 @@ def main() -> None:
         min_replay_size=1_000,
         target_update_frequency=10,
         progress_callback=print_training_progress,
+        checkpoint_frequency=25,
+        checkpoint_callback=save_training_checkpoint
     )
 
     summary = summarize_training(results)
-
-    agent.save_checkpoint(str(checkpoint_path))
-    print(f"Checkpoint saved to: {checkpoint_path}")
 
     print(f"Episodes: {summary.episodes}")
     print(f"Average reward: {summary.average_reward:.4f}")

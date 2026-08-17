@@ -1153,6 +1153,8 @@ def test_main_runs_multi_episode_training(
         min_replay_size,
         target_update_frequency,
         progress_callback,
+        checkpoint_frequency,
+        checkpoint_callback,
     ):
         received_training_args["episodes"] = episodes
         received_training_args["max_agent_steps"] = max_agent_steps
@@ -1162,6 +1164,13 @@ def test_main_runs_multi_episode_training(
             target_update_frequency
         )
         received_training_args["progress_callback"] = progress_callback
+        received_training_args["checkpoint_frequency"] = checkpoint_frequency
+        received_training_args["checkpoint_callback"] = checkpoint_callback
+
+        checkpoint_callback(
+            checkpoint_frequency,
+            agent,
+        )
 
         return fake_results
 
@@ -1190,6 +1199,8 @@ def test_main_runs_multi_episode_training(
     assert received_training_args["min_replay_size"] == 1_000
     assert received_training_args["target_update_frequency"] == 10
     assert callable(received_training_args["progress_callback"])
+    assert received_training_args["checkpoint_frequency"] == 25
+    assert callable(received_training_args["checkpoint_callback"])
 
     output = capsys.readouterr().out
 
@@ -1485,3 +1496,95 @@ def test_main_does_not_load_missing_checkpoint(
 
     assert load_calls == []
 
+def test_train_against_random_checkpoints_at_configured_frequency(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    fake_result = VsRandomEpisodeResult(
+        agent_steps=1,
+        total_plies=2,
+        total_reward=0.0,
+        done=False,
+        truncated=True,
+        final_info={},
+        training_losses=[],
+        final_epsilon=1.0,
+        replay_size=1,
+    )
+
+    def fake_run_dqn_vs_random_episode(*args, **kwargs):
+        return fake_result
+
+    checkpoint_calls = []
+
+    def checkpoint_callback(
+        completed_episodes,
+        received_agent,
+    ):
+        checkpoint_calls.append(
+            (completed_episodes, received_agent)
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=5,
+        checkpoint_frequency=2,
+        checkpoint_callback=checkpoint_callback,
+    )
+
+    assert [call[0] for call in checkpoint_calls] == [2, 4]
+    assert all(
+        call[1] is agent
+        for call in checkpoint_calls
+    )
+
+def test_train_against_random_rejects_invalid_checkpoint_frequency():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    with pytest.raises(
+        ValueError,
+        match="checkpoint_frequency must be greater than zero",
+    ):
+        train_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            checkpoint_frequency=0,
+        )
+
+def test_train_against_random_requires_checkpoint_callback():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    with pytest.raises(
+        ValueError,
+        match="checkpoint_callback is required",
+    ):
+        train_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            checkpoint_frequency=10,
+        )
