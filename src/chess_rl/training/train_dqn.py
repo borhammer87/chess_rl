@@ -632,6 +632,17 @@ def main() -> None:
     opponent = RandomAgent()
     replay_buffer = ReplayBuffer(capacity=10_000)
 
+    checkpoint_dir = Path("checkpoints")
+    checkpoint_dir.mkdir(exist_ok=True)
+
+    checkpoint_path = checkpoint_dir / "latest.pt"
+
+    if checkpoint_path.exists():
+        print(f"Loading checkpoint: {checkpoint_path}")
+        agent.load_checkpoint(str(checkpoint_path))
+    else:
+        print("No checkpoint found. Starting from scratch.")
+
     results = train_against_random(
         env=env,
         agent=agent,
@@ -647,13 +658,7 @@ def main() -> None:
 
     summary = summarize_training(results)
 
-    checkpoint_dir = Path("checkpoints")
-    checkpoint_dir.mkdir(exist_ok=True)
-
-    checkpoint_path = checkpoint_dir / "latest.pt"
-
     agent.save_checkpoint(str(checkpoint_path))
-
     print(f"Checkpoint saved to: {checkpoint_path}")
 
     print(f"Episodes: {summary.episodes}")

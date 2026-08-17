@@ -26,7 +26,7 @@ from chess_rl.training.train_dqn import (
     evaluate_against_random, 
     main,
 )
-
+from pathlib import Path
 
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
@@ -1368,3 +1368,120 @@ def test_evaluate_against_random_rejects_zero_episodes():
             opponent=opponent,
             episodes=0,
         )
+
+def test_main_loads_existing_checkpoint(
+    monkeypatch,
+):
+    loaded_paths = []
+
+    def fake_load_checkpoint(self, path):
+        loaded_paths.append(path)
+
+    def fake_save_checkpoint(self, path):
+        pass
+
+    def fake_exists(self):
+        return True
+
+    def fake_train_against_random(*args, **kwargs):
+        return [
+            VsRandomEpisodeResult(
+                agent_steps=1,
+                total_plies=2,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=1.0,
+                replay_size=1,
+            )
+        ]
+
+    monkeypatch.setattr(
+        DQNAgent,
+        "load_checkpoint",
+        fake_load_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        DQNAgent,
+        "save_checkpoint",
+        fake_save_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        fake_exists,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_random",
+        fake_train_against_random,
+    )
+
+    main()
+
+    assert len(loaded_paths) == 1
+    assert loaded_paths[0].endswith("latest.pt")
+
+
+def test_main_does_not_load_missing_checkpoint(
+    monkeypatch,
+):
+    load_calls = []
+
+    def fake_load_checkpoint(self, path):
+        load_calls.append(path)
+
+    def fake_save_checkpoint(self, path):
+        pass
+
+    def fake_exists(self):
+        return False
+
+    def fake_train_against_random(*args, **kwargs):
+        return [
+            VsRandomEpisodeResult(
+                agent_steps=1,
+                total_plies=2,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=1.0,
+                replay_size=1,
+            )
+        ]
+
+    monkeypatch.setattr(
+        DQNAgent,
+        "load_checkpoint",
+        fake_load_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        DQNAgent,
+        "save_checkpoint",
+        fake_save_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        fake_exists,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_random",
+        fake_train_against_random,
+    )
+
+    main()
+
+    assert load_calls == []
+
