@@ -130,14 +130,11 @@ class DQNAgent:
         """
         Save the current training state to disk.
         """
-        checkpoint = {
-            "policy_net": self.policy_net.state_dict(),
-            "target_net": self.target_net.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "epsilon": self.epsilon,
-        }
-
-        torch.save(checkpoint, path)
+        torch.save(
+            self.state_dict(),
+            path,
+        )
+        
 
     def load_checkpoint(self, path: str) -> None:
         """
@@ -145,19 +142,36 @@ class DQNAgent:
         """
         checkpoint = torch.load(
             path,
-            weights_only=False,
+            weights_only = False,
         )
 
+        self.load_state_dict(checkpoint)
+
+    def state_dict(self) -> dict:
+        """
+        Return the current DQN training state.
+        """
+        return {
+            "policy_net": self.policy_net.state_dict(),
+            "target_net": self.target_net.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "epsilon": self.epsilon,
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        """
+        Restore a previously saved DQN training state.
+        """
         self.policy_net.load_state_dict(
-            checkpoint["policy_net"]
+            state["policy_net"]
         )
 
         self.target_net.load_state_dict(
-            checkpoint["target_net"]
+            state["target_net"]
         )
 
         self.optimizer.load_state_dict(
-            checkpoint["optimizer"]
+            state["optimizer"]
         )
 
-        self.epsilon = checkpoint["epsilon"]
+        self.epsilon = state["epsilon"]

@@ -1,6 +1,7 @@
 import chess
 import torch
 import pytest
+import copy
 
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.utils.action_encoder import encode_move
@@ -169,5 +170,31 @@ def test_checkpoint_restores_epsilon(tmp_path):
     agent.epsilon = 0.9
 
     agent.load_checkpoint(str(checkpoint_path))
+
+    assert agent.epsilon == 0.4
+
+def test_agent_state_dict_restores_training_state():
+    agent = DQNAgent(epsilon=0.4)
+
+    original_parameters = [
+        parameter.detach().clone()
+        for parameter in agent.policy_net.parameters()
+    ]
+
+    saved_state = copy.deepcopy(agent.state_dict())
+
+    with torch.no_grad():
+        for parameter in agent.policy_net.parameters():
+            parameter.add_(1.0)
+
+    agent.epsilon = 0.9
+
+    agent.load_state_dict(saved_state)
+
+    for restored, original in zip(
+        agent.policy_net.parameters(),
+        original_parameters,
+    ):
+        assert torch.equal(restored, original)
 
     assert agent.epsilon == 0.4
