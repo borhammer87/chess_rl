@@ -68,3 +68,24 @@ class ReplayBuffer:
         """
 
         return len(self.buffer)
+
+    def state_dict(self) -> dict:
+        """
+        Return the current replay-buffer state.
+        """
+        return {
+            "capacity": self.buffer.maxlen,
+            "transitions": list(self.buffer),
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        """
+        Restore a previously saved replay-buffer state.
+        """
+        capacity = state["capacity"]
+        transitions = state["transitions"]
+
+        self.buffer = deque(
+            transitions,
+            maxlen=capacity,
+        )

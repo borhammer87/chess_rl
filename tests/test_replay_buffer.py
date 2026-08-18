@@ -93,3 +93,45 @@ def test_sample_returns_transition_objects():
     batch = buffer.sample(batch_size=1)
 
     assert isinstance(batch[0], Transition)
+
+def test_replay_buffer_restores_state():
+    buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros((12, 8, 8))
+    next_state = torch.ones((12, 8, 8))
+
+    buffer.push(
+        state=state,
+        action=123,
+        reward=1.0,
+        next_state=next_state,
+        done=False,
+    )
+
+    saved_state = buffer.state_dict()
+
+    restored_buffer = ReplayBuffer(capacity=1)
+    restored_buffer.load_state_dict(saved_state)
+
+    assert len(restored_buffer) == 1
+
+    transition = restored_buffer.buffer[0]
+
+    assert torch.equal(transition.state, state)
+    assert transition.action == 123
+    assert transition.reward == 1.0
+    assert torch.equal(
+        transition.next_state,
+        next_state,
+    )
+    assert transition.done is False
+
+def test_replay_buffer_restores_capacity():
+    buffer = ReplayBuffer(capacity=10)
+
+    saved_state = buffer.state_dict()
+
+    restored_buffer = ReplayBuffer(capacity=1)
+    restored_buffer.load_state_dict(saved_state)
+
+    assert restored_buffer.buffer.maxlen == 10
