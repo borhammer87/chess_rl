@@ -1,13 +1,18 @@
+# Chess RL
+
+Chess reinforcement-learning project using a CNN-based DQN.
+
 ## Current capabilities
 
-The project currently implements a complete DQN training and evaluation
-pipeline.
+The project currently implements a complete DQN training, evaluation, and
+checkpoint workflow.
 
 Implemented features:
 
 - Chess environment based on python-chess.
 - Board encoding using tensors.
 - CNN-based DQN.
+- Legal action masking.
 - Replay Buffer.
 - Random replay sampling.
 - Multi-episode training.
@@ -15,6 +20,37 @@ Implemented features:
 - Epsilon decay after successful training updates.
 - Training metrics collection.
 - Aggregated training summaries.
-- Evaluation against RandomAgent.
+- Console progress reporting.
+- Greedy evaluation against RandomAgent.
+- Periodic training checkpoints.
+- Automatic checkpoint loading.
+- Replay-buffer persistence.
 
-The next goal is adding model persistence and longer training workflows.
+## Running training
+
+Run:
+
+`python -m chess_rl.training.train_dqn`
+
+The program uses:
+
+`checkpoints/latest.pt`
+
+as the current resumable training checkpoint.
+
+If the checkpoint exists, the agent and replay buffer are restored before
+training continues.
+
+During training, progress is reported to the console and the latest
+training state is saved periodically.
+
+## Current limitations
+
+- The DQN currently plays only White.
+- RandomAgent always plays Black.
+- Self-play is not implemented yet.
+
+## Next goal
+
+Integrate evaluation into the training workflow and use evaluation results
+to identify and retain the best-performing checkpoints.

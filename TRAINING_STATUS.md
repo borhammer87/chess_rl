@@ -2,7 +2,7 @@
 
 ## Objective
 
-Build a complete DQN training and evaluation pipeline before attempting
+Build a robust DQN training and evaluation workflow before attempting
 self-play or large-scale experiments.
 
 ---
@@ -29,6 +29,7 @@ self-play or large-scale experiments.
 - [x] ReplayBuffer
 - [x] Random replay sampling
 - [x] Minimum replay size before training
+- [x] Replay-buffer state persistence
 
 ### Learning
 
@@ -45,22 +46,23 @@ self-play or large-scale experiments.
 - [x] Final epsilon
 - [x] Replay buffer size
 - [x] Training summary
+- [x] Console progress reporting
 
 ### Evaluation
 
 - [x] Greedy policy evaluation
 - [x] Wins / Draws / Losses
 - [x] Truncated games summary
+- [ ] Periodic evaluation during training
+- [ ] Best-checkpoint selection
 
----
+### Persistence
 
-## Not implemented yet
-
-- [ ] Model checkpoints
-- [ ] Loading trained models
-- [ ] Alternate White / Black
-- [ ] Self-play
-- [ ] TensorBoard integration (optional)
+- [x] Agent state serialization
+- [x] Replay-buffer state serialization
+- [x] Combined training checkpoints
+- [x] Periodic `latest.pt` saves
+- [x] Automatic loading of `latest.pt`
 
 ---
 
@@ -68,11 +70,13 @@ self-play or large-scale experiments.
 
 - Only White is controlled by the DQN agent.
 - Black is always played by RandomAgent.
-- Models cannot yet be saved or restored.
+- Self-play is not implemented.
+- Checkpoints do not preserve random-number-generator state.
+- Checkpoints do not maintain a global lifetime episode counter.
 
 ---
 
 ## Next milestone
 
-Implement model checkpointing so training can be resumed and evaluated
-across multiple sessions.
+Integrate evaluation into the training workflow so model performance can
+be measured during training and used to identify the best checkpoint.

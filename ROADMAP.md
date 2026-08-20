@@ -23,17 +23,21 @@
 
 - [x] Training execution
 - [x] Progress reporting
+- [x] Periodic checkpoints
+- [x] Load previous training state
+- [x] Replay-buffer persistence
 
 ## Phase 4 — Evaluation
 
 - [x] Evaluation against RandomAgent
+- [ ] Integrate evaluation into the training workflow
+- [ ] Best-checkpoint selection
 - [ ] Alternate playing White and Black
 
 ## Phase 5 — Future work
 
-- [ ] Model checkpoints
-- [ ] Load trained models
 - [ ] Self-play
 - [ ] Stronger opponents
 - [ ] Hyperparameter tuning
+- [ ] Long training experiments
 - [ ] Version 1.0

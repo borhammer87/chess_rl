@@ -31,7 +31,8 @@ instead of making assumptions.
 CURRENT PROJECT STATUS
 ------------------------------------------------------------
 
-The project contains a complete DQN training and evaluation pipeline.
+The project contains a complete DQN training, evaluation, and resumable
+checkpoint workflow.
 
 Implemented:
 
@@ -48,11 +49,22 @@ Implemented:
 - Epsilon decay after successful training updates
 - Episode metrics
 - Training summary generation
+- Console progress reporting
 - Evaluation against RandomAgent
+- Periodic checkpointing
+- Automatic checkpoint loading
+- Replay-buffer persistence
 
-The current focus is no longer implementing the DQN algorithm itself.
+Training checkpoints currently preserve:
 
-The next phase is improving the long-term training workflow.
+- Policy network
+- Target network
+- Optimizer
+- Epsilon
+- Replay-buffer capacity
+- Replay-buffer transitions
+
+The DQN currently plays White and RandomAgent plays Black.
 
 ------------------------------------------------------------
 WORKFLOW
@@ -72,8 +84,10 @@ NEXT OBJECTIVE
 
 The next recommended task is:
 
-Implement model checkpointing.
+Integrate evaluation into the training workflow.
 
-The project should be able to save and later reload the policy network so
-that long training sessions can be resumed and previously trained models
-can be evaluated without retraining.
+Use the existing evaluation infrastructure instead of duplicating game
+logic.
+
+The longer-term goal is to use evaluation results to distinguish the
+latest checkpoint from the best-performing checkpoint.

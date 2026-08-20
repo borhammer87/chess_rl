@@ -403,7 +403,76 @@ Incremental integration makes failures easier to locate and ensures every compon
 - Every major behavior should have tests before moving forward.
 
 ---
+## D-013 — Separate checkpoint state ownership from checkpoint scheduling
 
+### Status
+
+Accepted
+
+### Decision
+
+Each stateful component is responsible for describing and restoring its
+own state.
+
+`DQNAgent` exposes:
+
+- `state_dict()`
+- `load_state_dict()`
+
+Its state includes:
+
+- policy network
+- target network
+- optimizer
+- epsilon
+
+`ReplayBuffer` exposes:
+
+- `state_dict()`
+- `load_state_dict()`
+
+Its state includes:
+
+- replay capacity
+- stored transitions
+
+The training layer composes both component states into a resumable
+training checkpoint.
+
+Checkpoint scheduling belongs to the training workflow.
+
+`main()` provides the checkpoint path and callback, while
+`train_against_random()` decides when the callback is triggered.
+
+### Reason
+
+The agent should not need to know that a ReplayBuffer exists, and the
+ReplayBuffer should not need to know anything about neural networks or
+optimizers.
+
+Separating state ownership from checkpoint scheduling keeps component
+responsibilities explicit and allows checkpoint policy to evolve without
+changing the underlying components.
+
+### Alternatives considered
+
+1. Store the ReplayBuffer directly inside `DQNAgent`.
+2. Let `main()` decide both when and how every checkpoint is saved.
+3. Save only neural-network weights.
+
+These alternatives were rejected because they either couple unrelated
+components or do not preserve enough state to resume training
+practically.
+
+### Consequences
+
+- Training can resume with the previous agent and replay memory.
+- Checkpoints are larger because replay transitions are serialized.
+- The training workflow can later support policies such as `latest.pt`
+  and `best.pt` without changing `DQNAgent`.
+- Checkpoints do not yet preserve random-number-generator state or a
+  global lifetime episode counter.
+  
 ## Known limitations
 
 The current implementation intentionally keeps the scope focused on a
