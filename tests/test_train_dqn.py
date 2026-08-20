@@ -24,6 +24,8 @@ from chess_rl.training.train_dqn import (
     summarize_training,
     EvaluationSummary,
     evaluate_against_random, 
+    save_training_checkpoint,
+    load_training_checkpoint,
     main,
 )
 from pathlib import Path
@@ -1176,13 +1178,17 @@ def test_main_runs_multi_episode_training(
 
     saved_paths = []
 
-    def fake_save_checkpoint(self, path):
+    def fake_save_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+    ):
         saved_paths.append(path)
 
     monkeypatch.setattr(
-        DQNAgent,
-        "save_checkpoint",
-        fake_save_checkpoint,
+        train_dqn_module,
+        "save_training_checkpoint",
+        fake_save_training_checkpoint,
     )
 
     monkeypatch.setattr(
@@ -1383,12 +1389,21 @@ def test_evaluate_against_random_rejects_zero_episodes():
 def test_main_loads_existing_checkpoint(
     monkeypatch,
 ):
+
     loaded_paths = []
 
-    def fake_load_checkpoint(self, path):
+    def fake_load_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+    ):
         loaded_paths.append(path)
 
-    def fake_save_checkpoint(self, path):
+    def fake_save_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+    ):
         pass
 
     def fake_exists(self):
@@ -1410,15 +1425,15 @@ def test_main_loads_existing_checkpoint(
         ]
 
     monkeypatch.setattr(
-        DQNAgent,
-        "load_checkpoint",
-        fake_load_checkpoint,
+        train_dqn_module,
+        "load_training_checkpoint",
+        fake_load_training_checkpoint,
     )
 
     monkeypatch.setattr(
-        DQNAgent,
-        "save_checkpoint",
-        fake_save_checkpoint,
+        train_dqn_module,
+        "save_training_checkpoint",
+        fake_save_training_checkpoint,
     )
 
     monkeypatch.setattr(
@@ -1588,3 +1603,54 @@ def test_train_against_random_requires_checkpoint_callback():
             episodes=1,
             checkpoint_frequency=10,
         )
+
+def test_training_checkpoint_restores_agent_and_replay_buffer(
+    tmp_path,
+):
+    agent = DQNAgent(epsilon=0.4)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros((12, 8, 8))
+    next_state = torch.ones((12, 8, 8))
+
+    replay_buffer.push(
+        state=state,
+        action=123,
+        reward=1.0,
+        next_state=next_state,
+        done=False,
+    )
+
+    checkpoint_path = tmp_path / "training_checkpoint.pt"
+
+    save_training_checkpoint(
+        path=str(checkpoint_path),
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    restored_agent = DQNAgent(epsilon=0.9)
+    restored_buffer = ReplayBuffer(capacity=1)
+
+    load_training_checkpoint(
+        path=str(checkpoint_path),
+        agent=restored_agent,
+        replay_buffer=restored_buffer,
+    )
+
+    assert restored_agent.epsilon == 0.4
+    assert len(restored_buffer) == 1
+    assert restored_buffer.buffer.maxlen == 10
+
+    transition = restored_buffer.buffer[0]
+
+    assert transition.action == 123
+    assert transition.reward == 1.0
+    assert torch.equal(
+        transition.state,
+        state,
+    )
+    assert torch.equal(
+        transition.next_state,
+        next_state,
+    )

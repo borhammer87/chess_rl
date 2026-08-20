@@ -569,6 +569,46 @@ def summarize_training(
         replay_size=final_result.replay_size,
     )
 
+def save_training_checkpoint(
+    path: str,
+    agent: DQNAgent,
+    replay_buffer: ReplayBuffer,
+) -> None:
+    """
+    Save the complete training state to disk.
+    """
+    checkpoint = {
+        "agent": agent.state_dict(),
+        "replay_buffer": replay_buffer.state_dict(),
+    }
+
+    torch.save(
+        checkpoint,
+        path,
+    )
+
+
+def load_training_checkpoint(
+    path: str,
+    agent: DQNAgent,
+    replay_buffer: ReplayBuffer,
+) -> None:
+    """
+    Restore a complete training state from disk.
+    """
+    checkpoint = torch.load(
+        path,
+        weights_only=False,
+    )
+
+    agent.load_state_dict(
+        checkpoint["agent"]
+    )
+
+    replay_buffer.load_state_dict(
+        checkpoint["replay_buffer"]
+    )
+
 def evaluate_against_random(
     env: ChessEnv,
     agent: DQNAgent,
@@ -674,11 +714,16 @@ def main() -> None:
 
     checkpoint_path = checkpoint_dir / "latest.pt"
 
-    def save_training_checkpoint(
+    def save_checkpoint_callback(
         completed_episodes: int,
         agent: DQNAgent,
     ) -> None:
-        agent.save_checkpoint(str(checkpoint_path))
+        save_training_checkpoint(
+            path=str(checkpoint_path),
+            agent=agent,
+            replay_buffer=replay_buffer,
+        )
+
         print(
             f"Checkpoint saved after episode "
             f"{completed_episodes}: {checkpoint_path}"
@@ -686,7 +731,11 @@ def main() -> None:
 
     if checkpoint_path.exists():
         print(f"Loading checkpoint: {checkpoint_path}")
-        agent.load_checkpoint(str(checkpoint_path))
+        load_training_checkpoint(
+            path=str(checkpoint_path),
+            agent=agent,
+            replay_buffer=replay_buffer,
+        )
     else:
         print("No checkpoint found. Starting from scratch.")
 
@@ -702,7 +751,7 @@ def main() -> None:
         target_update_frequency=10,
         progress_callback=print_training_progress,
         checkpoint_frequency=25,
-        checkpoint_callback=save_training_checkpoint
+        checkpoint_callback=save_checkpoint_callback
     )
 
     summary = summarize_training(results)
