@@ -766,24 +766,24 @@ def main() -> None:
         )
 
     def evaluation_callback(
-            completed_episodes: int,
-            agent: DQNAgent,
-        ) -> None:
-            evaluation = evaluate_against_random(
-                env=env,
-                agent=agent,
-                opponent=opponent,
-                episodes=20,
-                max_agent_steps=150,
-            )
+        completed_episodes: int,
+        agent: DQNAgent,
+    ) -> None:
+        evaluation = evaluate_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            episodes=20,
+            max_agent_steps=150,
+        )
 
-            print(
-                f"Evaluation after episode {completed_episodes}: "
-                f"{evaluation.wins}W / "
-                f"{evaluation.draws}D / "
-                f"{evaluation.losses}L / "
-                f"{evaluation.truncated} truncated"
-            )
+        print(
+            f"Evaluation after episode {completed_episodes}: "
+            f"{evaluation.wins}W / "
+            f"{evaluation.draws}D / "
+            f"{evaluation.losses}L / "
+            f"{evaluation.truncated} truncated"
+        )
 
 
     if checkpoint_path.exists():
@@ -810,7 +810,7 @@ def main() -> None:
         checkpoint_frequency=25,
         checkpoint_callback=save_checkpoint_callback,
         evaluation_frequency=25,
-        evaluation_callback=evaluation_callback
+        evaluation_callback=evaluation_callback,
     )
 
     summary = summarize_training(results)
