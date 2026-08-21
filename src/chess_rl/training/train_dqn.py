@@ -434,6 +434,11 @@ def train_against_random(
         [int, DQNAgent],
         None,
     ] | None = None,
+    evaluation_frequency: int | None = None,
+    evaluation_callback: Callable[
+        [int, DQNAgent],
+        None,
+    ] | None = None,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -464,6 +469,11 @@ def train_against_random(
         checkpoint_callback: Optional function called when a checkpoint
             should be saved. It receives the completed episode count
             and the agent.
+        evaluation_frequency: Number of completed episodes between
+            evaluations. None disables periodic evaluation.
+        evaluation_callback: Optional function called when an evaluation
+            should be performed. It receives the completed episode count
+            and the agent.
 
     Returns:
         One result for each completed or truncated episode.
@@ -491,6 +501,23 @@ def train_against_random(
         raise ValueError(
             "checkpoint_callback is required when "
             "checkpoint_frequency is set."
+        )
+
+    if (
+        evaluation_frequency is not None
+        and evaluation_frequency <= 0
+    ):
+        raise ValueError(
+            "evaluation_frequency must be greater than zero."
+        )
+
+    if (
+        evaluation_frequency is not None
+        and evaluation_callback is None
+    ):
+        raise ValueError(
+            "evaluation_callback is required when "
+            "evaluation_frequency is set."
         )
 
     results: list[VsRandomEpisodeResult] = []
@@ -525,6 +552,15 @@ def train_against_random(
             and completed_episodes % checkpoint_frequency == 0
         ):
             checkpoint_callback(
+                completed_episodes,
+                agent,
+            )
+
+        if (
+            evaluation_frequency is not None
+            and completed_episodes % evaluation_frequency == 0
+        ):
+            evaluation_callback(
                 completed_episodes,
                 agent,
             )
@@ -729,6 +765,27 @@ def main() -> None:
             f"{completed_episodes}: {checkpoint_path}"
         )
 
+    def evaluation_callback(
+            completed_episodes: int,
+            agent: DQNAgent,
+        ) -> None:
+            evaluation = evaluate_against_random(
+                env=env,
+                agent=agent,
+                opponent=opponent,
+                episodes=20,
+                max_agent_steps=150,
+            )
+
+            print(
+                f"Evaluation after episode {completed_episodes}: "
+                f"{evaluation.wins}W / "
+                f"{evaluation.draws}D / "
+                f"{evaluation.losses}L / "
+                f"{evaluation.truncated} truncated"
+            )
+
+
     if checkpoint_path.exists():
         print(f"Loading checkpoint: {checkpoint_path}")
         load_training_checkpoint(
@@ -751,7 +808,9 @@ def main() -> None:
         target_update_frequency=10,
         progress_callback=print_training_progress,
         checkpoint_frequency=25,
-        checkpoint_callback=save_checkpoint_callback
+        checkpoint_callback=save_checkpoint_callback,
+        evaluation_frequency=25,
+        evaluation_callback=evaluation_callback
     )
 
     summary = summarize_training(results)
