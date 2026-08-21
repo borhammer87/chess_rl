@@ -11,6 +11,10 @@ from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.agents.random_agent import RandomAgent
 from collections.abc import Callable
 from pathlib import Path   
+from chess_rl.training.checkpoint import (
+    load_training_checkpoint,
+    save_training_checkpoint,
+)
 
 @dataclass
 class StepResult:
@@ -603,46 +607,6 @@ def summarize_training(
         average_loss=average_loss,
         final_epsilon=final_result.final_epsilon,
         replay_size=final_result.replay_size,
-    )
-
-def save_training_checkpoint(
-    path: str,
-    agent: DQNAgent,
-    replay_buffer: ReplayBuffer,
-) -> None:
-    """
-    Save the complete training state to disk.
-    """
-    checkpoint = {
-        "agent": agent.state_dict(),
-        "replay_buffer": replay_buffer.state_dict(),
-    }
-
-    torch.save(
-        checkpoint,
-        path,
-    )
-
-
-def load_training_checkpoint(
-    path: str,
-    agent: DQNAgent,
-    replay_buffer: ReplayBuffer,
-) -> None:
-    """
-    Restore a complete training state from disk.
-    """
-    checkpoint = torch.load(
-        path,
-        weights_only=False,
-    )
-
-    agent.load_state_dict(
-        checkpoint["agent"]
-    )
-
-    replay_buffer.load_state_dict(
-        checkpoint["replay_buffer"]
     )
 
 def evaluate_against_random(
