@@ -1,20 +1,13 @@
 import chess
 import pytest
 import torch
-
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.env.chess_env import ChessEnv
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.agents.random_agent import RandomAgent
-
 import chess_rl.training.train_dqn as train_dqn_module
-
 from chess_rl.training.train_dqn import (
-    EpisodeResult,
-    StepResult,
-    VsRandomEpisodeResult,
-    TrainingSummary,
     run_and_store_step,
     run_dqn_vs_random_episode,
     run_episode,
@@ -22,11 +15,17 @@ from chess_rl.training.train_dqn import (
     train_against_random,
     train_from_replay,
     summarize_training,
-    EvaluationSummary,
     evaluate_against_random, 
     main,
 )
 from pathlib import Path
+from chess_rl.training.results import (
+    EpisodeResult,
+    EvaluationSummary,
+    StepResult,
+    TrainingSummary,
+    VsRandomEpisodeResult,
+)
 
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
