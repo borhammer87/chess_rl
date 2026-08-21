@@ -8,15 +8,17 @@ from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.agents.random_agent import RandomAgent
 import chess_rl.training.train_dqn as train_dqn_module
 from chess_rl.training.train_dqn import (
+    train_against_random,
+    summarize_training,
+    evaluate_against_random, 
+    main,
+)
+from chess_rl.training.episodes import (
     run_and_store_step,
     run_dqn_vs_random_episode,
     run_episode,
     run_single_step,
-    train_against_random,
     train_from_replay,
-    summarize_training,
-    evaluate_against_random, 
-    main,
 )
 from pathlib import Path
 from chess_rl.training.results import (
@@ -26,6 +28,8 @@ from chess_rl.training.results import (
     TrainingSummary,
     VsRandomEpisodeResult,
 )
+import chess_rl.training.episodes as episodes_module
+import chess_rl.training.train_dqn as train_dqn_module
 
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
@@ -487,7 +491,7 @@ def test_dqn_vs_random_attempts_training_after_storing_transition(
             return None
 
         monkeypatch.setattr(
-            train_dqn_module,
+            episodes_module,
             "train_from_replay",
             fake_train_from_replay,
         )
@@ -951,7 +955,7 @@ def test_dqn_vs_random_records_training_loss(
         return 0.25
 
     monkeypatch.setattr(
-        train_dqn_module,
+        episodes_module,
         "train_from_replay",
         fake_train_from_replay,
     )
@@ -985,7 +989,7 @@ def test_dqn_vs_random_ignores_missing_training_loss(
         return None
 
     monkeypatch.setattr(
-        train_dqn_module,
+        episodes_module,
         "train_from_replay",
         fake_train_from_replay,
     )
@@ -1024,7 +1028,7 @@ def test_dqn_vs_random_records_final_epsilon(
         return 0.25
 
     monkeypatch.setattr(
-        train_dqn_module,
+        episodes_module,
         "train_from_replay",
         fake_train_from_replay,
     )
