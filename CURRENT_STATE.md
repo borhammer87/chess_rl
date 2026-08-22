@@ -22,25 +22,38 @@ Implemented components:
 - Training summary generation
 - Console progress reporting
 - Evaluation against RandomAgent
+- Periodic evaluation during training
 - Periodic checkpointing
 - Training checkpoint loading
 - Replay-buffer persistence
 
-Current training metrics include:
+## Training package structure
+
+Training responsibilities have been separated into focused modules:
+
+- `results.py` — training and evaluation result data structures.
+- `episodes.py` — step, episode, and replay-training operations.
+- `checkpoint.py` — resumable training-state persistence.
+- `train_dqn.py` — multi-episode workflow, evaluation scheduling,
+  summaries, and main program execution.
+
+This refactor changed structure without changing training behavior.
+
+## Current training metrics
 
 - Episode reward
 - Training losses
 - Final epsilon
 - Replay buffer size
 
-Current evaluation metrics include:
+## Current evaluation metrics
 
 - Wins
 - Draws
 - Losses
 - Truncated games
 
-Current checkpoint state includes:
+## Current checkpoint state
 
 - Policy network
 - Target network
@@ -58,8 +71,9 @@ Running the training module:
 3. Runs multi-episode training.
 4. Reports progress during training.
 5. Synchronizes the target network periodically.
-6. Saves `latest.pt` periodically through the checkpoint callback.
-7. Prints an aggregated training summary.
+6. Saves `latest.pt` periodically through a checkpoint callback.
+7. Evaluates the current policy periodically through an evaluation callback.
+8. Prints an aggregated training summary.
 
 ## Current limitations
 
@@ -70,16 +84,16 @@ Running the training module:
 - Checkpoints do not store a global lifetime episode counter.
 - Checkpoint compatibility currently assumes compatible code and
   hyperparameter configuration.
+- Evaluation results are reported but are not yet used to select checkpoints.
 
 ## Current focus
 
-The basic long-running training workflow is now usable.
+Periodic evaluation is now integrated into the training workflow.
 
-The next phase should use evaluation to compare trained policies and make
-better decisions about which checkpoints are worth retaining.
+The next development step is to use evaluation results to distinguish
+the latest training state from the best-performing policy.
 
 ## Next milestone
 
-Integrate evaluation into the training workflow and prepare
-evaluation-driven checkpoint selection, such as retaining a `best.pt`
-checkpoint in addition to `latest.pt`.
+Define a model-selection criterion and implement `best.pt` checkpoint
+selection using the existing evaluation workflow.

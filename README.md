@@ -22,6 +22,7 @@ Implemented features:
 - Aggregated training summaries.
 - Console progress reporting.
 - Greedy evaluation against RandomAgent.
+- Periodic evaluation during training.
 - Periodic training checkpoints.
 - Automatic checkpoint loading.
 - Replay-buffer persistence.
@@ -52,5 +53,4 @@ training state is saved periodically.
 
 ## Next goal
 
-Integrate evaluation into the training workflow and use evaluation results
-to identify and retain the best-performing checkpoints.
+Use periodic evaluation results to identify and retain the best-performing checkpoint separately from the latest resumable training state.

@@ -53,7 +53,7 @@ self-play or large-scale experiments.
 - [x] Greedy policy evaluation
 - [x] Wins / Draws / Losses
 - [x] Truncated games summary
-- [ ] Periodic evaluation during training
+- [x] Periodic evaluation during training
 - [ ] Best-checkpoint selection
 
 ### Persistence
@@ -64,6 +64,13 @@ self-play or large-scale experiments.
 - [x] Periodic `latest.pt` saves
 - [x] Automatic loading of `latest.pt`
 
+### Code organization
+
+- [x] Checkpoint persistence separated into `checkpoint.py`
+- [x] Result data structures separated into `results.py`
+- [x] Episode operations separated into `episodes.py`
+- [x] Tests separated according to module responsibility
+
 ---
 
 ## Current limitations
@@ -73,10 +80,12 @@ self-play or large-scale experiments.
 - Self-play is not implemented.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not maintain a global lifetime episode counter.
+- Evaluation results do not yet determine which checkpoint is retained
+  as the best model.
 
 ---
 
 ## Next milestone
 
-Integrate evaluation into the training workflow so model performance can
-be measured during training and used to identify the best checkpoint.
+Define how evaluation performance is scored and use that score to retain
+the best-performing checkpoint separately from `latest.pt`.

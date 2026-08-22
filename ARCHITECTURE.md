@@ -13,19 +13,88 @@ ChessEnv
 → ReplayBuffer
 → train_step
 
+## Training package
+
+Training responsibilities are separated by concern.
+
+### `results.py`
+
+Defines the data structures returned by training and evaluation:
+
+- `StepResult`
+- `EpisodeResult`
+- `VsRandomEpisodeResult`
+- `TrainingSummary`
+- `EvaluationSummary`
+
+### `episodes.py`
+
+Contains the lower-level episode interaction and learning operations:
+
+- `run_single_step()`
+- `run_and_store_step()`
+- `train_from_replay()`
+- `run_episode()`
+- `run_dqn_vs_random_episode()`
+
+This module answers the question:
+
+> What happens inside an episode?
+
+### `train_dqn.py`
+
+Coordinates complete training runs.
+
+Its responsibilities include:
+
+- Multi-episode training.
+- Progress callbacks.
+- Target-network synchronization.
+- Checkpoint scheduling.
+- Evaluation scheduling.
+- Training summaries.
+- Main program execution.
+
+This module answers the question:
+
+> How is a complete training session coordinated?
+
+### `checkpoint.py`
+
+Composes and restores resumable training checkpoints.
+
+A training checkpoint contains state owned by:
+
+- `DQNAgent`
+- `ReplayBuffer`
+
 ## Training workflow
 
 `train_against_random()` coordinates multi-episode training.
 
-Its responsibilities include:
+The same agent and replay buffer are reused across episodes.
 
-- Running DQN-versus-RandomAgent episodes.
-- Reusing the same ReplayBuffer across episodes.
-- Reporting progress through a callback.
-- Synchronizing the target network periodically.
-- Deciding when checkpoint callbacks are triggered.
+After configured numbers of completed episodes, the workflow can trigger:
+
+- Progress reporting.
+- Target-network synchronization.
+- Checkpoint callbacks.
+- Evaluation callbacks.
 
 The DQN currently plays White and RandomAgent plays Black.
+
+## Evaluation
+
+Evaluation uses the existing DQN-versus-RandomAgent episode infrastructure.
+
+During evaluation:
+
+- The agent uses a greedy policy.
+- Training is disabled.
+- Wins, draws, losses, and truncated games are collected.
+- The previous epsilon value is restored afterwards.
+
+`main()` currently schedules evaluation periodically during training.
 
 ## Persistence
 
@@ -33,7 +102,7 @@ Persistence responsibilities are separated between components.
 
 ### DQNAgent
 
-`DQNAgent` owns its training state:
+`DQNAgent` owns:
 
 - Policy network
 - Target network
@@ -47,7 +116,7 @@ It exposes:
 
 ### ReplayBuffer
 
-`ReplayBuffer` owns its replay-memory state:
+`ReplayBuffer` owns:
 
 - Capacity
 - Stored transitions
@@ -57,12 +126,11 @@ It exposes:
 - `state_dict()`
 - `load_state_dict()`
 
-### Training layer
+### Training checkpoint
 
-`train_dqn.py` composes the agent and replay-buffer states into a
-training checkpoint.
+`checkpoint.py` combines the agent and replay-buffer states.
 
-The training workflow decides when a checkpoint should be created.
+The training workflow decides when checkpoint callbacks occur.
 
 `main()` decides where the checkpoint is stored.
 

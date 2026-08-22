@@ -480,7 +480,6 @@ single-agent DQN training pipeline.
 
 Current limitations include:
 
-- Models cannot yet be saved or restored.
 - The DQN agent always plays White.
 - The opponent is always a RandomAgent.
 - Self-play is not implemented yet.

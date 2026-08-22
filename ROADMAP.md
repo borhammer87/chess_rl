@@ -30,7 +30,7 @@
 ## Phase 4 — Evaluation
 
 - [x] Evaluation against RandomAgent
-- [ ] Integrate evaluation into the training workflow
+- [x] Integrate evaluation into the training workflow
 - [ ] Best-checkpoint selection
 - [ ] Alternate playing White and Black
 
