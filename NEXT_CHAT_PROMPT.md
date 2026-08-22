@@ -84,10 +84,11 @@ NEXT OBJECTIVE
 
 The next recommended task is:
 
-Integrate evaluation into the training workflow.
+Use periodic evaluation results to distinguish the latest training
+checkpoint from the best-performing checkpoint.
 
-Use the existing evaluation infrastructure instead of duplicating game
-logic.
+Define a simple model-selection criterion first, then retain the
+best-performing policy separately as `checkpoints/best.pt`.
 
-The longer-term goal is to use evaluation results to distinguish the
-latest checkpoint from the best-performing checkpoint.
+Use the existing evaluation and checkpoint infrastructure instead of
+duplicating either workflow.
