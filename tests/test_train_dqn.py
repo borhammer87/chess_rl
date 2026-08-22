@@ -16,6 +16,7 @@ from chess_rl.training.train_dqn import (
     main,
     summarize_training,
     train_against_random,
+    score_evaluation,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
 
@@ -1049,3 +1050,44 @@ def test_train_against_random_requires_evaluation_callback():
             episodes=1,
             evaluation_frequency=10,
         )
+
+def test_score_evaluation_uses_chess_points():
+    evaluation = EvaluationSummary(
+        episodes=4,
+        wins=2,
+        draws=1,
+        losses=1,
+        truncated=0,
+    )
+
+    score = score_evaluation(evaluation)
+
+    assert score == pytest.approx(0.625)
+
+def test_score_evaluation_penalizes_truncated_games():
+    evaluation = EvaluationSummary(
+        episodes=4,
+        wins=1,
+        draws=0,
+        losses=0,
+        truncated=3,
+    )
+
+    score = score_evaluation(evaluation)
+
+    assert score == pytest.approx(0.25)
+
+def test_score_evaluation_rejects_zero_episodes():
+    evaluation = EvaluationSummary(
+        episodes=0,
+        wins=0,
+        draws=0,
+        losses=0,
+        truncated=0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="at least one episode",
+    ):
+        score_evaluation(evaluation)

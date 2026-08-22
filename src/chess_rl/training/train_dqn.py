@@ -167,7 +167,7 @@ def train_against_random(
             )
 
     return results
-    
+
 def summarize_training(
     results: list[VsRandomEpisodeResult],
 ) -> TrainingSummary:
@@ -282,7 +282,26 @@ def evaluate_against_random(
         truncated=truncated,
     )
 
+def score_evaluation(
+    evaluation: EvaluationSummary,
+) -> float:
+    """
+    Return a normalized score for an evaluation result.
 
+    A win is worth 1 point, a draw 0.5 points, and losses or
+    truncated games 0 points.
+    """
+    if evaluation.episodes <= 0:
+        raise ValueError(
+            "evaluation must contain at least one episode."
+        )
+
+    points = (
+        evaluation.wins
+        + 0.5 * evaluation.draws
+    )
+
+    return points / evaluation.episodes
 
 def main() -> None:
     """
