@@ -761,7 +761,7 @@ def test_main_loads_existing_checkpoint(
         pass
 
     def fake_exists(self):
-        return True
+        return self.name == "latest.pt"
 
     def fake_train_against_random(*args, **kwargs):
         return [

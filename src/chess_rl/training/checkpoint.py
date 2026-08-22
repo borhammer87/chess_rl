@@ -8,6 +8,7 @@ def save_training_checkpoint(
     path: str,
     agent: DQNAgent,
     replay_buffer: ReplayBuffer,
+    metadata: dict | None = None,
 ) -> None:
     """
     Save the complete training state to disk.
@@ -17,11 +18,26 @@ def save_training_checkpoint(
         "replay_buffer": replay_buffer.state_dict(),
     }
 
+    if metadata is not None:
+        checkpoint["metadata"] = metadata
+
     torch.save(
         checkpoint,
         path,
     )
 
+def load_checkpoint_metadata(
+    path: str,
+) -> dict:
+    """
+    Return checkpoint metadata without restoring training state.
+    """
+    checkpoint = torch.load(
+        path,
+        weights_only=False,
+    )
+
+    return checkpoint.get("metadata", {})
 
 def load_training_checkpoint(
     path: str,
@@ -43,3 +59,4 @@ def load_training_checkpoint(
     replay_buffer.load_state_dict(
         checkpoint["replay_buffer"]
     )
+

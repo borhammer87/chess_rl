@@ -7,6 +7,7 @@ from pathlib import Path
 from chess_rl.training.checkpoint import (
     load_training_checkpoint,
     save_training_checkpoint,
+    load_checkpoint_metadata,
 )
 from chess_rl.training.results import (
     EvaluationSummary,
@@ -329,6 +330,18 @@ def main() -> None:
     checkpoint_dir.mkdir(exist_ok=True)
 
     checkpoint_path = checkpoint_dir / "latest.pt"
+    best_checkpoint_path = checkpoint_dir / "best.pt"
+
+    best_score: float | None = None
+
+    if best_checkpoint_path.exists():
+        metadata = load_checkpoint_metadata(
+            str(best_checkpoint_path)
+        )
+
+        best_score = metadata.get(
+            "evaluation_score"
+        )
 
     def save_checkpoint_callback(
         completed_episodes: int,
@@ -349,6 +362,8 @@ def main() -> None:
         completed_episodes: int,
         agent: DQNAgent,
     ) -> None:
+        nonlocal best_score
+
         evaluation = evaluate_against_random(
             env=env,
             agent=agent,
@@ -357,13 +372,39 @@ def main() -> None:
             max_agent_steps=150,
         )
 
+        score = score_evaluation(
+            evaluation
+        )
+
         print(
             f"Evaluation after episode {completed_episodes}: "
             f"{evaluation.wins}W / "
             f"{evaluation.draws}D / "
             f"{evaluation.losses}L / "
-            f"{evaluation.truncated} truncated"
+            f"{evaluation.truncated} truncated "
+            f"- score: {score:.4f}"
         )
+
+        if (
+            best_score is None
+            or score > best_score
+        ):
+            best_score = score
+
+            save_training_checkpoint(
+                path=str(best_checkpoint_path),
+                agent=agent,
+                replay_buffer=replay_buffer,
+                metadata={
+                    "evaluation_score": score,
+                },
+            )
+
+            print(
+                f"New best checkpoint: "
+                f"{best_checkpoint_path} "
+                f"(score: {score:.4f})"
+            )
 
 
     if checkpoint_path.exists():

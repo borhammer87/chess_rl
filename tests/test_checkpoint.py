@@ -4,6 +4,7 @@ from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.training.checkpoint import (
     load_training_checkpoint,
     save_training_checkpoint,
+    load_checkpoint_metadata,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
 
@@ -58,3 +59,46 @@ def test_training_checkpoint_restores_agent_and_replay_buffer(
         transition.next_state,
         next_state,
     )
+
+def test_training_checkpoint_restores_metadata(
+    tmp_path,
+):
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    checkpoint_path = tmp_path / "checkpoint.pt"
+
+    save_training_checkpoint(
+        path=str(checkpoint_path),
+        agent=agent,
+        replay_buffer=replay_buffer,
+        metadata={
+            "evaluation_score": 0.75,
+        },
+    )
+
+    metadata = load_checkpoint_metadata(
+        str(checkpoint_path)
+    )
+
+    assert metadata["evaluation_score"] == 0.75
+
+def test_checkpoint_without_metadata_returns_empty_dict(
+    tmp_path,
+):
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    checkpoint_path = tmp_path / "checkpoint.pt"
+
+    save_training_checkpoint(
+        path=str(checkpoint_path),
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    metadata = load_checkpoint_metadata(
+        str(checkpoint_path)
+    )
+
+    assert metadata == {}
