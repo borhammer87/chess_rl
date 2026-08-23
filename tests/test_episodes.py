@@ -12,6 +12,7 @@ from chess_rl.training.episodes import (
     run_episode,
     run_single_step,
     train_from_replay,
+    reward_for_color,
 )
 from chess_rl.training.results import (
     EpisodeResult,
@@ -649,3 +650,46 @@ def test_dqn_vs_random_records_replay_size():
 
     assert result.replay_size == 1
     assert result.replay_size == len(replay_buffer)
+
+def test_reward_for_white_keeps_white_perspective():
+    assert reward_for_color(
+        1.0,
+        chess.WHITE,
+    ) == 1.0
+
+    assert reward_for_color(
+        -1.0,
+        chess.WHITE,
+    ) == -1.0
+
+def test_reward_for_black_reverses_white_perspective():
+    assert reward_for_color(
+        1.0,
+        chess.BLACK,
+    ) == -1.0
+
+    assert reward_for_color(
+        -1.0,
+        chess.BLACK,
+    ) == 1.0
+
+def test_reward_for_color_preserves_draw_reward():
+    assert reward_for_color(
+        0.0,
+        chess.WHITE,
+    ) == 0.0
+
+    assert reward_for_color(
+        0.0,
+        chess.BLACK,
+    ) == 0.0
+
+def test_reward_for_color_rejects_invalid_color():
+    with pytest.raises(
+        ValueError,
+        match="chess.WHITE or chess.BLACK",
+    ):
+        reward_for_color(
+            1.0,
+            None,
+        )

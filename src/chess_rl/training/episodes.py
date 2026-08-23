@@ -12,6 +12,32 @@ from chess_rl.utils.action_encoder import decode_legal_action
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
 
+def reward_for_color(
+    reward: float,
+    color: chess.Color,
+) -> float:
+    """
+    Convert a White-perspective reward to the requested color.
+
+    ChessEnv returns rewards from White's perspective:
+
+    - White win: +1
+    - Black win: -1
+    - Draw or unfinished game: 0
+
+    For a Black agent, the sign is reversed so positive reward
+    always means a good outcome for the agent.
+    """
+    if color == chess.WHITE:
+        return reward
+
+    if color == chess.BLACK:
+        return -reward
+
+    raise ValueError(
+        "color must be chess.WHITE or chess.BLACK."
+    )
+
 def run_single_step(
     env: ChessEnv,
     agent: DQNAgent,
