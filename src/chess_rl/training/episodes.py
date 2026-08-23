@@ -235,8 +235,8 @@ def run_dqn_vs_random_episode(
     """
     Run one episode with:
 
-        DQNAgent    -> White
-        RandomAgent -> Black
+        DQNAgent    -> agent_color 
+        RandomAgent -> opposite color
 
     One replay transition spans:
 
@@ -306,7 +306,7 @@ def run_dqn_vs_random_episode(
             legal_moves=legal_moves,
         )
 
-        # White/DQN move.
+        # DQN move.
         next_board, reward, done, info = env.step(move)
 
         agent_steps += 1
@@ -342,7 +342,7 @@ def run_dqn_vs_random_episode(
             total_reward += agent_reward
             break
 
-        # Black/RandomAgent response.
+        # RandomAgent response.
         opponent_move = opponent.select_move(
             env.legal_moves()
         )

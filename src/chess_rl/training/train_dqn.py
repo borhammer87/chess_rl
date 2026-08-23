@@ -17,6 +17,8 @@ from chess_rl.training.results import (
 from chess_rl.training.episodes import (
     run_dqn_vs_random_episode,
 )
+import chess
+
 def train_against_random(
     env: ChessEnv,
     agent: DQNAgent,
@@ -41,6 +43,7 @@ def train_against_random(
         [int, DQNAgent],
         None,
     ] | None = None,
+    agent_color: chess.Color = chess.WHITE,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -55,7 +58,7 @@ def train_against_random(
     Args:
         env: Chess environment reused across episodes.
         agent: DQN agent trained during the episodes.
-        opponent: Random opponent playing Black.
+        opponent: Random opponent playing the opposite color.
         replay_buffer: Shared replay memory.
         episodes: Number of episodes to run.
         max_agent_steps: Maximum DQN decisions per episode.
@@ -76,6 +79,7 @@ def train_against_random(
         evaluation_callback: Optional function called when an evaluation
             should be performed. It receives the completed episode count
             and the agent.
+        agent_color: Color played by the DQN agent. 
 
     Returns:
         One result for each completed or truncated episode.
@@ -122,6 +126,14 @@ def train_against_random(
             "evaluation_frequency is set."
         )
 
+    if agent_color not in (
+        chess.WHITE,
+        chess.BLACK,
+    ):
+        raise ValueError(
+            "agent_color must be chess.WHITE or chess.BLACK."
+        )
+    
     results: list[VsRandomEpisodeResult] = []
 
     for episode_index in range(episodes):
@@ -133,6 +145,7 @@ def train_against_random(
             max_agent_steps=max_agent_steps,
             batch_size=batch_size,
             min_replay_size=min_replay_size,
+            agent_color=agent_color,
         )
 
         results.append(result)
@@ -213,6 +226,7 @@ def evaluate_against_random(
     opponent: RandomAgent,
     episodes: int,
     max_agent_steps: int = 150,
+    agent_color: chess.Color = chess.WHITE,
 ) -> EvaluationSummary:
     """
     Evaluate the current greedy DQN policy against RandomAgent.
@@ -234,6 +248,14 @@ def evaluate_against_random(
         capacity=max_agent_steps,
     )
 
+    if agent_color not in (
+        chess.WHITE,
+        chess.BLACK,
+    ):
+        raise ValueError(
+            "agent_color must be chess.WHITE or chess.BLACK."
+        )
+
     results: list[VsRandomEpisodeResult] = []
 
     try:
@@ -248,6 +270,7 @@ def evaluate_against_random(
                 max_agent_steps=max_agent_steps,
                 batch_size=1,
                 min_replay_size=max_agent_steps + 1,
+                agent_color=agent_color,
             )
 
             results.append(result)

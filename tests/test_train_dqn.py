@@ -1,7 +1,6 @@
 from pathlib import Path
-
+import chess
 import pytest
-
 import chess_rl.training.train_dqn as train_dqn_module
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.agents.random_agent import RandomAgent
@@ -49,6 +48,7 @@ def test_train_against_random_returns_one_result_per_episode(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
         return fake_result
 
@@ -93,6 +93,7 @@ def test_train_against_random_reuses_same_replay_buffer(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
         received_buffers.append(replay_buffer)
 
@@ -149,6 +150,7 @@ def test_train_against_random_passes_training_configuration(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
         received_calls.append(
             {
@@ -230,6 +232,7 @@ def test_train_against_random_updates_target_at_configured_frequency(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
         return VsRandomEpisodeResult(
             agent_steps=1,
@@ -290,6 +293,7 @@ def test_train_against_random_does_not_update_target_too_early(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
         return VsRandomEpisodeResult(
             agent_steps=1,
@@ -376,6 +380,7 @@ def test_train_against_random_does_not_decay_epsilon_without_training(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
         return VsRandomEpisodeResult(
             agent_steps=1,
@@ -688,6 +693,7 @@ def test_evaluate_against_random_summarizes_results(
     ])
 
     observed_epsilons = []
+    observed_colors = []
 
     def fake_run_dqn_vs_random_episode(
         env,
@@ -697,7 +703,9 @@ def test_evaluate_against_random_summarizes_results(
         max_agent_steps,
         batch_size,
         min_replay_size,
+        agent_color,
     ):
+        observed_colors.append(agent_color)
         observed_epsilons.append(agent.epsilon)
         return next(fake_results)
 
@@ -723,6 +731,12 @@ def test_evaluate_against_random_summarizes_results(
 
     assert observed_epsilons == [0.0, 0.0, 0.0, 0.0]
     assert agent.epsilon == 0.4
+    assert observed_colors == [
+    chess.WHITE,
+    chess.WHITE,
+    chess.WHITE,
+    chess.WHITE,
+    ]
 
 def test_evaluate_against_random_rejects_zero_episodes():
     env = ChessEnv()
@@ -1434,3 +1448,77 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
     ]
 
     assert best_checkpoints == []
+
+def test_train_against_random_passes_agent_color_to_episode(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    received_colors = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        agent_color,
+    ):
+        received_colors.append(agent_color)
+
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        agent_color=chess.BLACK,
+    )
+
+    assert received_colors == [
+        chess.BLACK,
+        chess.BLACK,
+        chess.BLACK,
+    ]
+
+def test_train_against_random_rejects_invalid_agent_color():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    with pytest.raises(
+        ValueError,
+        match="agent_color must be",
+    ):
+        train_against_random(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            agent_color=None,
+        )
