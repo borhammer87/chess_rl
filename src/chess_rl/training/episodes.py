@@ -230,6 +230,7 @@ def run_dqn_vs_random_episode(
     max_agent_steps: int = 150,
     batch_size: int = 32,
     min_replay_size: int = 1_000,
+    agent_color: chess.Color = chess.WHITE,
 ) -> VsRandomEpisodeResult:
     """
     Run one episode with:
@@ -255,6 +256,14 @@ def run_dqn_vs_random_episode(
             "max_agent_steps must be greater than zero."
         )
 
+    if agent_color not in (
+        chess.WHITE,
+        chess.BLACK,
+    ):
+        raise ValueError(
+            "agent_color must be chess.WHITE or chess.BLACK."
+        )
+
     env.reset()
 
     agent_steps = 0
@@ -263,11 +272,23 @@ def run_dqn_vs_random_episode(
     final_info: dict = {}
     training_losses: list[float] = []
 
+    if agent_color == chess.BLACK:
+        opponent_move = opponent.select_move(
+            env.legal_moves()
+        )
+
+        _, _, _, info = env.step(
+            opponent_move
+        )
+
+        total_plies = 1
+        final_info = info
+
     while not env.done and agent_steps < max_agent_steps:
         # The DQN currently plays only as White.
-        if env.board.turn != chess.WHITE:
+        if env.board.turn != agent_color:
             raise RuntimeError(
-                "Expected White to move at the start "
+                "Expected agent color to move at the start "
                 "of a DQN decision."
             )
 

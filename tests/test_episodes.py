@@ -693,3 +693,57 @@ def test_reward_for_color_rejects_invalid_color():
             1.0,
             None,
         )
+
+def test_dqn_vs_random_defaults_to_white():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    assert result.agent_steps == 1
+    assert result.total_plies == 2
+
+def test_dqn_vs_random_black_waits_for_white_move():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        agent_color=chess.BLACK,
+    )
+
+    assert result.agent_steps == 1
+    assert result.total_plies >= 2
+
+def test_dqn_vs_random_rejects_invalid_agent_color():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="agent_color must be",
+    ):
+        run_dqn_vs_random_episode(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            max_agent_steps=1,
+            agent_color=None,
+        )
