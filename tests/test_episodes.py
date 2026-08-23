@@ -747,3 +747,48 @@ def test_dqn_vs_random_rejects_invalid_agent_color():
             max_agent_steps=1,
             agent_color=None,
         )
+
+def test_dqn_vs_random_black_stores_reward_from_agent_perspective(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    rewards = iter([
+        0.0,
+        -1.0,
+    ])
+
+    original_step = env.step
+
+    def fake_step(move):
+        board, _, done, info = original_step(move)
+
+        reward = next(rewards)
+
+        if reward == -1.0:
+            env.done = True
+            done = True
+
+        return board, reward, done, info
+
+    monkeypatch.setattr(
+        env,
+        "step",
+        fake_step,
+    )
+
+    run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        agent_color=chess.BLACK,
+    )
+
+    transition = replay_buffer.buffer[0]
+
+    assert transition.reward == 1.0

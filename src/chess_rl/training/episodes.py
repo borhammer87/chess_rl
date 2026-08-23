@@ -315,12 +315,16 @@ def run_dqn_vs_random_episode(
 
         # If White ended the game, there is no opponent response.
         if done:
+            agent_reward = reward_for_color(
+                reward,
+                agent_color,
+            )
             next_state = encode_board(next_board)
 
             replay_buffer.push(
                 state=state,
                 action=action,
-                reward=reward,
+                reward=agent_reward,
                 next_state=next_state,
                 done=True,
             )
@@ -335,7 +339,7 @@ def run_dqn_vs_random_episode(
             if loss is not None:
                 training_losses.append(loss)
 
-            total_reward += reward
+            total_reward += agent_reward
             break
 
         # Black/RandomAgent response.
@@ -345,6 +349,11 @@ def run_dqn_vs_random_episode(
 
         next_board, reward, done, info = env.step(
             opponent_move
+        )
+
+        agent_reward = reward_for_color(
+            reward,
+            agent_color,
         )
 
         total_plies += 1
@@ -358,7 +367,7 @@ def run_dqn_vs_random_episode(
         replay_buffer.push(
             state=state,
             action=action,
-            reward=reward,
+            reward=agent_reward,
             next_state=next_state,
             done=done,
         )
@@ -373,7 +382,7 @@ def run_dqn_vs_random_episode(
         if loss is not None:
             training_losses.append(loss)
 
-        total_reward += reward
+        total_reward += agent_reward
 
     truncated = (
         not env.done
