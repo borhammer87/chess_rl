@@ -494,3 +494,68 @@ The next major design decision is:
 > How should rewards and state perspective be represented when the DQN plays both White and Black?
 
 This must be resolved before implementing meaningful self-play training.
+
+## D-014 — Select the best checkpoint using normalized chess score
+
+### Status
+
+Accepted
+
+### Decision
+
+Periodic evaluation results are converted into a normalized score:
+
+`(wins + 0.5 * draws) / episodes`
+
+A win contributes 1 point, a draw 0.5 points, and a loss or truncated
+game 0 points.
+
+The project maintains two checkpoint roles:
+
+- `latest.pt` stores the most recent resumable training state.
+- `best.pt` stores the state associated with the highest evaluation score
+  observed so far.
+
+`best.pt` is replaced only when a new score is strictly greater than the
+previous best score.
+
+The best evaluation score is stored as checkpoint metadata.
+
+### Reason
+
+Training recency and playing strength are different concepts.
+
+The latest model is required to resume training, while the best model
+should represent the strongest policy observed according to the current
+evaluation benchmark.
+
+Using standard chess scoring gives a simple and understandable model
+selection criterion.
+
+Normalizing by all evaluation episodes also prevents truncated games
+from artificially improving the score.
+
+Persisting the score inside `best.pt` allows model selection to continue
+correctly after restarting the program.
+
+### Alternatives considered
+
+1. Use only the number of wins.
+2. Ignore truncated games when calculating the denominator.
+3. Replace `best.pt` when the new score is equal to the previous score.
+4. Keep the best score only in memory.
+5. Store the best score in a separate file.
+
+These alternatives were rejected because they either discard useful draw
+information, can reward excessive truncation, overwrite equivalent
+checkpoints unnecessarily, or make model selection less robust across
+training sessions.
+
+### Consequences
+
+- Evaluation results can now drive checkpoint selection.
+- `latest.pt` and `best.pt` have explicitly different purposes.
+- Evaluation quality directly affects model-selection quality.
+- The current score measures performance only against RandomAgent.
+- Future evaluation against stronger or multiple opponents may require
+  revisiting the selection criterion.

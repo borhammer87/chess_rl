@@ -31,7 +31,8 @@
 
 - [x] Evaluation against RandomAgent
 - [x] Integrate evaluation into the training workflow
-- [ ] Best-checkpoint selection
+- [x] Evaluation scoring
+- [x] Best-checkpoint selection
 - [ ] Alternate playing White and Black
 
 ## Phase 5 — Future work

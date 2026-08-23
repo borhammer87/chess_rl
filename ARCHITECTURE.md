@@ -94,7 +94,7 @@ During evaluation:
 - Wins, draws, losses, and truncated games are collected.
 - The previous epsilon value is restored afterwards.
 
-`main()` currently schedules evaluation periodically during training.
+`main()` currently schedules evaluation periodically during training. Evaluation results are converted into a normalized score used for best-checkpoint selection.
 
 ## Persistence
 
@@ -130,10 +130,25 @@ It exposes:
 
 `checkpoint.py` combines the agent and replay-buffer states.
 
+Checkpoints can also contain optional metadata that does not belong to
+either stateful component.
+
 The training workflow decides when checkpoint callbacks occur.
 
-`main()` decides where the checkpoint is stored.
+`main()` assigns different semantic roles to two checkpoint paths:
 
-Current checkpoint path:
+- `checkpoints/latest.pt` stores the most recent resumable training state.
+- `checkpoints/best.pt` stores the training state with the highest
+  evaluation score observed so far.
 
-`checkpoints/latest.pt`
+The evaluation score stored in `best.pt` metadata allows best-model
+selection to continue across program restarts.
+
+The model-selection score is:
+
+`(wins + 0.5 * draws) / episodes`
+
+Losses and truncated games contribute zero points.
+
+`best.pt` is replaced only when a new evaluation score is strictly
+greater than the stored score.

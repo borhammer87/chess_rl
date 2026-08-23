@@ -54,6 +54,9 @@ Implemented:
 - Periodic checkpointing
 - Automatic checkpoint loading
 - Replay-buffer persistence
+- Evaluation scoring
+- Best-checkpoint selection
+- Checkpoint metadata
 
 Training checkpoints currently preserve:
 
@@ -84,11 +87,9 @@ NEXT OBJECTIVE
 
 The next recommended task is:
 
-Use periodic evaluation results to distinguish the latest training
-checkpoint from the best-performing checkpoint.
+Prepare the DQN training design to support the agent playing both White and Black.
 
-Define a simple model-selection criterion first, then retain the
-best-performing policy separately as `checkpoints/best.pt`.
+Before implementing self-play, determine how rewards and board state should be represented from the agent's perspective.
 
-Use the existing evaluation and checkpoint infrastructure instead of
-duplicating either workflow.
+Review the existing White-perspective reward semantics and board
+encoding before proposing code changes.

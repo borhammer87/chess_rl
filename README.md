@@ -26,6 +26,7 @@ Implemented features:
 - Periodic training checkpoints.
 - Automatic checkpoint loading.
 - Replay-buffer persistence.
+- Evaluation-based best-checkpoint selection.
 
 ## Running training
 
@@ -45,6 +46,14 @@ training continues.
 During training, progress is reported to the console and the latest
 training state is saved periodically.
 
+The program also uses:
+
+`checkpoints/best.pt`
+
+to retain the training state with the highest evaluation score observed so far.
+
+The best score is stored as checkpoint metadata and is restored across program restarts.
+
 ## Current limitations
 
 - The DQN currently plays only White.
@@ -53,4 +62,4 @@ training state is saved periodically.
 
 ## Next goal
 
-Use periodic evaluation results to identify and retain the best-performing checkpoint separately from the latest resumable training state.
+Extend the training design so the DQN can play both White and Black, preparing the project for self-play.

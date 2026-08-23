@@ -54,15 +54,19 @@ self-play or large-scale experiments.
 - [x] Wins / Draws / Losses
 - [x] Truncated games summary
 - [x] Periodic evaluation during training
-- [ ] Best-checkpoint selection
+- [x] Normalized evaluation scoring
+- [x] Best-checkpoint selection
 
 ### Persistence
 
 - [x] Agent state serialization
 - [x] Replay-buffer state serialization
 - [x] Combined training checkpoints
+- [x] Optional checkpoint metadata
 - [x] Periodic `latest.pt` saves
 - [x] Automatic loading of `latest.pt`
+- [x] Persistent `best.pt` evaluation score
+- [x] Automatic replacement of `best.pt` after improvement
 
 ### Code organization
 
@@ -73,6 +77,24 @@ self-play or large-scale experiments.
 
 ---
 
+## Model selection
+
+Evaluation performance is normalized using:
+
+`(wins + 0.5 * draws) / episodes`
+
+A win is worth 1 point, a draw 0.5 points, and a loss or truncated game
+0 points.
+
+`latest.pt` represents the most recent resumable training state.
+
+`best.pt` represents the highest evaluation score observed so far.
+
+A new evaluation replaces `best.pt` only when its score is strictly
+greater than the stored best score.
+
+---
+
 ## Current limitations
 
 - Only White is controlled by the DQN agent.
@@ -80,12 +102,15 @@ self-play or large-scale experiments.
 - Self-play is not implemented.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not maintain a global lifetime episode counter.
-- Evaluation results do not yet determine which checkpoint is retained
-  as the best model.
+- Evaluation currently measures performance only against RandomAgent.
+- Evaluation scores may vary because evaluation uses a finite sample of
+  games.
 
 ---
 
 ## Next milestone
 
-Define how evaluation performance is scored and use that score to retain
-the best-performing checkpoint separately from `latest.pt`.
+Decide how training should support the DQN playing both White and Black.
+
+Before implementing self-play, define how rewards and board state should
+be represented from the agent's perspective.

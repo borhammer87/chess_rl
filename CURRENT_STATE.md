@@ -3,7 +3,7 @@
 ## Status
 
 The project currently contains a complete DQN training, evaluation, and
-resumable checkpoint workflow.
+checkpoint-selection workflow.
 
 Implemented components:
 
@@ -23,21 +23,21 @@ Implemented components:
 - Console progress reporting
 - Evaluation against RandomAgent
 - Periodic evaluation during training
+- Evaluation scoring
 - Periodic checkpointing
 - Training checkpoint loading
 - Replay-buffer persistence
+- Best-checkpoint selection
 
 ## Training package structure
 
-Training responsibilities have been separated into focused modules:
+Training responsibilities are separated into focused modules:
 
 - `results.py` — training and evaluation result data structures.
 - `episodes.py` — step, episode, and replay-training operations.
-- `checkpoint.py` — resumable training-state persistence.
+- `checkpoint.py` — training-state persistence and checkpoint metadata.
 - `train_dqn.py` — multi-episode workflow, evaluation scheduling,
-  summaries, and main program execution.
-
-This refactor changed structure without changing training behavior.
+  model selection, summaries, and main program execution.
 
 ## Current training metrics
 
@@ -52,8 +52,18 @@ This refactor changed structure without changing training behavior.
 - Draws
 - Losses
 - Truncated games
+- Normalized evaluation score
+
+Evaluation score is calculated as:
+
+`(wins + 0.5 * draws) / episodes`
+
+Wins are worth 1 point, draws 0.5 points, and losses or truncated games
+0 points.
 
 ## Current checkpoint state
+
+Training checkpoints can preserve:
 
 - Policy network
 - Target network
@@ -61,19 +71,31 @@ This refactor changed structure without changing training behavior.
 - Epsilon
 - Replay-buffer capacity
 - Replay-buffer transitions
+- Optional checkpoint metadata
+
+Two checkpoint roles currently exist:
+
+- `checkpoints/latest.pt` — most recent resumable training state.
+- `checkpoints/best.pt` — best evaluation score observed so far.
+
+`best.pt` stores its evaluation score as checkpoint metadata so model
+selection can continue correctly after restarting the program.
 
 ## Current workflow
 
 Running the training module:
 
 1. Creates the environment, agent, opponent, and replay buffer.
-2. Loads `checkpoints/latest.pt` when available.
-3. Runs multi-episode training.
-4. Reports progress during training.
-5. Synchronizes the target network periodically.
-6. Saves `latest.pt` periodically through a checkpoint callback.
-7. Evaluates the current policy periodically through an evaluation callback.
-8. Prints an aggregated training summary.
+2. Reads the previous best evaluation score from `best.pt` when available.
+3. Loads `latest.pt` when available to resume training.
+4. Runs multi-episode training.
+5. Reports progress during training.
+6. Synchronizes the target network periodically.
+7. Saves `latest.pt` periodically through a checkpoint callback.
+8. Evaluates the current policy periodically.
+9. Calculates a normalized evaluation score.
+10. Replaces `best.pt` only when the new score is strictly better.
+11. Prints an aggregated training summary.
 
 ## Current limitations
 
@@ -84,16 +106,18 @@ Running the training module:
 - Checkpoints do not store a global lifetime episode counter.
 - Checkpoint compatibility currently assumes compatible code and
   hyperparameter configuration.
-- Evaluation results are reported but are not yet used to select checkpoints.
+- Evaluation currently uses only RandomAgent as the benchmark.
+- Evaluation scores may be noisy because they are calculated from a
+  limited number of games.
 
 ## Current focus
 
-Periodic evaluation is now integrated into the training workflow.
-
-The next development step is to use evaluation results to distinguish
-the latest training state from the best-performing policy.
+The training, evaluation, persistence, and best-model selection workflow
+is now complete for the current DQN-versus-RandomAgent stage.
 
 ## Next milestone
 
-Define a model-selection criterion and implement `best.pt` checkpoint
-selection using the existing evaluation workflow.
+Decide how the agent should support both White and Black before moving
+toward self-play.
+
+This requires revisiting reward perspective and state representation.
