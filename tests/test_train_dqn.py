@@ -1091,3 +1091,346 @@ def test_score_evaluation_rejects_zero_episodes():
         match="at least one episode",
     ):
         score_evaluation(evaluation)
+
+def test_main_saves_best_checkpoint_after_evaluation(
+    monkeypatch,
+):
+    saved_checkpoints = []
+
+    def fake_exists(self):
+        return False
+
+    def fake_save_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+        metadata=None,
+    ):
+        saved_checkpoints.append(
+            {
+                "path": path,
+                "metadata": metadata,
+            }
+        )
+
+    def fake_evaluate_against_random(
+        env,
+        agent,
+        opponent,
+        episodes,
+        max_agent_steps,
+    ):
+        return EvaluationSummary(
+            episodes=4,
+            wins=2,
+            draws=1,
+            losses=1,
+            truncated=0,
+        )
+
+    def fake_train_against_random(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        episodes,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        target_update_frequency,
+        progress_callback,
+        checkpoint_frequency,
+        checkpoint_callback,
+        evaluation_frequency,
+        evaluation_callback,
+    ):
+        evaluation_callback(
+            evaluation_frequency,
+            agent,
+        )
+
+        return [
+            VsRandomEpisodeResult(
+                agent_steps=1,
+                total_plies=2,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=agent.epsilon,
+                replay_size=0,
+            )
+        ]
+
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        fake_exists,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "save_training_checkpoint",
+        fake_save_training_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "evaluate_against_random",
+        fake_evaluate_against_random,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_random",
+        fake_train_against_random,
+    )
+
+    main()
+
+    best_checkpoints = [
+        checkpoint
+        for checkpoint in saved_checkpoints
+        if checkpoint["path"].endswith("best.pt")
+    ]
+
+    assert len(best_checkpoints) == 1
+    assert best_checkpoints[0]["metadata"] == {
+        "evaluation_score": 0.625,
+    }
+
+def test_main_replaces_best_checkpoint_when_score_improves(
+    monkeypatch,
+):
+    saved_checkpoints = []
+
+    def fake_exists(self):
+        return self.name == "best.pt"
+
+    def fake_load_checkpoint_metadata(path):
+        return {
+            "evaluation_score": 0.5,
+        }
+
+    def fake_save_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+        metadata=None,
+    ):
+        saved_checkpoints.append(
+            {
+                "path": path,
+                "metadata": metadata,
+            }
+        )
+
+    def fake_evaluate_against_random(
+        env,
+        agent,
+        opponent,
+        episodes,
+        max_agent_steps,
+    ):
+        return EvaluationSummary(
+            episodes=4,
+            wins=2,
+            draws=1,
+            losses=1,
+            truncated=0,
+        )
+
+    def fake_train_against_random(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        episodes,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        target_update_frequency,
+        progress_callback,
+        checkpoint_frequency,
+        checkpoint_callback,
+        evaluation_frequency,
+        evaluation_callback,
+    ):
+        evaluation_callback(
+            evaluation_frequency,
+            agent,
+        )
+
+        return [
+            VsRandomEpisodeResult(
+                agent_steps=1,
+                total_plies=2,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=agent.epsilon,
+                replay_size=0,
+            )
+        ]
+
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        fake_exists,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "load_checkpoint_metadata",
+        fake_load_checkpoint_metadata,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "save_training_checkpoint",
+        fake_save_training_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "evaluate_against_random",
+        fake_evaluate_against_random,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_random",
+        fake_train_against_random,
+    )
+
+    main()
+
+    best_checkpoints = [
+        checkpoint
+        for checkpoint in saved_checkpoints
+        if checkpoint["path"].endswith("best.pt")
+    ]
+
+    assert len(best_checkpoints) == 1
+    assert best_checkpoints[0]["metadata"] == {
+        "evaluation_score": 0.625,
+    }
+
+def test_main_keeps_best_checkpoint_when_score_does_not_improve(
+    monkeypatch,
+):
+    saved_checkpoints = []
+
+    def fake_exists(self):
+        return self.name == "best.pt"
+
+    def fake_load_checkpoint_metadata(path):
+        return {
+            "evaluation_score": 0.75,
+        }
+
+    def fake_save_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+        metadata=None,
+    ):
+        saved_checkpoints.append(
+            {
+                "path": path,
+                "metadata": metadata,
+            }
+        )
+
+    def fake_evaluate_against_random(
+        env,
+        agent,
+        opponent,
+        episodes,
+        max_agent_steps,
+    ):
+        return EvaluationSummary(
+            episodes=4,
+            wins=2,
+            draws=1,
+            losses=1,
+            truncated=0,
+        )
+
+    def fake_train_against_random(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        episodes,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        target_update_frequency,
+        progress_callback,
+        checkpoint_frequency,
+        checkpoint_callback,
+        evaluation_frequency,
+        evaluation_callback,
+    ):
+        evaluation_callback(
+            evaluation_frequency,
+            agent,
+        )
+
+        return [
+            VsRandomEpisodeResult(
+                agent_steps=1,
+                total_plies=2,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=agent.epsilon,
+                replay_size=0,
+            )
+        ]
+
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        fake_exists,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "load_checkpoint_metadata",
+        fake_load_checkpoint_metadata,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "save_training_checkpoint",
+        fake_save_training_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "evaluate_against_random",
+        fake_evaluate_against_random,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_random",
+        fake_train_against_random,
+    )
+
+    main()
+
+    best_checkpoints = [
+        checkpoint
+        for checkpoint in saved_checkpoints
+        if checkpoint["path"].endswith("best.pt")
+    ]
+
+    assert best_checkpoints == []
