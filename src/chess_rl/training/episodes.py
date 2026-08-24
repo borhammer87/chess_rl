@@ -285,7 +285,7 @@ def run_dqn_vs_random_episode(
         final_info = info
 
     while not env.done and agent_steps < max_agent_steps:
-        # The DQN currently plays only as White.
+        # The DQN must move when it is the agent's turn.
         if env.board.turn != agent_color:
             raise RuntimeError(
                 "Expected agent color to move at the start "
@@ -313,7 +313,7 @@ def run_dqn_vs_random_episode(
         total_plies += 1
         final_info = info
 
-        # If White ended the game, there is no opponent response.
+        # If the DQN agent ended the game, there is no opponent response.
         if done:
             agent_reward = reward_for_color(
                 reward,
