@@ -461,11 +461,11 @@ def main() -> None:
     ) -> None:
         nonlocal best_score
 
-        evaluation = evaluate_against_random(
+        evaluation = evaluate_against_random_both_colors(
             env=env,
             agent=agent,
             opponent=opponent,
-            episodes=20,
+            episodes_per_color=10,
             max_agent_steps=150,
         )
 
@@ -529,6 +529,7 @@ def main() -> None:
         checkpoint_callback=save_checkpoint_callback,
         evaluation_frequency=25,
         evaluation_callback=evaluation_callback,
+        alternate_colors=True,
     )
 
     summary = summarize_training(results)

@@ -510,6 +510,7 @@ def test_main_runs_multi_episode_training(
         checkpoint_callback,
         evaluation_frequency,
         evaluation_callback,
+        alternate_colors,
     ):
         received_training_args["episodes"] = episodes
         received_training_args["max_agent_steps"] = max_agent_steps
@@ -526,6 +527,9 @@ def test_main_runs_multi_episode_training(
         )
         received_training_args["evaluation_callback"] = (
             evaluation_callback
+        )
+        received_training_args["alternate_colors"] = (
+            alternate_colors
         )
 
         checkpoint_callback(
@@ -577,6 +581,7 @@ def test_main_runs_multi_episode_training(
     assert "Replay buffer size: 100" in output
     assert len(saved_paths) == 1
     assert saved_paths[0].endswith("latest.pt")
+    assert received_training_args["alternate_colors"] is True
 
 def test_train_against_random_reports_progress(
     monkeypatch,
@@ -1128,11 +1133,11 @@ def test_main_saves_best_checkpoint_after_evaluation(
             }
         )
 
-    def fake_evaluate_against_random(
+    def fake_evaluate_against_random_both_colors(
         env,
         agent,
         opponent,
-        episodes,
+        episodes_per_color,
         max_agent_steps,
     ):
         return EvaluationSummary(
@@ -1158,6 +1163,7 @@ def test_main_saves_best_checkpoint_after_evaluation(
         checkpoint_callback,
         evaluation_frequency,
         evaluation_callback,
+        alternate_colors,
     ):
         evaluation_callback(
             evaluation_frequency,
@@ -1192,8 +1198,8 @@ def test_main_saves_best_checkpoint_after_evaluation(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "evaluate_against_random",
-        fake_evaluate_against_random,
+        "evaluate_against_random_both_colors",
+        fake_evaluate_against_random_both_colors,
     )
 
     monkeypatch.setattr(
@@ -1241,11 +1247,11 @@ def test_main_replaces_best_checkpoint_when_score_improves(
             }
         )
 
-    def fake_evaluate_against_random(
+    def fake_evaluate_against_random_both_colors(
         env,
         agent,
         opponent,
-        episodes,
+        episodes_per_color,
         max_agent_steps,
     ):
         return EvaluationSummary(
@@ -1271,6 +1277,7 @@ def test_main_replaces_best_checkpoint_when_score_improves(
         checkpoint_callback,
         evaluation_frequency,
         evaluation_callback,
+        alternate_colors,
     ):
         evaluation_callback(
             evaluation_frequency,
@@ -1311,8 +1318,8 @@ def test_main_replaces_best_checkpoint_when_score_improves(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "evaluate_against_random",
-        fake_evaluate_against_random,
+        "evaluate_against_random_both_colors",
+        fake_evaluate_against_random_both_colors,
     )
 
     monkeypatch.setattr(
@@ -1360,11 +1367,11 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
             }
         )
 
-    def fake_evaluate_against_random(
+    def fake_evaluate_against_random_both_colors(
         env,
         agent,
         opponent,
-        episodes,
+        episodes_per_color,
         max_agent_steps,
     ):
         return EvaluationSummary(
@@ -1390,6 +1397,7 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
         checkpoint_callback,
         evaluation_frequency,
         evaluation_callback,
+        alternate_colors,
     ):
         evaluation_callback(
             evaluation_frequency,
@@ -1429,9 +1437,8 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
     )
 
     monkeypatch.setattr(
-        train_dqn_module,
-        "evaluate_against_random",
-        fake_evaluate_against_random,
+        train_dqn_module,        "evaluate_against_random_both_colors",
+        fake_evaluate_against_random_both_colors,
     )
 
     monkeypatch.setattr(
