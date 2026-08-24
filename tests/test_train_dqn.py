@@ -1522,3 +1522,66 @@ def test_train_against_random_rejects_invalid_agent_color():
             episodes=1,
             agent_color=None,
         )
+
+def test_evaluate_against_random_counts_results_from_black_perspective(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=0.4)
+    opponent = RandomAgent()
+
+    fake_results = iter([
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=1.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "0-1"},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=10,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=-1.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "1-0"},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=20,
+        ),
+    ])
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        agent_color,
+    ):
+        return next(fake_results)
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    summary = evaluate_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=2,
+        agent_color=chess.BLACK,
+    )
+
+    assert summary.wins == 1
+    assert summary.draws == 0
+    assert summary.losses == 1
+    assert summary.truncated == 0

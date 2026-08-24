@@ -278,8 +278,15 @@ def evaluate_against_random(
     finally:
         agent.epsilon = original_epsilon
 
+    if agent_color == chess.WHITE:
+        win_result = "1-0"
+        loss_result = "0-1"
+    else:
+        win_result = "0-1"
+        loss_result = "1-0"
+
     wins = sum(
-        result.final_info.get("result") == "1-0"
+        result.final_info.get("result") == win_result
         for result in results
     )
 
@@ -289,7 +296,7 @@ def evaluate_against_random(
     )
 
     losses = sum(
-        result.final_info.get("result") == "0-1"
+        result.final_info.get("result") == loss_result
         for result in results
     )
 
