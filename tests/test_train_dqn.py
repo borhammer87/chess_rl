@@ -1585,3 +1585,60 @@ def test_evaluate_against_random_counts_results_from_black_perspective(
     assert summary.draws == 0
     assert summary.losses == 1
     assert summary.truncated == 0
+
+def test_train_against_random_alternates_agent_color(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    received_colors = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        agent_color,
+    ):
+        received_colors.append(agent_color)
+
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=4,
+        agent_color=chess.WHITE,
+        alternate_colors=True,
+    )
+
+    assert received_colors == [
+        chess.WHITE,
+        chess.BLACK,
+        chess.WHITE,
+        chess.BLACK,
+    ]

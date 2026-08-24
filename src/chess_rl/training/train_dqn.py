@@ -44,6 +44,7 @@ def train_against_random(
         None,
     ] | None = None,
     agent_color: chess.Color = chess.WHITE,
+    alternate_colors: bool = False,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -80,7 +81,9 @@ def train_against_random(
             should be performed. It receives the completed episode count
             and the agent.
         agent_color: Color played by the DQN agent. 
-
+        alternate_colors: If True, alternate the DQN color after each episode,
+        starting with agent_color.
+        
     Returns:
         One result for each completed or truncated episode.
     """
@@ -137,6 +140,14 @@ def train_against_random(
     results: list[VsRandomEpisodeResult] = []
 
     for episode_index in range(episodes):
+        if alternate_colors and episode_index % 2 == 1:
+            episode_agent_color = (
+                chess.BLACK
+                if agent_color == chess.WHITE
+                else chess.WHITE
+            )
+        else:
+            episode_agent_color = agent_color
         result = run_dqn_vs_random_episode(
             env=env,
             agent=agent,
@@ -145,7 +156,7 @@ def train_against_random(
             max_agent_steps=max_agent_steps,
             batch_size=batch_size,
             min_replay_size=min_replay_size,
-            agent_color=agent_color,
+            agent_color=episode_agent_color,
         )
 
         results.append(result)
