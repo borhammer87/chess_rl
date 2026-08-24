@@ -16,6 +16,7 @@ from chess_rl.training.train_dqn import (
     summarize_training,
     train_against_random,
     score_evaluation,
+    evaluate_against_random_both_colors,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
 
@@ -1642,3 +1643,79 @@ def test_train_against_random_alternates_agent_color(
         chess.WHITE,
         chess.BLACK,
     ]
+
+def test_evaluate_against_random_both_colors_combines_results(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    received_colors = []
+
+    def fake_evaluate_against_random(
+        env,
+        agent,
+        opponent,
+        episodes,
+        max_agent_steps,
+        agent_color,
+    ):
+        received_colors.append(agent_color)
+
+        if agent_color == chess.WHITE:
+            return EvaluationSummary(
+                episodes=2,
+                wins=1,
+                draws=1,
+                losses=0,
+                truncated=0,
+            )
+
+        return EvaluationSummary(
+            episodes=2,
+            wins=0,
+            draws=1,
+            losses=1,
+            truncated=0,
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "evaluate_against_random",
+        fake_evaluate_against_random,
+    )
+
+    summary = evaluate_against_random_both_colors(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes_per_color=2,
+    )
+
+    assert received_colors == [
+        chess.WHITE,
+        chess.BLACK,
+    ]
+
+    assert summary.episodes == 4
+    assert summary.wins == 1
+    assert summary.draws == 2
+    assert summary.losses == 1
+    assert summary.truncated == 0
+
+def test_evaluate_against_random_both_colors_rejects_zero_episodes():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    with pytest.raises(
+        ValueError,
+        match="episodes_per_color must be greater than zero",
+    ):
+        evaluate_against_random_both_colors(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            episodes_per_color=0,
+        )
