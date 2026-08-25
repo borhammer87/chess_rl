@@ -3,7 +3,9 @@
 ## Status
 
 The project currently contains a complete DQN training, evaluation, and
-checkpoint-selection workflow.
+checkpoint-selection workflow against RandomAgent.
+
+The DQN can train and evaluate as both White and Black.
 
 Implemented components:
 
@@ -21,7 +23,11 @@ Implemented components:
 - Training metrics collection
 - Training summary generation
 - Console progress reporting
-- Evaluation against RandomAgent
+- Agent-perspective rewards
+- Training as White and Black
+- Alternating colors between training episodes
+- Evaluation against RandomAgent as White and Black
+- Balanced two-color evaluation
 - Periodic evaluation during training
 - Evaluation scoring
 - Periodic checkpointing
@@ -34,17 +40,52 @@ Implemented components:
 Training responsibilities are separated into focused modules:
 
 - `results.py` — training and evaluation result data structures.
-- `episodes.py` — step, episode, and replay-training operations.
+- `episodes.py` — step, episode, reward-perspective, and replay-training
+  operations.
 - `checkpoint.py` — training-state persistence and checkpoint metadata.
-- `train_dqn.py` — multi-episode workflow, evaluation scheduling,
-  model selection, summaries, and main program execution.
+- `train_dqn.py` — multi-episode workflow, color alternation, evaluation
+  scheduling, model selection, summaries, and main program execution.
 
-## Current training metrics
+## Color and reward semantics
 
-- Episode reward
-- Training losses
-- Final epsilon
-- Replay buffer size
+`ChessEnv` keeps a canonical White-perspective reward:
+
+- White win: `+1`
+- Black win: `-1`
+- Draw or unfinished game: `0`
+
+The training layer converts this reward to the DQN agent's perspective.
+
+Therefore:
+
+- Positive reward always represents a good outcome for the DQN.
+- Negative reward always represents a bad outcome for the DQN.
+- Draws remain neutral.
+
+The board encoder remains absolute:
+
+- Channels 0–5 represent White pieces.
+- Channels 6–11 represent Black pieces.
+- The board is not rotated when the DQN plays Black.
+
+## Current training workflow
+
+Running the training module:
+
+1. Creates the environment, agent, opponent, and replay buffer.
+2. Reads the previous best evaluation score from `best.pt` when available.
+3. Loads `latest.pt` when available to resume training.
+4. Runs multi-episode training.
+5. Alternates the DQN between White and Black.
+6. Stores rewards from the DQN's perspective.
+7. Reports progress during training.
+8. Synchronizes the target network periodically.
+9. Saves `latest.pt` periodically.
+10. Evaluates the current policy periodically.
+11. Evaluates equally as White and Black.
+12. Calculates a normalized evaluation score.
+13. Replaces `best.pt` only when the new score is strictly better.
+14. Prints an aggregated training summary.
 
 ## Current evaluation metrics
 
@@ -54,14 +95,19 @@ Training responsibilities are separated into focused modules:
 - Truncated games
 - Normalized evaluation score
 
-Evaluation score is calculated as:
+Evaluation score is:
 
 `(wins + 0.5 * draws) / episodes`
 
-Wins are worth 1 point, draws 0.5 points, and losses or truncated games
-0 points.
+Periodic model-selection evaluation currently uses:
 
-## Current checkpoint state
+- 10 games as White
+- 10 games as Black
+
+## Current checkpoint roles
+
+- `checkpoints/latest.pt` — most recent resumable training state.
+- `checkpoints/best.pt` — best balanced evaluation score observed so far.
 
 Training checkpoints can preserve:
 
@@ -73,51 +119,31 @@ Training checkpoints can preserve:
 - Replay-buffer transitions
 - Optional checkpoint metadata
 
-Two checkpoint roles currently exist:
+## Tests
 
-- `checkpoints/latest.pt` — most recent resumable training state.
-- `checkpoints/best.pt` — best evaluation score observed so far.
-
-`best.pt` stores its evaluation score as checkpoint metadata so model
-selection can continue correctly after restarting the program.
-
-## Current workflow
-
-Running the training module:
-
-1. Creates the environment, agent, opponent, and replay buffer.
-2. Reads the previous best evaluation score from `best.pt` when available.
-3. Loads `latest.pt` when available to resume training.
-4. Runs multi-episode training.
-5. Reports progress during training.
-6. Synchronizes the target network periodically.
-7. Saves `latest.pt` periodically through a checkpoint callback.
-8. Evaluates the current policy periodically.
-9. Calculates a normalized evaluation score.
-10. Replaces `best.pt` only when the new score is strictly better.
-11. Prints an aggregated training summary.
+The repository currently defines 116 tests covering the environment,
+encoding, DQN agent, replay buffer, episode execution, training workflow,
+evaluation, checkpointing, reward perspective, and color alternation.
 
 ## Current limitations
 
-- The DQN currently plays only White.
-- Black is always controlled by RandomAgent.
+- The opponent is still RandomAgent.
 - Self-play is not implemented.
+- Board encoding remains absolute rather than agent-relative.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not store a global lifetime episode counter.
-- Checkpoint compatibility currently assumes compatible code and
-  hyperparameter configuration.
+- Checkpoint compatibility assumes compatible code and hyperparameters.
 - Evaluation currently uses only RandomAgent as the benchmark.
-- Evaluation scores may be noisy because they are calculated from a
-  limited number of games.
+- Evaluation scores may be noisy because they use a finite number of games.
 
 ## Current focus
 
-The training, evaluation, persistence, and best-model selection workflow
-is now complete for the current DQN-versus-RandomAgent stage.
+The DQN-versus-RandomAgent stage now supports balanced White/Black
+training and evaluation.
 
 ## Next milestone
 
-Decide how the agent should support both White and Black before moving
-toward self-play.
+Design the first self-play workflow.
 
-This requires revisiting reward perspective and state representation.
+Before implementation, determine how two DQN-controlled sides should
+generate experience and how opponent-network updates should be managed.

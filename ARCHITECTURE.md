@@ -10,6 +10,7 @@ ChessEnv
 → Legal Mask
 → decode_legal_action
 → ChessEnv.step
+→ reward_for_color
 → ReplayBuffer
 → train_step
 
@@ -29,17 +30,22 @@ Defines the data structures returned by training and evaluation:
 
 ### `episodes.py`
 
-Contains the lower-level episode interaction and learning operations:
+Contains lower-level interaction and learning operations:
 
+- `reward_for_color()`
 - `run_single_step()`
 - `run_and_store_step()`
 - `train_from_replay()`
 - `run_episode()`
 - `run_dqn_vs_random_episode()`
 
-This module answers the question:
+`run_dqn_vs_random_episode()` supports the DQN playing either White or
+Black.
 
-> What happens inside an episode?
+When the DQN plays Black, RandomAgent performs the opening White move
+before the first DQN decision.
+
+Replay transitions store rewards from the DQN's perspective.
 
 ### `train_dqn.py`
 
@@ -47,102 +53,101 @@ Coordinates complete training runs.
 
 Its responsibilities include:
 
-- Multi-episode training.
-- Progress callbacks.
-- Target-network synchronization.
-- Checkpoint scheduling.
-- Evaluation scheduling.
-- Training summaries.
-- Main program execution.
-
-This module answers the question:
-
-> How is a complete training session coordinated?
+- Multi-episode training
+- Alternating DQN color
+- Progress callbacks
+- Target-network synchronization
+- Checkpoint scheduling
+- Evaluation scheduling
+- Balanced White/Black evaluation
+- Training summaries
+- Best-model selection
+- Main program execution
 
 ### `checkpoint.py`
 
 Composes and restores resumable training checkpoints.
 
-A training checkpoint contains state owned by:
+## Color model
 
-- `DQNAgent`
-- `ReplayBuffer`
+`ChessEnv` remains color-neutral from the training architecture's point
+of view and returns canonical White-perspective rewards.
+
+The training layer converts rewards according to the color controlled by
+the DQN.
+
+The same DQN network is used for White and Black.
+
+Board encoding remains absolute:
+
+- White piece channels remain White.
+- Black piece channels remain Black.
+- The board is not rotated when the DQN plays Black.
 
 ## Training workflow
 
 `train_against_random()` coordinates multi-episode training.
 
-The same agent and replay buffer are reused across episodes.
+It supports:
 
-After configured numbers of completed episodes, the workflow can trigger:
+- fixed-color training
+- alternating-color training
 
-- Progress reporting.
-- Target-network synchronization.
-- Checkpoint callbacks.
-- Evaluation callbacks.
+The current `main()` configuration alternates:
 
-The DQN currently plays White and RandomAgent plays Black.
+White
+→ Black
+→ White
+→ Black
+→ ...
+
+The same agent and replay buffer are reused across all episodes.
 
 ## Evaluation
 
-Evaluation uses the existing DQN-versus-RandomAgent episode infrastructure.
+`evaluate_against_random()` evaluates one selected DQN color.
+
+Results are interpreted from the DQN's perspective.
+
+`evaluate_against_random_both_colors()` evaluates equally as White and
+Black and combines the results.
+
+The current periodic evaluation uses 10 games per color.
 
 During evaluation:
 
-- The agent uses a greedy policy.
-- Training is disabled.
-- Wins, draws, losses, and truncated games are collected.
-- The previous epsilon value is restored afterwards.
-
-`main()` currently schedules evaluation periodically during training. Evaluation results are converted into a normalized score used for best-checkpoint selection.
+- epsilon is temporarily set to zero
+- training is disabled
+- the training replay buffer is not modified
+- wins, draws, losses, and truncations are collected
+- epsilon is restored afterwards
 
 ## Persistence
 
-Persistence responsibilities are separated between components.
-
 ### DQNAgent
 
-`DQNAgent` owns:
+Owns:
 
 - Policy network
 - Target network
 - Optimizer
 - Epsilon
 
-It exposes:
-
-- `state_dict()`
-- `load_state_dict()`
-
 ### ReplayBuffer
 
-`ReplayBuffer` owns:
+Owns:
 
 - Capacity
 - Stored transitions
 
-It exposes:
+### Training checkpoints
 
-- `state_dict()`
-- `load_state_dict()`
+`checkpoint.py` combines both states and optional metadata.
 
-### Training checkpoint
+Two checkpoint roles exist:
 
-`checkpoint.py` combines the agent and replay-buffer states.
-
-Checkpoints can also contain optional metadata that does not belong to
-either stateful component.
-
-The training workflow decides when checkpoint callbacks occur.
-
-`main()` assigns different semantic roles to two checkpoint paths:
-
-- `checkpoints/latest.pt` stores the most recent resumable training state.
-- `checkpoints/best.pt` stores the training state with the highest
-  evaluation score observed so far.
-
-The evaluation score stored in `best.pt` metadata allows best-model
-selection to continue across program restarts.
+- `checkpoints/latest.pt` — latest resumable training state
+- `checkpoints/best.pt` — highest balanced evaluation score
 
 The model-selection score is:
 
@@ -150,5 +155,5 @@ The model-selection score is:
 
 Losses and truncated games contribute zero points.
 
-`best.pt` is replaced only when a new evaluation score is strictly
-greater than the stored score.
+`best.pt` is replaced only when a new score is strictly greater than the
+stored score.

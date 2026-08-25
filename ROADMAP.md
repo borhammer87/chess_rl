@@ -27,18 +27,29 @@
 - [x] Load previous training state
 - [x] Replay-buffer persistence
 
-## Phase 4 — Evaluation
+## Phase 4 — Evaluation and balanced colors
 
 - [x] Evaluation against RandomAgent
 - [x] Integrate evaluation into the training workflow
 - [x] Evaluation scoring
 - [x] Best-checkpoint selection
-- [ ] Alternate playing White and Black
+- [x] Agent-perspective rewards
+- [x] DQN plays White
+- [x] DQN plays Black
+- [x] Alternate White and Black during training
+- [x] Balanced evaluation as White and Black
 
-## Phase 5 — Future work
+## Phase 5 — Self-play
 
-- [ ] Self-play
-- [ ] Stronger opponents
+- [ ] Design self-play architecture
+- [ ] Generate self-play episodes
+- [ ] Define opponent-network update policy
+- [ ] Evaluate self-play agents
+- [ ] Stronger opponent benchmarks
+
+## Phase 6 — Future work
+
 - [ ] Hyperparameter tuning
 - [ ] Long training experiments
+- [ ] Improved board representation
 - [ ] Version 1.0

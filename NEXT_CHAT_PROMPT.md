@@ -66,9 +66,16 @@ Training checkpoints currently preserve:
 - Epsilon
 - Replay-buffer capacity
 - Replay-buffer transitions
+- Agent-perspective rewards
+- DQN training as White and Black
+- Alternating White/Black training episodes
+- Balanced White/Black evaluation
 
-The DQN currently plays White and RandomAgent plays Black.
+The DQN currently alternates between White and Black against RandomAgent.
 
+Rewards stored in replay memory are expressed from the DQN's perspective.
+
+Board encoding remains absolute rather than agent-relative.
 ------------------------------------------------------------
 WORKFLOW
 ------------------------------------------------------------
@@ -87,9 +94,10 @@ NEXT OBJECTIVE
 
 The next recommended task is:
 
-Prepare the DQN training design to support the agent playing both White and Black.
+Design the first self-play training workflow.
 
-Before implementing self-play, determine how rewards and board state should be represented from the agent's perspective.
+Before implementing it, determine how the opponent side should be
+controlled and updated while experience is generated.
 
-Review the existing White-perspective reward semantics and board
-encoding before proposing code changes.
+Reuse the existing color, reward, replay, evaluation, and checkpoint
+infrastructure instead of duplicating game logic.

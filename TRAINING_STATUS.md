@@ -2,8 +2,8 @@
 
 ## Objective
 
-Build a robust DQN training and evaluation workflow before attempting
-self-play or large-scale experiments.
+Build a robust DQN training and evaluation workflow before moving to
+self-play and larger experiments.
 
 ---
 
@@ -19,9 +19,12 @@ self-play or large-scale experiments.
 ### Experience generation
 
 - [x] DQN plays White
-- [x] RandomAgent plays Black
+- [x] DQN plays Black
+- [x] RandomAgent plays the opposite color
+- [x] Alternate DQN color between training episodes
 - [x] Complete episodes
 - [x] Reward generation
+- [x] Agent-perspective reward conversion
 - [x] Transition storage
 
 ### Replay memory
@@ -29,7 +32,8 @@ self-play or large-scale experiments.
 - [x] ReplayBuffer
 - [x] Random replay sampling
 - [x] Minimum replay size before training
-- [x] Replay-buffer state persistence
+- [x] Replay-buffer persistence
+- [x] Experiences from White and Black games can share replay memory
 
 ### Learning
 
@@ -51,6 +55,9 @@ self-play or large-scale experiments.
 ### Evaluation
 
 - [x] Greedy policy evaluation
+- [x] White-perspective evaluation
+- [x] Black-perspective evaluation
+- [x] Balanced evaluation across both colors
 - [x] Wins / Draws / Losses
 - [x] Truncated games summary
 - [x] Periodic evaluation during training
@@ -77,40 +84,63 @@ self-play or large-scale experiments.
 
 ---
 
+## Reward perspective
+
+`ChessEnv` returns canonical White-perspective rewards.
+
+The training layer converts rewards using the DQN's current color.
+
+This guarantees:
+
+`positive reward = good for the DQN`
+
+regardless of whether the DQN is playing White or Black.
+
+---
+
+## Board perspective
+
+The board representation remains absolute.
+
+White and Black pieces always occupy their fixed encoder channels.
+
+The board is not rotated or color-normalized for the DQN.
+
+This decision keeps the current representation simple while allowing the
+same network to learn policies for both colors.
+
+---
+
 ## Model selection
+
+Periodic evaluation uses an equal number of games as White and Black.
 
 Evaluation performance is normalized using:
 
 `(wins + 0.5 * draws) / episodes`
 
-A win is worth 1 point, a draw 0.5 points, and a loss or truncated game
-0 points.
-
 `latest.pt` represents the most recent resumable training state.
 
-`best.pt` represents the highest evaluation score observed so far.
-
-A new evaluation replaces `best.pt` only when its score is strictly
-greater than the stored best score.
+`best.pt` represents the highest balanced evaluation score observed so
+far.
 
 ---
 
 ## Current limitations
 
-- Only White is controlled by the DQN agent.
-- Black is always played by RandomAgent.
+- RandomAgent remains the only opponent.
 - Self-play is not implemented.
+- Board encoding does not include castling rights, en passant state,
+  repetition state, or move counters.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not maintain a global lifetime episode counter.
 - Evaluation currently measures performance only against RandomAgent.
-- Evaluation scores may vary because evaluation uses a finite sample of
-  games.
 
 ---
 
 ## Next milestone
 
-Decide how training should support the DQN playing both White and Black.
+Design the first self-play workflow.
 
-Before implementing self-play, define how rewards and board state should
-be represented from the agent's perspective.
+The next architectural question is how to manage the policy controlling
+the opponent side while experience is generated for the learning agent.

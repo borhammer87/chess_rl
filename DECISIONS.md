@@ -559,3 +559,72 @@ training sessions.
 - The current score measures performance only against RandomAgent.
 - Future evaluation against stronger or multiple opponents may require
   revisiting the selection criterion.
+
+---
+
+## D-015 — Use agent-perspective rewards with absolute board encoding
+
+### Status
+
+Accepted
+
+### Decision
+
+`ChessEnv` continues to expose canonical rewards from White's
+perspective.
+
+The training layer converts those rewards to the color controlled by the
+DQN:
+
+- White DQN: keep the environment reward.
+- Black DQN: reverse the reward sign.
+
+Positive reward therefore always means a favorable outcome for the DQN.
+
+The board representation remains absolute.
+
+White and Black pieces retain their fixed channels, and the board is not
+rotated when the DQN plays Black.
+
+Training alternates the DQN between White and Black episodes.
+
+Periodic model-selection evaluation uses equal numbers of games as each
+color.
+
+### Reason
+
+The environment should represent chess outcomes independently from which
+participant is currently considered the learning agent.
+
+Reward conversion belongs to the training layer because that layer knows
+which color the DQN controls.
+
+Keeping an absolute board representation avoids introducing an
+additional transformation while the same network learns both colors.
+
+Balanced evaluation prevents `best.pt` from being selected based on
+performance with only one color.
+
+### Alternatives considered
+
+1. Make `ChessEnv` return rewards directly from the active agent's
+   perspective.
+2. Rotate the board and swap piece channels when the DQN plays Black.
+3. Train separate networks for White and Black.
+4. Continue training and evaluating only as White.
+
+These alternatives were rejected for the current stage because they
+either couple the environment to the training agent, introduce additional
+representation complexity, duplicate the model, or fail to prepare the
+agent for self-play.
+
+### Consequences
+
+- One DQN can learn from White and Black games.
+- Replay memory can contain experiences from both colors with consistent
+  reward semantics.
+- The network must learn color-dependent behavior from an absolute board
+  representation.
+- Future experiments may revisit agent-relative board normalization if
+  learning quality suggests it is beneficial.
+- Self-play can now be designed without first solving basic color support.

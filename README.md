@@ -4,8 +4,8 @@ Chess reinforcement-learning project using a CNN-based DQN.
 
 ## Current capabilities
 
-The project currently implements a complete DQN training, evaluation, and
-checkpoint workflow.
+The project currently implements a complete DQN training, evaluation,
+checkpointing, and balanced-color workflow.
 
 Implemented features:
 
@@ -21,7 +21,11 @@ Implemented features:
 - Training metrics collection.
 - Aggregated training summaries.
 - Console progress reporting.
+- DQN training as White and Black.
+- Alternating White/Black training episodes.
+- Agent-perspective rewards.
 - Greedy evaluation against RandomAgent.
+- Balanced evaluation as White and Black.
 - Periodic evaluation during training.
 - Periodic training checkpoints.
 - Automatic checkpoint loading.
@@ -34,6 +38,8 @@ Run:
 
 `python -m chess_rl.training.train_dqn`
 
+Training currently alternates the DQN between White and Black.
+
 The program uses:
 
 `checkpoints/latest.pt`
@@ -43,23 +49,23 @@ as the current resumable training checkpoint.
 If the checkpoint exists, the agent and replay buffer are restored before
 training continues.
 
-During training, progress is reported to the console and the latest
-training state is saved periodically.
-
 The program also uses:
 
 `checkpoints/best.pt`
 
-to retain the training state with the highest evaluation score observed so far.
+to retain the training state with the highest balanced evaluation score.
 
-The best score is stored as checkpoint metadata and is restored across program restarts.
+Periodic evaluation currently uses equal numbers of games as White and
+Black.
 
 ## Current limitations
 
-- The DQN currently plays only White.
-- RandomAgent always plays Black.
-- Self-play is not implemented yet.
+- RandomAgent is currently the only opponent.
+- Self-play is not implemented.
+- The board representation remains absolute rather than agent-relative.
+- Some chess state such as castling rights, en passant information,
+  repetition state, and move counters is not encoded.
 
 ## Next goal
 
-Extend the training design so the DQN can play both White and Black, preparing the project for self-play.
+Design and implement the first self-play training workflow.
