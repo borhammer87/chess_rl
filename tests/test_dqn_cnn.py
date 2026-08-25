@@ -5,12 +5,13 @@ import pytest
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.replay_buffer import Transition
-
+from chess_rl.models.dqn_cnn import DQNCNN
+from chess_rl.utils.board_encoder import BOARD_CHANNELS
 
 def test_agent_selects_action_in_valid_range():
     agent = DQNAgent()
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
     board = chess.Board()
 
     action = agent.select_action(
@@ -25,7 +26,7 @@ def test_agent_selects_action_in_valid_range():
 def test_random_exploration_selects_only_legal_actions():
     agent = DQNAgent(epsilon=1.0)
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
     board = chess.Board()
 
     legal_moves = list(board.legal_moves)
@@ -46,7 +47,7 @@ def test_random_exploration_selects_only_legal_actions():
 def test_greedy_policy_selects_only_legal_actions():
     agent = DQNAgent(epsilon=0.0)
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
     board = chess.Board()
 
     legal_moves = list(board.legal_moves)
@@ -66,7 +67,7 @@ def test_greedy_policy_selects_only_legal_actions():
 def test_select_action_rejects_empty_legal_move_list():
     agent = DQNAgent()
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     try:
         agent.select_action(
@@ -83,7 +84,7 @@ def test_select_action_rejects_empty_legal_move_list():
 def test_agent_train_step_returns_float():
     agent = DQNAgent()
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     batch = [
         Transition(
@@ -136,3 +137,17 @@ def test_epsilon_decay_respects_minimum():
     agent.decay_epsilon()
 
     assert agent.epsilon == 0.1
+
+def test_dqn_cnn_accepts_encoded_board_shape():
+    model = DQNCNN()
+
+    states = torch.zeros(
+        (2, BOARD_CHANNELS, 8, 8)
+    )
+
+    output = model(states)
+
+    assert output.shape == (
+        2,
+        4096,
+    )

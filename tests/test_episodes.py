@@ -22,7 +22,7 @@ from chess_rl.training.results import (
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
-
+from chess_rl.utils.board_encoder import BOARD_CHANNELS
 
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
@@ -48,8 +48,8 @@ def test_run_single_step_returns_correct_tensor_shapes():
         agent=agent,
     )
 
-    assert result.state.shape == (12, 8, 8)
-    assert result.next_state.shape == (12, 8, 8)
+    assert result.state.shape == (BOARD_CHANNELS, 8, 8)
+    assert result.next_state.shape == (BOARD_CHANNELS, 8, 8)
 
     assert isinstance(result.state, torch.Tensor)
     assert isinstance(result.next_state, torch.Tensor)
@@ -353,8 +353,8 @@ def test_dqn_vs_random_transition_spans_opponent_response():
 
     transition = replay_buffer.buffer[0]
 
-    assert transition.state.shape == (12, 8, 8)
-    assert transition.next_state.shape == (12, 8, 8)
+    assert transition.state.shape == (BOARD_CHANNELS, 8, 8)
+    assert transition.next_state.shape == (BOARD_CHANNELS, 8, 8)
 
     assert not torch.equal(
         transition.state,
@@ -409,7 +409,7 @@ def test_train_from_replay_waits_for_minimum_replay_size():
 
     initial_epsilon = agent.epsilon
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     for action in range(3):
         replay_buffer.push(
@@ -493,7 +493,7 @@ def test_train_from_replay_decays_epsilon_once_after_training(
     agent = DQNAgent()
     replay_buffer = ReplayBuffer(capacity=10)
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     for action in range(4):
         replay_buffer.push(

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from chess_rl.utils.board_encoder import BOARD_CHANNELS
 
 
 class DQNCNN(nn.Module):
@@ -9,7 +10,7 @@ class DQNCNN(nn.Module):
 
         self.features = nn.Sequential(
             nn.Conv2d(
-                in_channels=12,
+                in_channels=BOARD_CHANNELS,
                 out_channels=32,
                 kernel_size=3,
                 padding=1

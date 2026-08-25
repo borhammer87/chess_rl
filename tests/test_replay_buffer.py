@@ -1,5 +1,5 @@
 from chess_rl.utils.replay_buffer import ReplayBuffer
-
+from chess_rl.utils.board_encoder import BOARD_CHANNELS
 
 def test_buffer_starts_empty():
     buffer = ReplayBuffer(capacity=10)
@@ -14,8 +14,8 @@ from chess_rl.utils.replay_buffer import ReplayBuffer
 def test_push_adds_transition():
     buffer = ReplayBuffer(capacity=10)
 
-    state = torch.zeros((12, 8, 8))
-    next_state = torch.ones((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
+    next_state = torch.ones((BOARD_CHANNELS, 8, 8))
 
     buffer.push(
         state=state,
@@ -35,7 +35,7 @@ from chess_rl.utils.replay_buffer import ReplayBuffer
 def test_buffer_respects_capacity():
     buffer = ReplayBuffer(capacity=3)
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     for i in range(5):
         buffer.push(
@@ -56,7 +56,7 @@ from chess_rl.utils.replay_buffer import ReplayBuffer
 def test_sample_returns_correct_batch_size():
     buffer = ReplayBuffer(capacity=10)
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     for i in range(5):
         buffer.push(
@@ -80,7 +80,7 @@ from chess_rl.utils.replay_buffer import ReplayBuffer, Transition
 def test_sample_returns_transition_objects():
     buffer = ReplayBuffer(capacity=10)
 
-    state = torch.zeros((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
 
     buffer.push(
         state=state,
@@ -97,8 +97,8 @@ def test_sample_returns_transition_objects():
 def test_replay_buffer_restores_state():
     buffer = ReplayBuffer(capacity=10)
 
-    state = torch.zeros((12, 8, 8))
-    next_state = torch.ones((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
+    next_state = torch.ones((BOARD_CHANNELS, 8, 8))
 
     buffer.push(
         state=state,

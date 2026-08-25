@@ -7,7 +7,7 @@ from chess_rl.training.checkpoint import (
     load_checkpoint_metadata,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
-
+from chess_rl.utils.board_encoder import BOARD_CHANNELS
 
 def test_training_checkpoint_restores_agent_and_replay_buffer(
     tmp_path,
@@ -15,8 +15,8 @@ def test_training_checkpoint_restores_agent_and_replay_buffer(
     agent = DQNAgent(epsilon=0.4)
     replay_buffer = ReplayBuffer(capacity=10)
 
-    state = torch.zeros((12, 8, 8))
-    next_state = torch.ones((12, 8, 8))
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
+    next_state = torch.ones((BOARD_CHANNELS, 8, 8))
 
     replay_buffer.push(
         state=state,

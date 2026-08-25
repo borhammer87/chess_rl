@@ -1,7 +1,15 @@
 import chess
 import torch
-
-from chess_rl.utils.board_encoder import encode_board
+from chess_rl.utils.board_encoder import (
+    BLACK_KINGSIDE_CASTLING_CHANNEL,
+    BLACK_QUEENSIDE_CASTLING_CHANNEL,
+    BOARD_CHANNELS,
+    EN_PASSANT_CHANNEL,
+    TURN_CHANNEL,
+    WHITE_KINGSIDE_CASTLING_CHANNEL,
+    WHITE_QUEENSIDE_CASTLING_CHANNEL,
+    encode_board,
+)
 from chess_rl.utils.action_encoder import (
     encode_move,
     decode_move,
@@ -26,7 +34,11 @@ def test_board_encoder_shape():
 
     tensor = encode_board(board)
 
-    assert tensor.shape == (12, 8, 8)
+    assert tensor.shape == (
+        BOARD_CHANNELS,
+        8,
+        8,
+    )
 
 
 def test_board_encoder_is_tensor():
@@ -93,3 +105,88 @@ def test_decode_legal_action_rejects_non_legal_action():
             action=action,
             legal_moves=list(board.legal_moves),
         )
+
+def test_board_encoder_encodes_castling_rights():
+    board = chess.Board(
+        "r3k2r/8/8/8/8/8/8/R3K2R w Kq - 0 1"
+    )
+
+    tensor = encode_board(board)
+
+    assert (
+        tensor[
+            WHITE_KINGSIDE_CASTLING_CHANNEL
+        ].sum()
+        == 64
+    )
+
+    assert (
+        tensor[
+            WHITE_QUEENSIDE_CASTLING_CHANNEL
+        ].sum()
+        == 0
+    )
+
+    assert (
+        tensor[
+            BLACK_KINGSIDE_CASTLING_CHANNEL
+        ].sum()
+        == 0
+    )
+
+    assert (
+        tensor[
+            BLACK_QUEENSIDE_CASTLING_CHANNEL
+        ].sum()
+        == 64
+    )
+
+def test_board_encoder_encodes_en_passant_square():
+    board = chess.Board()
+
+    board.push(
+        chess.Move.from_uci("e2e4")
+    )
+
+    tensor = encode_board(board)
+
+    expected_square = chess.E3
+
+    row = 7 - chess.square_rank(
+        expected_square
+    )
+    col = chess.square_file(
+        expected_square
+    )
+
+    assert tensor[
+        EN_PASSANT_CHANNEL
+    ].sum() == 1
+
+    assert tensor[
+        EN_PASSANT_CHANNEL,
+        row,
+        col,
+    ] == 1
+
+def test_board_encoder_encodes_white_to_move():
+    board = chess.Board()
+
+    tensor = encode_board(board)
+
+    assert tensor[
+        TURN_CHANNEL
+    ].sum() == 64
+
+def test_board_encoder_encodes_black_to_move():
+    board = chess.Board()
+
+    board.push(
+        chess.Move.from_uci("e2e4")
+    )
+
+    tensor = encode_board(board)
+
+    assert tensor[
+        TURN_CHANNEL
+    ].sum() == 0
