@@ -27,6 +27,7 @@ logs/
 # RL checkpoints/models
 /models/
 /checkpoints/
+/checkpoints_v0.7_backup/
 /runs/
 
 # OS
