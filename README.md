@@ -7,6 +7,11 @@ Chess reinforcement-learning project using a CNN-based DQN.
 The project currently implements a complete DQN training, evaluation,
 checkpointing, and balanced-color workflow.
 
+- 18-channel board representation including turn, castling rights, and
+  en passant state.
+- 4272-action output space with explicit queen, rook, bishop, and knight
+  promotions.
+
 Implemented features:
 
 - Chess environment based on python-chess.
@@ -63,8 +68,7 @@ Black.
 - RandomAgent is currently the only opponent.
 - Self-play is not implemented.
 - The board representation remains absolute rather than agent-relative.
-- Some chess state such as castling rights, en passant information,
-  repetition state, and move counters is not encoded.
+- Some chess state such as repetition state, and move counters is not encoded.
 
 ## Next goal
 

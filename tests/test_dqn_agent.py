@@ -6,6 +6,7 @@ from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.replay_buffer import Transition
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
+from chess_rl.utils.action_encoder import ACTION_SIZE
 
 def test_agent_selects_action_in_valid_range():
     agent = DQNAgent()
@@ -19,7 +20,7 @@ def test_agent_selects_action_in_valid_range():
     )
 
     assert isinstance(action, int)
-    assert 0 <= action < 4096
+    assert 0 <= action < ACTION_SIZE
 
 
 def test_random_exploration_selects_only_legal_actions():

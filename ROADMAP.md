@@ -9,6 +9,19 @@
 - [x] DQN CNN
 - [x] Replay Buffer
 
+## Phase 1.1 -State and action completeness
+
+- [x] Encode side to move
+- [x] Encode White and Black castling rights
+- [x] Encode en passant target square
+- [x] Expand board representation from 12 to 18 channels
+- [x] Add explicit promotion actions
+- [x] Support queen promotion
+- [x] Support rook underpromotion
+- [x] Support bishop underpromotion
+- [x] Support knight underpromotion
+- [x] Expand action space from 4096 to 4272 actions
+
 ## Phase 2 — Training pipeline
 
 - [x] DQN vs RandomAgent

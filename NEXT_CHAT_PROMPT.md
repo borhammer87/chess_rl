@@ -101,3 +101,7 @@ controlled and updated while experience is generated.
 
 Reuse the existing color, reward, replay, evaluation, and checkpoint
 infrastructure instead of duplicating game logic.
+
+Checkpoints created before v0.8.0 are incompatible with the current
+network architecture because both the CNN input shape and action output
+size changed.

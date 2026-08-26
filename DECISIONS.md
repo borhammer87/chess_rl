@@ -36,7 +36,7 @@ The main goal of the project is to understand Deep Q-Learning clearly before int
 
 ### Status
 
-Accepted
+Superseded by D-016.
 
 ### Decision
 
@@ -69,7 +69,7 @@ This layout is directly compatible with PyTorch `Conv2d`.
 
 ### Status
 
-Accepted
+Superseded by D-017.
 
 ### Decision
 
@@ -104,7 +104,7 @@ The 4096-action encoding is simple, easy to test, and sufficient for building th
 
 ### Status
 
-Accepted for the initial DQN version
+Superseded by D-017.
 
 ### Decision
 
@@ -628,3 +628,79 @@ agent for self-play.
 - Future experiments may revisit agent-relative board normalization if
   learning quality suggests it is beneficial.
 - Self-play can now be designed without first solving basic color support.
+
+## D-016 — Expand board state representation to 18 channels
+
+### Status
+
+Accepted
+
+### Decision
+
+Expand the board representation from 12 to 18 channels.
+
+The first 12 channels retain the original piece representation.
+
+Six additional channels encode:
+
+- White kingside castling rights
+- White queenside castling rights
+- Black kingside castling rights
+- Black queenside castling rights
+- En passant target square
+- Side to move
+
+The board remains encoded from an absolute perspective and is not
+rotated according to the DQN's color.
+
+### Reason
+
+Piece placement alone does not uniquely describe a chess position.
+
+Positions with identical pieces can have different legal moves depending
+on castling rights, en passant state, and whose turn it is.
+
+These properties must therefore be visible to the DQN.
+
+### Consequences
+
+- The CNN input changes from 12 to 18 channels.
+- Positions with different castling, en passant, or turn state can now
+  receive different representations.
+- Checkpoints and replay buffers created with the previous 12-channel
+  representation are incompatible with the new architecture.
+
+  ## D-017 — Expand action space to represent promotions explicitly
+
+### Status
+
+Accepted
+
+### Decision
+
+Expand the fixed action space from 4096 to 4272 actions.
+
+Actions 0–4095 retain the original origin/destination encoding for
+non-promotion moves.
+
+Actions 4096–4271 encode the 176 possible promotion actions explicitly.
+
+Queen, rook, bishop, and knight promotions receive distinct action
+indices.
+
+### Reason
+
+The original 4096-action representation could not distinguish moves
+with the same origin and destination but different promotion pieces.
+
+Automatically choosing queen promotion prevented the DQN from learning
+underpromotions.
+
+### Consequences
+
+- The DQN can represent all four standard promotion choices.
+- The CNN output changes from 4096 to 4272 Q-values.
+- Existing legal-action masking continues to operate on encoded legal
+  actions.
+- Previous checkpoints are incompatible with the new output layer.
+- The provisional queen-promotion fallback is no longer required.

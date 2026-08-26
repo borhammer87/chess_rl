@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
-
+from chess_rl.utils.action_encoder import ACTION_SIZE
 
 class DQNCNN(nn.Module):
 
-    def __init__(self, action_size: int = 4096):
+    def __init__(self, action_size: int = ACTION_SIZE):
         super().__init__()
 
         self.features = nn.Sequential(

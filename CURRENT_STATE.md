@@ -34,6 +34,44 @@ Implemented components:
 - Training checkpoint loading
 - Replay-buffer persistence
 - Best-checkpoint selection
+- Extended 18-channel board representation
+- Side-to-move encoding
+- Castling-rights encoding
+- En passant target-square encoding
+- Explicit queen, rook, bishop, and knight promotion actions
+- 4272-action DQN output space
+
+## State representation
+
+The board encoder returns a tensor with shape:
+
+`(18, 8, 8)`
+
+Channels:
+
+- 0–5: White pieces
+- 6–11: Black pieces
+- 12: White kingside castling right
+- 13: White queenside castling right
+- 14: Black kingside castling right
+- 15: Black queenside castling right
+- 16: En passant target square
+- 17: Side to move
+
+The representation remains absolute: the board is not rotated when the
+DQN plays Black.
+
+## Action representation
+
+The DQN uses a fixed action space of 4272 actions.
+
+- Actions 0–4095 preserve the original `from_square * 64 + to_square`
+  encoding for non-promotion moves.
+- Actions 4096–4271 represent explicit promotion actions.
+- Queen, rook, bishop, and knight promotions have distinct action indices.
+
+The agent can therefore learn underpromotions rather than implicitly
+defaulting every promotion to a queen.
 
 ## Training package structure
 

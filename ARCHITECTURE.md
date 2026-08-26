@@ -3,16 +3,47 @@
 ## Core interaction flow
 
 ChessEnv
-→ BoardEncoder
-→ Tensor
+→ BoardEncoder (18 × 8 × 8)
 → DQNCNN
-→ 4096 Q-values
+→ 4272 Q-values
 → Legal Mask
 → decode_legal_action
 → ChessEnv.step
 → reward_for_color
 → ReplayBuffer
 → train_step
+
+## State representation
+
+The board encoder returns a tensor with shape:
+
+`(18, 8, 8)`
+
+Channels:
+
+- 0–5: White pieces
+- 6–11: Black pieces
+- 12: White kingside castling right
+- 13: White queenside castling right
+- 14: Black kingside castling right
+- 15: Black queenside castling right
+- 16: En passant target square
+- 17: Side to move
+
+The representation remains absolute: the board is not rotated when the
+DQN plays Black.
+
+## Action representation
+
+The DQN uses a fixed action space of 4272 actions.
+
+- Actions 0–4095 preserve the original `from_square * 64 + to_square`
+  encoding for non-promotion moves.
+- Actions 4096–4271 represent explicit promotion actions.
+- Queen, rook, bishop, and knight promotions have distinct action indices.
+
+The agent can therefore learn underpromotions rather than implicitly
+defaulting every promotion to a queen.
 
 ## Training package
 
