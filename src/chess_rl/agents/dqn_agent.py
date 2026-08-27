@@ -5,7 +5,7 @@ import chess
 
 from chess_rl.models.dqn_cnn import DQNCNN
 from chess_rl.utils.action_encoder import encode_move
-from chess_rl.utils.action_masking import mask_illegal_moves
+from chess_rl.utils.action_selection import select_greedy_action
 
 
 
@@ -65,18 +65,11 @@ class DQNAgent:
             random_move = random.choice(legal_moves)
             return encode_move(random_move)
 
-        # Exploitation: predict every action value.
-        with torch.no_grad():
-            q_values = self.policy_net(state.unsqueeze(0))[0]
-
-        # Prevent illegal actions from being selected.
-        masked_q_values = mask_illegal_moves(
-            q_values=q_values,
+        return select_greedy_action(
+            network=self.policy_net,
+            state=state,
             legal_moves=legal_moves,
         )
-
-        return int(torch.argmax(masked_q_values).item())
-
     # -------------------------
     # TRAINING STEP
     # -------------------------
