@@ -16,7 +16,7 @@ class Transition:
     reward: float
     next_state: torch.Tensor
     done: bool
-
+    next_legal_actions: list[int]
 
 class ReplayBuffer:
     """
@@ -40,6 +40,7 @@ class ReplayBuffer:
         reward: float,
         next_state: torch.Tensor,
         done: bool,
+        next_legal_actions: list[int]
     ) -> None:
         """
         Add a transition to the replay buffer.
@@ -51,6 +52,7 @@ class ReplayBuffer:
             reward=reward,
             next_state=next_state,
             done=done,
+            next_legal_actions=next_legal_actions,
         )
 
         self.buffer.append(transition)

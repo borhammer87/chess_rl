@@ -23,6 +23,7 @@ def test_push_adds_transition():
         reward=1.0,
         next_state=next_state,
         done=False,
+        next_legal_actions=[1, 2, 3],
     )
 
     assert len(buffer) == 1
@@ -44,6 +45,7 @@ def test_buffer_respects_capacity():
             reward=0.0,
             next_state=state,
             done=False,
+            next_legal_actions=[1, 2, 3],
         )
 
     assert len(buffer) == 3
@@ -65,6 +67,7 @@ def test_sample_returns_correct_batch_size():
             reward=0.0,
             next_state=state,
             done=False,
+            next_legal_actions=[1, 2, 3],
         )
 
     batch = buffer.sample(batch_size=3)
@@ -88,6 +91,7 @@ def test_sample_returns_transition_objects():
         reward=1.0,
         next_state=state,
         done=False,
+        next_legal_actions=[1, 2, 3],
     )
 
     batch = buffer.sample(batch_size=1)
@@ -106,6 +110,7 @@ def test_replay_buffer_restores_state():
         reward=1.0,
         next_state=next_state,
         done=False,
+        next_legal_actions=[1, 2, 3],
     )
 
     saved_state = buffer.state_dict()
@@ -125,6 +130,11 @@ def test_replay_buffer_restores_state():
         next_state,
     )
     assert transition.done is False
+    assert transition.next_legal_actions == [
+        1,
+        2,
+        3,
+    ]
 
 def test_replay_buffer_restores_capacity():
     buffer = ReplayBuffer(capacity=10)

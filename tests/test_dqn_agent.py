@@ -91,6 +91,7 @@ def test_agent_train_step_returns_float():
             reward=1.0,
             next_state=state,
             done=False,
+            next_legal_actions=[1, 2, 3],
         )
         for _ in range(4)
     ]

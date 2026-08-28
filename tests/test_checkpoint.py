@@ -24,6 +24,7 @@ def test_training_checkpoint_restores_agent_and_replay_buffer(
         reward=1.0,
         next_state=next_state,
         done=False,
+        next_legal_actions=[1, 2, 3]
     )
 
     checkpoint_path = tmp_path / "training_checkpoint.pt"

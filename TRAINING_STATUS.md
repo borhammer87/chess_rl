@@ -130,7 +130,7 @@ far.
 
 - RandomAgent remains the only opponent.
 - Self-play is not implemented.
-- Board encoding does not include castling rights, en passant state,
+- Board encoding does not include
   repetition state, or move counters.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not maintain a global lifetime episode counter.

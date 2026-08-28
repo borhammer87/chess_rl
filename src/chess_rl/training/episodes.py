@@ -8,7 +8,10 @@ from chess_rl.training.results import (
     StepResult,
     VsRandomEpisodeResult,
 )
-from chess_rl.utils.action_encoder import decode_legal_action
+from chess_rl.utils.action_encoder import (
+    decode_legal_action,
+    encode_move,
+)
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
 
@@ -120,12 +123,21 @@ def run_and_store_step(
         agent=agent,
     )
 
+    if result.done:
+        next_legal_actions = []
+    else:
+        next_legal_actions = [
+            encode_move(move)
+            for move in env.legal_moves()
+        ]
+
     replay_buffer.push(
         state=result.state,
         action=result.action,
         reward=result.reward,
         next_state=result.next_state,
         done=result.done,
+        next_legal_actions=next_legal_actions,
     )
 
     return result
@@ -327,6 +339,7 @@ def run_dqn_vs_random_episode(
                 reward=agent_reward,
                 next_state=next_state,
                 done=True,
+                next_legal_actions=[],
             )
 
             loss = train_from_replay(
@@ -364,12 +377,21 @@ def run_dqn_vs_random_episode(
         # - the terminal position after Black's move.
         next_state = encode_board(next_board)
 
+        if done:
+            next_legal_actions = []
+        else:
+            next_legal_actions = [
+                encode_move(move)
+                for move in env.legal_moves()
+            ]
+
         replay_buffer.push(
             state=state,
             action=action,
             reward=agent_reward,
             next_state=next_state,
             done=done,
+            next_legal_actions=next_legal_actions,
         )
 
         loss = train_from_replay(

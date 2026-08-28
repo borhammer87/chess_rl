@@ -155,7 +155,17 @@ def test_stored_transition_matches_step_result():
         transition.next_state,
         result.next_state,
     )
+
     assert transition.done == result.done
+    expected_next_legal_actions = [
+        encode_move(move)
+        for move in env.legal_moves()
+    ]
+
+    assert (
+        transition.next_legal_actions
+        == expected_next_legal_actions
+    )
 
 def test_run_and_store_step_returns_step_result():
     env = ChessEnv()
@@ -418,6 +428,7 @@ def test_train_from_replay_waits_for_minimum_replay_size():
             reward=0.0,
             next_state=state,
             done=False,
+            next_legal_actions=[1, 2],
         )
 
     loss = train_from_replay(
@@ -502,6 +513,7 @@ def test_train_from_replay_decays_epsilon_once_after_training(
             reward=0.0,
             next_state=state,
             done=False,
+            next_legal_actions=[1, 2],
         )
 
     decay_calls = []
