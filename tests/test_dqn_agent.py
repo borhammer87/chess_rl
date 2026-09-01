@@ -6,7 +6,11 @@ from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.replay_buffer import Transition
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
-from chess_rl.utils.action_encoder import ACTION_SIZE
+from chess_rl.utils.action_encoder import (
+    ACTION_SIZE,
+    encode_move,
+)
+import chess_rl.agents.dqn_agent as dqn_agent_module
 
 def test_agent_selects_action_in_valid_range():
     agent = DQNAgent()
@@ -199,3 +203,130 @@ def test_agent_state_dict_restores_training_state():
         assert torch.equal(restored, original)
 
     assert agent.epsilon == 0.4
+
+def test_train_step_uses_only_legal_next_actions(
+    monkeypatch,
+):
+    agent = DQNAgent(gamma=1.0)
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    legal_action = 10
+    illegal_action = 20
+
+    batch = [
+        Transition(
+            state=state,
+            action=1,
+            reward=0.0,
+            next_state=state,
+            done=False,
+            next_legal_actions=[legal_action],
+        )
+    ]
+
+    def fake_target_forward(states):
+        q_values = torch.zeros(
+            (states.shape[0], ACTION_SIZE)
+        )
+
+        q_values[:, legal_action] = 10.0
+        q_values[:, illegal_action] = 100.0
+
+        return q_values
+
+    monkeypatch.setattr(
+        agent.target_net,
+        "forward",
+        fake_target_forward,
+    )
+
+    captured_targets = []
+
+    def fake_mse_loss(
+        q_values,
+        targets,
+    ):
+        captured_targets.append(
+            targets.detach().clone()
+        )
+
+        return q_values.sum() * 0
+
+    monkeypatch.setattr(
+        dqn_agent_module.F,
+        "mse_loss",
+        fake_mse_loss,
+    )
+
+    agent.train_step(batch)
+
+    assert captured_targets[0].item() == 10.0
+
+def test_train_step_uses_zero_future_value_for_terminal_transition(
+    monkeypatch,
+):
+    agent = DQNAgent(gamma=1.0)
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=1,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        )
+    ]
+
+    captured_targets = []
+
+    def fake_mse_loss(
+        q_values,
+        targets,
+    ):
+        captured_targets.append(
+            targets.detach().clone()
+        )
+
+        return q_values.sum() * 0
+
+    monkeypatch.setattr(
+        dqn_agent_module.F,
+        "mse_loss",
+        fake_mse_loss,
+    )
+
+    agent.train_step(batch)
+
+    assert captured_targets[0].item() == 1.
+
+def test_train_step_rejects_non_terminal_transition_without_legal_actions():
+    agent = DQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=1,
+            reward=0.0,
+            next_state=state,
+            done=False,
+            next_legal_actions=[],
+        )
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="must have legal next actions",
+    ):
+        agent.train_step(batch)

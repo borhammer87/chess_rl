@@ -82,7 +82,6 @@ class DQNAgent:
         actions = torch.tensor([t.action for t in batch])
         rewards = torch.tensor([t.reward for t in batch], dtype=torch.float32)
         next_states = torch.stack([t.next_state for t in batch])
-        dones = torch.tensor([t.done for t in batch], dtype=torch.float32)
 
         # current Q values
         q_values = self.policy_net(states)
@@ -90,8 +89,38 @@ class DQNAgent:
 
         # target Q values
         with torch.no_grad():
-            next_q_values = self.target_net(next_states).max(1)[0]
-            targets = rewards + self.gamma * next_q_values * (1 - dones)
+            all_next_q_values = self.target_net(
+                next_states
+            )
+
+            next_q_values = torch.zeros(
+                len(batch),
+                dtype=torch.float32,
+            )
+
+            for index, transition in enumerate(batch):
+                if transition.done:
+                    continue
+
+                if not transition.next_legal_actions:
+                    raise ValueError(
+                        "Non-terminal transition must have legal next actions."
+                    )
+
+                legal_actions = torch.tensor(
+                    transition.next_legal_actions,
+                    dtype=torch.long,
+                )
+
+                next_q_values[index] = all_next_q_values[
+                    index,
+                    legal_actions,
+                ].max()
+
+            targets = (
+                rewards
+                + self.gamma * next_q_values
+            )
 
         loss = F.mse_loss(q_values, targets)
 
