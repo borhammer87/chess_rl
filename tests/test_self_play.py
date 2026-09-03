@@ -158,3 +158,28 @@ def test_one_self_play_agent_step_contains_both_moves():
     assert result.agent_steps == 1
     assert result.total_plies == 2
     assert len(replay_buffer) == 1
+
+def test_black_learner_starts_after_frozen_white_move():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    opponent = create_frozen_opponent(
+        agent
+    )
+
+    replay_buffer = ReplayBuffer(
+        capacity=10
+    )
+
+    result = run_dqn_vs_frozen_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        agent_color=chess.BLACK,
+    )
+
+    assert result.agent_steps == 1
+    assert result.total_plies == 3
+    assert len(replay_buffer) == 1
