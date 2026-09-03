@@ -2,8 +2,10 @@ import torch
 
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.models.dqn_cnn import DQNCNN
+
 from chess_rl.training.self_play import (
     create_frozen_opponent,
+    run_dqn_vs_frozen_episode,
     select_frozen_opponent_move,
 )
 
@@ -12,6 +14,11 @@ import chess
 import chess_rl.training.self_play as self_play_module
 
 from chess_rl.utils.action_encoder import encode_move
+
+from chess_rl.env.chess_env import ChessEnv
+from chess_rl.utils.replay_buffer import ReplayBuffer
+
+
 
 def test_create_frozen_opponent_copies_policy_weights():
     agent = DQNAgent()
@@ -102,3 +109,52 @@ def test_frozen_opponent_selects_legal_move(
     )
 
     assert move == expected_move
+
+def test_dqn_vs_frozen_stores_only_learner_transitions():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    opponent = create_frozen_opponent(
+        agent
+    )
+
+    replay_buffer = ReplayBuffer(
+        capacity=100
+    )
+
+    result = run_dqn_vs_frozen_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=3,
+    )
+
+    assert (
+        len(replay_buffer)
+        == result.agent_steps
+    )
+
+def test_one_self_play_agent_step_contains_both_moves():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+
+    opponent = create_frozen_opponent(
+        agent
+    )
+
+    replay_buffer = ReplayBuffer(
+        capacity=10
+    )
+
+    result = run_dqn_vs_frozen_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    assert result.agent_steps == 1
+    assert result.total_plies == 2
+    assert len(replay_buffer) == 1
