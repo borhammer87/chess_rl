@@ -804,3 +804,4 @@ def test_dqn_vs_random_black_stores_reward_from_agent_perspective(
     transition = replay_buffer.buffer[0]
 
     assert transition.reward == 1.0
+

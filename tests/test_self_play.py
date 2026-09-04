@@ -103,9 +103,14 @@ def test_frozen_opponent_selects_legal_move(
         fake_select_greedy_action,
     )
 
+    legal_moves = list(
+        board.legal_moves
+    )
+
     move = select_frozen_opponent_move(
         opponent=opponent,
         board=board,
+        legal_moves=legal_moves,
     )
 
     assert move == expected_move

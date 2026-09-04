@@ -14,6 +14,12 @@ from chess_rl.utils.action_encoder import (
 )
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
+from collections.abc import Callable
+
+OpponentMoveSelector = Callable[
+    [chess.Board, list[chess.Move]],
+    chess.Move,
+]
 
 def reward_for_color(
     reward: float,
@@ -422,3 +428,4 @@ def run_dqn_vs_random_episode(
         final_epsilon=agent.epsilon,
         replay_size=len(replay_buffer),
     )
+

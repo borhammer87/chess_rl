@@ -39,12 +39,11 @@ def create_frozen_opponent(
 def select_frozen_opponent_move(
     opponent: DQNCNN,
     board: chess.Board,
+    legal_moves: list[chess.Move],
 ) -> chess.Move:
     """
     Select the frozen opponent's best legal move greedily.
     """
-    legal_moves = list(board.legal_moves)
-
     state = encode_board(board)
 
     action = select_greedy_action(
@@ -98,6 +97,7 @@ def run_dqn_vs_frozen_episode(
         opponent_move = select_frozen_opponent_move(
             opponent=opponent,
             board=env.get_state(),
+            legal_moves=env.legal_moves(),
         )
 
         _, _, _, info = env.step(
@@ -145,6 +145,7 @@ def run_dqn_vs_frozen_episode(
             opponent_move = select_frozen_opponent_move(
                 opponent=opponent,
                 board=env.get_state(),
+                legal_moves=env.legal_moves(),
             )
 
             next_board, reward, done, info = env.step(
