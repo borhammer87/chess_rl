@@ -14,6 +14,7 @@ from chess_rl.training.episodes import (
     train_from_replay,
     reward_for_color,
     create_random_opponent_selector,
+    run_dqn_vs_opponent_episode,
 )
 from chess_rl.training.results import (
     EpisodeResult,
@@ -24,6 +25,7 @@ from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
+
 
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
@@ -824,3 +826,35 @@ def test_random_opponent_selector_returns_legal_move():
     )
 
     assert move in legal_moves
+
+def test_generic_opponent_episode_uses_provided_selector():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(
+        capacity=10
+    )
+
+    selector_calls = []
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        selector_calls.append(
+            board.copy()
+        )
+
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    assert result.agent_steps == 1
+    assert result.total_plies == 2
+    assert len(selector_calls) == 1
+    assert len(replay_buffer) == 1

@@ -16,6 +16,7 @@ from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from collections.abc import Callable
 
+
 OpponentMoveSelector = Callable[
     [chess.Board, list[chess.Move]],
     chess.Move,
@@ -268,24 +269,40 @@ def run_dqn_vs_random_episode(
     agent_color: chess.Color = chess.WHITE,
 ) -> VsRandomEpisodeResult:
     """
-    Run one episode with:
-
-        DQNAgent    -> agent_color 
-        RandomAgent -> opposite color
-
-    One replay transition spans:
-
-        state before the DQN move
-        -> DQN action
-        -> opponent response
-        -> next state for the DQN
-
-    Only DQN decisions are stored in replay memory.
-
-    After each stored transition, one training update is attempted.
-    Training begins only when replay memory reaches min_replay_size.
+    Run one training episode against RandomAgent.
     """
+    opponent_move_selector = (
+        create_random_opponent_selector(
+            opponent
+        )
+    )
 
+    return run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_move_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=max_agent_steps,
+        batch_size=batch_size,
+        min_replay_size=min_replay_size,
+        agent_color=agent_color,
+    )
+
+def run_dqn_vs_opponent_episode(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent_move_selector: OpponentMoveSelector,
+    replay_buffer: ReplayBuffer,
+    max_agent_steps: int = 150,
+    batch_size: int = 32,
+    min_replay_size: int = 1_000,
+    agent_color: chess.Color = chess.WHITE,
+) -> VsRandomEpisodeResult:
+    """
+    Run one training episode against an opponent move selector.
+
+    Only decisions made by the learning DQN are stored in replay.
+    """
     if max_agent_steps <= 0:
         raise ValueError(
             "max_agent_steps must be greater than zero."
@@ -308,8 +325,9 @@ def run_dqn_vs_random_episode(
     training_losses: list[float] = []
 
     if agent_color == chess.BLACK:
-        opponent_move = opponent.select_move(
-            env.legal_moves()
+        opponent_move = opponent_move_selector(
+            env.get_state(),
+            env.legal_moves(),
         )
 
         _, _, _, info = env.step(
@@ -319,16 +337,20 @@ def run_dqn_vs_random_episode(
         total_plies = 1
         final_info = info
 
-    while not env.done and agent_steps < max_agent_steps:
-        # The DQN must move when it is the agent's turn.
+    while (
+        not env.done
+        and agent_steps < max_agent_steps
+    ):
         if env.board.turn != agent_color:
             raise RuntimeError(
                 "Expected agent color to move at the start "
                 "of a DQN decision."
             )
 
-        # State observed before the DQN action.
-        state = encode_board(env.get_state())
+        state = encode_board(
+            env.get_state()
+        )
+
         legal_moves = env.legal_moves()
 
         action = agent.select_action(
@@ -341,64 +363,35 @@ def run_dqn_vs_random_episode(
             legal_moves=legal_moves,
         )
 
-        # DQN move.
-        next_board, reward, done, info = env.step(move)
+        next_board, reward, done, info = env.step(
+            move
+        )
 
         agent_steps += 1
         total_plies += 1
         final_info = info
 
-        # If the DQN agent ended the game, there is no opponent response.
-        if done:
-            agent_reward = reward_for_color(
-                reward,
-                agent_color,
-            )
-            next_state = encode_board(next_board)
-
-            replay_buffer.push(
-                state=state,
-                action=action,
-                reward=agent_reward,
-                next_state=next_state,
-                done=True,
-                next_legal_actions=[],
+        if not done:
+            opponent_move = opponent_move_selector(
+                env.get_state(),
+                env.legal_moves(),
             )
 
-            loss = train_from_replay(
-                agent=agent,
-                replay_buffer=replay_buffer,
-                batch_size=batch_size,
-                min_replay_size=min_replay_size,
+            next_board, reward, done, info = env.step(
+                opponent_move
             )
 
-            if loss is not None:
-                training_losses.append(loss)
-
-            total_reward += agent_reward
-            break
-
-        # RandomAgent response.
-        opponent_move = opponent.select_move(
-            env.legal_moves()
-        )
-
-        next_board, reward, done, info = env.step(
-            opponent_move
-        )
+            total_plies += 1
+            final_info = info
 
         agent_reward = reward_for_color(
             reward,
             agent_color,
         )
 
-        total_plies += 1
-        final_info = info
-
-        # This is now either:
-        # - the next position where White will decide, or
-        # - the terminal position after Black's move.
-        next_state = encode_board(next_board)
+        next_state = encode_board(
+            next_board
+        )
 
         if done:
             next_legal_actions = []
@@ -425,7 +418,9 @@ def run_dqn_vs_random_episode(
         )
 
         if loss is not None:
-            training_losses.append(loss)
+            training_losses.append(
+                loss
+            )
 
         total_reward += agent_reward
 
@@ -445,4 +440,3 @@ def run_dqn_vs_random_episode(
         final_epsilon=agent.epsilon,
         replay_size=len(replay_buffer),
     )
-
