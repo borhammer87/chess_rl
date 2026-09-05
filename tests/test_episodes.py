@@ -13,6 +13,7 @@ from chess_rl.training.episodes import (
     run_single_step,
     train_from_replay,
     reward_for_color,
+    create_random_opponent_selector,
 )
 from chess_rl.training.results import (
     EpisodeResult,
@@ -805,3 +806,21 @@ def test_dqn_vs_random_black_stores_reward_from_agent_perspective(
 
     assert transition.reward == 1.0
 
+def test_random_opponent_selector_returns_legal_move():
+    board = chess.Board()
+    opponent = RandomAgent()
+
+    selector = create_random_opponent_selector(
+        opponent
+    )
+
+    legal_moves = list(
+        board.legal_moves
+    )
+
+    move = selector(
+        board,
+        legal_moves,
+    )
+
+    assert move in legal_moves

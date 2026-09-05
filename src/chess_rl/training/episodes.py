@@ -21,6 +21,23 @@ OpponentMoveSelector = Callable[
     chess.Move,
 ]
 
+def create_random_opponent_selector(
+    opponent: RandomAgent,
+) -> OpponentMoveSelector:
+    """
+    Adapt RandomAgent to the common opponent move selector interface.
+    """
+
+    def select_move(
+        board: chess.Board,
+        legal_moves: list[chess.Move],
+    ) -> chess.Move:
+        return opponent.select_move(
+            legal_moves
+        )
+
+    return select_move
+
 def reward_for_color(
     reward: float,
     color: chess.Color,

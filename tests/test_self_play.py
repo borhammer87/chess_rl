@@ -7,6 +7,7 @@ from chess_rl.training.self_play import (
     create_frozen_opponent,
     run_dqn_vs_frozen_episode,
     select_frozen_opponent_move,
+    create_frozen_opponent_selector,
 )
 
 import chess
@@ -188,3 +189,27 @@ def test_black_learner_starts_after_frozen_white_move():
     assert result.agent_steps == 1
     assert result.total_plies == 3
     assert len(replay_buffer) == 1
+
+def test_frozen_opponent_selector_returns_legal_move():
+    agent = DQNAgent()
+
+    opponent = create_frozen_opponent(
+        agent
+    )
+
+    selector = create_frozen_opponent_selector(
+        opponent
+    )
+
+    board = chess.Board()
+
+    legal_moves = list(
+        board.legal_moves
+    )
+
+    move = selector(
+        board,
+        legal_moves,
+    )
+
+    assert move in legal_moves

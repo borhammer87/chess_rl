@@ -6,6 +6,7 @@ from chess_rl.utils.action_selection import select_greedy_action
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.env.chess_env import ChessEnv
 from chess_rl.training.episodes import (
+    OpponentMoveSelector,
     reward_for_color,
     train_from_replay,
 )
@@ -56,6 +57,25 @@ def select_frozen_opponent_move(
         action=action,
         legal_moves=legal_moves,
     )
+
+def create_frozen_opponent_selector(
+    opponent: DQNCNN,
+) -> OpponentMoveSelector:
+    """
+    Adapt a frozen DQN network to the common opponent selector interface.
+    """
+
+    def select_move(
+        board: chess.Board,
+        legal_moves: list[chess.Move],
+    ) -> chess.Move:
+        return select_frozen_opponent_move(
+            opponent=opponent,
+            board=board,
+            legal_moves=legal_moves,
+        )
+
+    return select_move
 
 def run_dqn_vs_frozen_episode(
     env: ChessEnv,
