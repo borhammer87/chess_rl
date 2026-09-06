@@ -9,12 +9,22 @@ from chess_rl.training.self_play import (
     run_dqn_vs_frozen_episode,
     select_frozen_opponent_move,
     create_frozen_opponent_selector,
+    update_frozen_opponent,
+    train_against_frozen,
 )
 
 import chess
 
 import chess_rl.training.self_play as self_play_module
-from chess_rl.training.self_play import train_against_frozen
+import chess_rl.training.self_play as self_play_module
+
+from chess_rl.training.self_play import (
+    create_frozen_opponent,
+    create_frozen_opponent_selector,
+    run_dqn_vs_frozen_episode,
+    select_frozen_opponent_move,
+    train_against_frozen,
+)
 
 from chess_rl.utils.action_encoder import encode_move
 
@@ -293,4 +303,79 @@ def test_train_against_frozen_rejects_non_positive_episodes():
             opponent=opponent,
             replay_buffer=replay_buffer,
             episodes=0,
+        )
+
+def test_update_frozen_opponent_copies_current_policy():
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+
+    with torch.no_grad():
+        for parameter in agent.policy_net.parameters():
+            parameter.add_(1.0)
+
+    update_frozen_opponent(
+        agent=agent,
+        opponent=opponent,
+    )
+
+    for policy_parameter, opponent_parameter in zip(
+        agent.policy_net.parameters(),
+        opponent.parameters(),
+    ):
+        assert torch.equal(
+            policy_parameter,
+            opponent_parameter,
+        )
+
+def test_train_against_frozen_updates_opponent_periodically(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    updates = []
+
+    def fake_update_frozen_opponent(
+        agent,
+        opponent,
+    ):
+        updates.append(True)
+
+    monkeypatch.setattr(
+        self_play_module,
+        "update_frozen_opponent",
+        fake_update_frozen_opponent,
+    )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=5,
+        max_agent_steps=1,
+        opponent_update_frequency=2,
+    )
+
+    assert len(updates) == 2
+
+def test_train_against_frozen_rejects_invalid_update_frequency():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="opponent_update_frequency must be greater than zero",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            opponent_update_frequency=0,
         )

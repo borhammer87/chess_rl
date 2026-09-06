@@ -114,6 +114,7 @@ def train_against_frozen(
     max_agent_steps: int = 150,
     batch_size: int = 32,
     min_replay_size: int = 1_000,
+    opponent_update_frequency: int | None = None,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple training episodes against one frozen DQN opponent.
@@ -126,6 +127,13 @@ def train_against_frozen(
             "episodes must be greater than zero."
         )
 
+    if (
+        opponent_update_frequency is not None
+        and opponent_update_frequency <= 0
+    ):
+        raise ValueError(
+            "opponent_update_frequency must be greater than zero."
+        )
     results: list[VsRandomEpisodeResult] = []
 
     for episode_index in range(episodes):
@@ -148,4 +156,31 @@ def train_against_frozen(
 
         results.append(result)
 
+        completed_episodes = episode_index + 1
+
+        if (
+            opponent_update_frequency is not None
+            and completed_episodes % opponent_update_frequency == 0
+        ):
+            update_frozen_opponent(
+                agent=agent,
+                opponent=opponent,
+            )
+
     return results
+
+def update_frozen_opponent(
+    agent: DQNAgent,
+    opponent: DQNCNN,
+) -> None:
+    """
+    Replace the frozen opponent weights with the agent's current policy.
+    """
+    opponent.load_state_dict(
+        agent.policy_net.state_dict()
+    )
+
+    opponent.eval()
+
+    for parameter in opponent.parameters():
+        parameter.requires_grad_(False)
