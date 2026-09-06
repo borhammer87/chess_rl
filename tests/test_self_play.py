@@ -379,3 +379,54 @@ def test_train_against_frozen_rejects_invalid_update_frequency():
             episodes=1,
             opponent_update_frequency=0,
         )
+
+def test_train_against_frozen_updates_target_periodically(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    updates = []
+
+    def fake_update_target():
+        updates.append(True)
+
+    monkeypatch.setattr(
+        agent,
+        "update_target",
+        fake_update_target,
+    )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=5,
+        max_agent_steps=1,
+        target_update_frequency=2,
+    )
+
+    assert len(updates) == 2
+
+
+def test_train_against_frozen_rejects_invalid_target_update_frequency():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="target_update_frequency must be greater than zero",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            target_update_frequency=0,
+        )

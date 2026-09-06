@@ -114,6 +114,7 @@ def train_against_frozen(
     max_agent_steps: int = 150,
     batch_size: int = 32,
     min_replay_size: int = 1_000,
+    target_update_frequency: int = 10,
     opponent_update_frequency: int | None = None,
 ) -> list[VsRandomEpisodeResult]:
     """
@@ -136,6 +137,11 @@ def train_against_frozen(
         )
     results: list[VsRandomEpisodeResult] = []
 
+    if target_update_frequency <= 0:
+        raise ValueError(
+            "target_update_frequency must be greater than zero."
+        )
+
     for episode_index in range(episodes):
         agent_color = (
             chess.WHITE
@@ -157,6 +163,9 @@ def train_against_frozen(
         results.append(result)
 
         completed_episodes = episode_index + 1
+
+        if completed_episodes % target_update_frequency == 0:
+            agent.update_target()
 
         if (
             opponent_update_frequency is not None
