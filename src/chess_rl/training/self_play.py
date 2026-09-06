@@ -104,3 +104,48 @@ def run_dqn_vs_frozen_episode(
         min_replay_size=min_replay_size,
         agent_color=agent_color,
     )
+
+def train_against_frozen(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: DQNCNN,
+    replay_buffer: ReplayBuffer,
+    episodes: int,
+    max_agent_steps: int = 150,
+    batch_size: int = 32,
+    min_replay_size: int = 1_000,
+) -> list[VsRandomEpisodeResult]:
+    """
+    Run multiple training episodes against one frozen DQN opponent.
+
+    The learning agent alternates between White and Black.
+    The same frozen opponent is reused for every episode.
+    """
+    if episodes <= 0:
+        raise ValueError(
+            "episodes must be greater than zero."
+        )
+
+    results: list[VsRandomEpisodeResult] = []
+
+    for episode_index in range(episodes):
+        agent_color = (
+            chess.WHITE
+            if episode_index % 2 == 0
+            else chess.BLACK
+        )
+
+        result = run_dqn_vs_frozen_episode(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            max_agent_steps=max_agent_steps,
+            batch_size=batch_size,
+            min_replay_size=min_replay_size,
+            agent_color=agent_color,
+        )
+
+        results.append(result)
+
+    return results

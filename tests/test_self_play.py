@@ -1,4 +1,5 @@
 import torch
+import pytest
 
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.models.dqn_cnn import DQNCNN
@@ -13,6 +14,7 @@ from chess_rl.training.self_play import (
 import chess
 
 import chess_rl.training.self_play as self_play_module
+from chess_rl.training.self_play import train_against_frozen
 
 from chess_rl.utils.action_encoder import encode_move
 
@@ -213,3 +215,82 @@ def test_frozen_opponent_selector_returns_legal_move():
     )
 
     assert move in legal_moves
+
+def test_train_against_frozen_runs_multiple_episodes():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    results = train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+    )
+
+    assert len(results) == 3
+    assert len(replay_buffer) == 3
+
+def test_train_against_frozen_alternates_agent_color(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    colors = []
+
+    original_run_episode = (
+        self_play_module.run_dqn_vs_frozen_episode
+    )
+
+    def recording_run_episode(*args, **kwargs):
+        colors.append(kwargs["agent_color"])
+
+        return original_run_episode(
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        self_play_module,
+        "run_dqn_vs_frozen_episode",
+        recording_run_episode,
+    )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+    )
+
+    assert colors == [
+        chess.WHITE,
+        chess.BLACK,
+        chess.WHITE,
+    ]
+
+def test_train_against_frozen_rejects_non_positive_episodes():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="episodes must be greater than zero",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=0,
+        )
