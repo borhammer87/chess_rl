@@ -116,6 +116,8 @@ def train_against_frozen(
     min_replay_size: int = 1_000,
     target_update_frequency: int = 10,
     opponent_update_frequency: int | None = None,
+    agent_color: chess.Color = chess.WHITE,
+    alternate_colors: bool = True,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple training episodes against one frozen DQN opponent.
@@ -142,12 +144,23 @@ def train_against_frozen(
             "target_update_frequency must be greater than zero."
         )
 
-    for episode_index in range(episodes):
-        agent_color = (
-            chess.WHITE
-            if episode_index % 2 == 0
-            else chess.BLACK
+    if agent_color not in (
+        chess.WHITE,
+        chess.BLACK,
+    ):
+        raise ValueError(
+            "agent_color must be chess.WHITE or chess.BLACK."
         )
+
+    for episode_index in range(episodes):
+        if alternate_colors and episode_index % 2 == 1:
+            episode_agent_color = (
+                chess.BLACK
+                if agent_color == chess.WHITE
+                else chess.WHITE
+            )
+        else:
+            episode_agent_color = agent_color
 
         result = run_dqn_vs_frozen_episode(
             env=env,
@@ -157,7 +170,7 @@ def train_against_frozen(
             max_agent_steps=max_agent_steps,
             batch_size=batch_size,
             min_replay_size=min_replay_size,
-            agent_color=agent_color,
+            agent_color=episode_agent_color,
         )
 
         results.append(result)

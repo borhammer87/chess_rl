@@ -417,3 +417,110 @@ def test_train_against_frozen_rejects_invalid_target_update_frequency():
             episodes=1,
             target_update_frequency=0,
         )
+
+def test_train_against_frozen_can_alternate_starting_with_black(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    colors = []
+
+    original_run_episode = (
+        self_play_module.run_dqn_vs_frozen_episode
+    )
+
+    def recording_run_episode(*args, **kwargs):
+        colors.append(kwargs["agent_color"])
+
+        return original_run_episode(
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        self_play_module,
+        "run_dqn_vs_frozen_episode",
+        recording_run_episode,
+    )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+        agent_color=chess.BLACK,
+    )
+
+    assert colors == [
+        chess.BLACK,
+        chess.WHITE,
+        chess.BLACK,
+    ]
+
+def test_train_against_frozen_can_keep_same_color(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    colors = []
+
+    original_run_episode = (
+        self_play_module.run_dqn_vs_frozen_episode
+    )
+
+    def recording_run_episode(*args, **kwargs):
+        colors.append(kwargs["agent_color"])
+
+        return original_run_episode(
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        self_play_module,
+        "run_dqn_vs_frozen_episode",
+        recording_run_episode,
+    )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=2,
+        max_agent_steps=1,
+        agent_color=chess.BLACK,
+        alternate_colors=False,
+    )
+
+    assert colors == [
+        chess.BLACK,
+        chess.BLACK,
+    ]
+
+def test_train_against_frozen_rejects_invalid_agent_color():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="agent_color must be chess.WHITE or chess.BLACK",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            agent_color=None,
+        )
