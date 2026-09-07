@@ -75,6 +75,19 @@ self-play and larger experiments.
 - [x] Persistent `best.pt` evaluation score
 - [x] Automatic replacement of `best.pt` after improvement
 
+### Self-play
+
+- [x] Frozen opponent copied from current policy
+- [x] Frozen opponent remains independent from the learner
+- [x] Frozen opponent uses greedy legal action selection
+- [x] Shared generic episode engine
+- [x] Multi-episode self-play
+- [x] Alternate learner color
+- [x] Periodic target-network synchronization
+- [x] Periodic frozen-opponent synchronization
+- [ ] Self-play evaluation
+- [ ] Main-program self-play integration
+
 ### Code organization
 
 - [x] Checkpoint persistence separated into `checkpoint.py`
@@ -128,8 +141,6 @@ far.
 
 ## Current limitations
 
-- RandomAgent remains the only opponent.
-- Self-play is not implemented.
 - Board encoding does not include
   repetition state, or move counters.
 - Checkpoints do not preserve random-number-generator state.

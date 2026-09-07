@@ -36,6 +36,9 @@ Implemented features:
 - Automatic checkpoint loading.
 - Replay-buffer persistence.
 - Evaluation-based best-checkpoint selection.
+- Frozen-policy self-play opponent.
+- Multi-episode self-play with alternating colors.
+- Independent target-network and frozen-opponent synchronization.
 
 ## Running training
 
@@ -65,8 +68,8 @@ Black.
 
 ## Current limitations
 
-- RandomAgent is currently the only opponent.
-- Self-play is not implemented.
+- The main executable training workflow still trains against RandomAgent.
+- Self-play evaluation is not implemented yet.
 - The board representation remains absolute rather than agent-relative.
 - Some chess state such as repetition state, and move counters is not encoded.
 

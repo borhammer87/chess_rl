@@ -1,6 +1,5 @@
 import torch
 import pytest
-
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.models.dqn_cnn import DQNCNN
 
@@ -14,20 +13,8 @@ from chess_rl.training.self_play import (
 )
 
 import chess
-
 import chess_rl.training.self_play as self_play_module
-import chess_rl.training.self_play as self_play_module
-
-from chess_rl.training.self_play import (
-    create_frozen_opponent,
-    create_frozen_opponent_selector,
-    run_dqn_vs_frozen_episode,
-    select_frozen_opponent_move,
-    train_against_frozen,
-)
-
 from chess_rl.utils.action_encoder import encode_move
-
 from chess_rl.env.chess_env import ChessEnv
 from chess_rl.utils.replay_buffer import ReplayBuffer
 

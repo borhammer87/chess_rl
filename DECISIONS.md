@@ -704,3 +704,51 @@ underpromotions.
   actions.
 - Previous checkpoints are incompatible with the new output layer.
 - The provisional queen-promotion fallback is no longer required.
+
+## D-018 — Use a periodically updated frozen policy for self-play
+
+### Status
+
+Accepted
+
+### Decision
+
+Self-play uses an independent frozen copy of the learning agent's
+`policy_net` as the opponent.
+
+The frozen opponent selects moves greedily and is updated periodically
+from the current policy.
+
+Its update frequency is independent from target-network synchronization.
+
+### Reason
+
+Training directly against the continuously changing learning policy would
+make the opponent change after every optimization step.
+
+Using a frozen opponent provides a more stable experience-generation
+environment while still allowing opponent strength to improve over time.
+
+The target network and frozen opponent solve different problems:
+
+- `target_net` stabilizes Bellman targets.
+- the frozen opponent stabilizes the adversary.
+
+### Alternatives considered
+
+1. Play against the live `policy_net`.
+2. Use the DQN `target_net` as the opponent.
+3. Create an entirely separate trainable DQN agent.
+
+These were rejected for the initial implementation because they either
+couple unrelated responsibilities or introduce unnecessary additional
+training state.
+
+### Consequences
+
+- Self-play opponent strength changes in discrete steps.
+- Opponent and target synchronization frequencies can be tuned
+  independently.
+- The frozen opponent has no optimizer or exploration schedule.
+- Future self-play can extend this design with historical opponent pools
+  or stronger model-selection policies.

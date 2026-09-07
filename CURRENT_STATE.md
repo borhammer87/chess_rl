@@ -40,6 +40,12 @@ Implemented components:
 - En passant target-square encoding
 - Explicit queen, rook, bishop, and knight promotion actions
 - 4272-action DQN output space
+- Generic opponent episode engine
+- Frozen DQN self-play opponent
+- Greedy frozen-opponent move selection
+- Multi-episode self-play training
+- Alternating White/Black self-play episodes
+- Periodic frozen-opponent synchronization
 
 ## State representation
 
@@ -78,11 +84,13 @@ defaulting every promotion to a queen.
 Training responsibilities are separated into focused modules:
 
 - `results.py` — training and evaluation result data structures.
-- `episodes.py` — step, episode, reward-perspective, and replay-training
-  operations.
+- `episodes.py` — step, generic opponent episode, reward-perspective,
+  and replay-training operations.
 - `checkpoint.py` — training-state persistence and checkpoint metadata.
 - `train_dqn.py` — multi-episode workflow, color alternation, evaluation
   scheduling, model selection, summaries, and main program execution.
+- `self_play.py` — frozen DQN opponents, self-play episode wrappers,
+  multi-episode self-play, and opponent-network synchronization.
 
 ## Color and reward semantics
 
@@ -159,14 +167,18 @@ Training checkpoints can preserve:
 
 ## Tests
 
-The repository currently defines 116 tests covering the environment,
-encoding, DQN agent, replay buffer, episode execution, training workflow,
-evaluation, checkpointing, reward perspective, and color alternation.
+The repository currently defines 150 tests covering the environment,
+encoding, DQN agent, replay buffer, generic episode execution,
+RandomAgent training, frozen-opponent self-play, evaluation,
+checkpointing, reward perspective, and color alternation.
 
 ## Current limitations
 
-- The opponent is still RandomAgent.
-- Self-play is not implemented.
+- Self-play is implemented at the training-episode level but is not yet
+  integrated into the main executable training workflow.
+- Evaluation currently uses only RandomAgent as the benchmark.
+- Self-play agents are not yet evaluated against frozen or historical
+  policies.
 - Board encoding remains absolute rather than agent-relative.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not store a global lifetime episode counter.
@@ -176,12 +188,13 @@ evaluation, checkpointing, reward perspective, and color alternation.
 
 ## Current focus
 
-The DQN-versus-RandomAgent stage now supports balanced White/Black
-training and evaluation.
+The first frozen-opponent self-play workflow is implemented and tested.
+
+The learning DQN can train across multiple episodes while alternating
+colors, periodically synchronizing both its target network and a separate
+frozen opponent network.
 
 ## Next milestone
 
-Design the first self-play workflow.
-
-Before implementation, determine how two DQN-controlled sides should
-generate experience and how opponent-network updates should be managed.
+Integrate self-play into a complete training workflow and add evaluation
+for self-play policies.

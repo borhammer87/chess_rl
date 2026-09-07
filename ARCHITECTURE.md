@@ -69,6 +69,7 @@ Contains lower-level interaction and learning operations:
 - `train_from_replay()`
 - `run_episode()`
 - `run_dqn_vs_random_episode()`
+- `run_dqn_vs_opponent_episode()`
 
 `run_dqn_vs_random_episode()` supports the DQN playing either White or
 Black.
@@ -77,6 +78,13 @@ When the DQN plays Black, RandomAgent performs the opening White move
 before the first DQN decision.
 
 Replay transitions store rewards from the DQN's perspective.
+
+`run_dqn_vs_opponent_episode()` contains the common DQN-versus-opponent
+episode logic.
+
+Opponent-specific behavior is injected through an
+`OpponentMoveSelector`, allowing RandomAgent and frozen DQN opponents to
+reuse the same episode engine.
 
 ### `train_dqn.py`
 
@@ -188,3 +196,25 @@ Losses and truncated games contribute zero points.
 
 `best.pt` is replaced only when a new score is strictly greater than the
 stored score.
+
+### `self_play.py`
+
+Contains the first self-play infrastructure:
+
+- Creation of an independent frozen copy of `policy_net`
+- Greedy legal move selection for the frozen opponent
+- Frozen-opponent selector adapter
+- DQN-versus-frozen episode wrapper
+- Multi-episode self-play
+- Alternating learner color
+- Periodic frozen-opponent synchronization
+
+The frozen opponent and the DQN target network have different roles.
+
+`target_net` stabilizes Bellman targets.
+
+The frozen opponent provides a temporarily stable adversary during
+self-play.
+
+Both are copied from `policy_net`, but their update schedules are
+independent.

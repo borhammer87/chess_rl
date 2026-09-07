@@ -54,9 +54,9 @@
 
 ## Phase 5 — Self-play
 
-- [ ] Design self-play architecture
-- [ ] Generate self-play episodes
-- [ ] Define opponent-network update policy
+- [x] Design self-play architecture
+- [x] Generate self-play episodes
+- [x] Define opponent-network update policy
 - [ ] Evaluate self-play agents
 - [ ] Stronger opponent benchmarks
 
