@@ -441,29 +441,6 @@ def run_dqn_vs_opponent_episode(
         replay_size=len(replay_buffer),
     )
 
-def get_episode_agent_color(
-    initial_color: chess.Color,
-    episode_index: int,
-    alternate_colors: bool,
-) -> chess.Color:
-    """
-    Return the learner color for one episode.
-    """
-    if initial_color not in (
-        chess.WHITE,
-        chess.BLACK,
-    ):
-        raise ValueError(
-            "initial_color must be chess.WHITE or chess.BLACK."
-        )
-
-    episode_agent_color = get_episode_agent_color(
-        initial_color=agent_color,
-        episode_index=episode_index,
-        alternate_colors=alternate_colors,
-    )
-
-    return initial_color
 
 def get_episode_agent_color(
     initial_color: chess.Color,

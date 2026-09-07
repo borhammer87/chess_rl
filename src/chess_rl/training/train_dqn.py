@@ -16,6 +16,7 @@ from chess_rl.training.results import (
 )
 from chess_rl.training.episodes import (
     run_dqn_vs_random_episode,
+    get_episode_agent_color,
 )
 import chess
 
@@ -140,14 +141,12 @@ def train_against_random(
     results: list[VsRandomEpisodeResult] = []
 
     for episode_index in range(episodes):
-        if alternate_colors and episode_index % 2 == 1:
-            episode_agent_color = (
-                chess.BLACK
-                if agent_color == chess.WHITE
-                else chess.WHITE
-            )
-        else:
-            episode_agent_color = agent_color
+        episode_agent_color = get_episode_agent_color(
+            initial_color=agent_color,
+            episode_index=episode_index,
+            alternate_colors=alternate_colors,
+        )
+
         result = run_dqn_vs_random_episode(
             env=env,
             agent=agent,
