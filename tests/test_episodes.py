@@ -15,6 +15,7 @@ from chess_rl.training.episodes import (
     reward_for_color,
     create_random_opponent_selector,
     run_dqn_vs_opponent_episode,
+    get_episode_agent_color,
 )
 from chess_rl.training.results import (
     EpisodeResult,
@@ -858,3 +859,56 @@ def test_generic_opponent_episode_uses_provided_selector():
     assert result.total_plies == 2
     assert len(selector_calls) == 1
     assert len(replay_buffer) == 1
+
+def test_get_episode_agent_color_keeps_color_without_alternation():
+    assert get_episode_agent_color(
+        initial_color=chess.WHITE,
+        episode_index=1,
+        alternate_colors=False,
+    ) == chess.WHITE
+
+
+def test_get_episode_agent_color_alternates_from_white():
+    colors = [
+        get_episode_agent_color(
+            initial_color=chess.WHITE,
+            episode_index=index,
+            alternate_colors=True,
+        )
+        for index in range(4)
+    ]
+
+    assert colors == [
+        chess.WHITE,
+        chess.BLACK,
+        chess.WHITE,
+        chess.BLACK,
+    ]
+
+
+def test_get_episode_agent_color_alternates_from_black():
+    colors = [
+        get_episode_agent_color(
+            initial_color=chess.BLACK,
+            episode_index=index,
+            alternate_colors=True,
+        )
+        for index in range(3)
+    ]
+
+    assert colors == [
+        chess.BLACK,
+        chess.WHITE,
+        chess.BLACK,
+    ]
+
+def test_get_episode_agent_color_rejects_invalid_color():
+    with pytest.raises(
+        ValueError,
+        match="initial_color must be chess.WHITE or chess.BLACK",
+    ):
+        get_episode_agent_color(
+            initial_color=None,
+            episode_index=0,
+            alternate_colors=True,
+        )

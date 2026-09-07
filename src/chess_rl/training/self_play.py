@@ -7,6 +7,7 @@ from chess_rl.utils.board_encoder import encode_board
 from chess_rl.training.episodes import (
     OpponentMoveSelector,
     run_dqn_vs_opponent_episode,
+    get_episode_agent_color,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.training.results import VsRandomEpisodeResult
@@ -158,14 +159,11 @@ def train_against_frozen(
         )
 
     for episode_index in range(episodes):
-        if alternate_colors and episode_index % 2 == 1:
-            episode_agent_color = (
-                chess.BLACK
-                if agent_color == chess.WHITE
-                else chess.WHITE
-            )
-        else:
-            episode_agent_color = agent_color
+        episode_agent_color = get_episode_agent_color(
+            initial_color=agent_color,
+            episode_index=episode_index,
+            alternate_colors=alternate_colors,
+        )
 
         result = run_dqn_vs_frozen_episode(
             env=env,
