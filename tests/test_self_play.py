@@ -524,3 +524,46 @@ def test_train_against_frozen_rejects_invalid_agent_color():
             episodes=1,
             agent_color=None,
         )
+
+def test_train_against_frozen_reports_progress():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    progress_calls = []
+
+    def progress_callback(
+        completed,
+        total,
+        result,
+    ):
+        progress_calls.append(
+            (completed, total, result)
+        )
+
+    results = train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        max_agent_steps=1,
+        progress_callback=progress_callback,
+    )
+
+    assert len(progress_calls) == 3
+
+    assert [
+        (completed, total)
+        for completed, total, _ in progress_calls
+    ] == [
+        (1, 3),
+        (2, 3),
+        (3, 3),
+    ]
+
+    assert [
+        result
+        for _, _, result in progress_calls
+    ] == results

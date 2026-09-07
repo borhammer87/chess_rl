@@ -11,6 +11,7 @@ from chess_rl.training.episodes import (
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.training.results import VsRandomEpisodeResult
 from chess_rl.env.chess_env import ChessEnv
+from collections.abc import Callable
 
 def create_frozen_opponent(
     agent: DQNAgent,
@@ -116,6 +117,10 @@ def train_against_frozen(
     min_replay_size: int = 1_000,
     target_update_frequency: int = 10,
     opponent_update_frequency: int | None = None,
+    progress_callback: Callable[
+        [int, int, VsRandomEpisodeResult],
+        None,
+    ] | None = None,
     agent_color: chess.Color = chess.WHITE,
     alternate_colors: bool = True,
 ) -> list[VsRandomEpisodeResult]:
@@ -176,6 +181,13 @@ def train_against_frozen(
         results.append(result)
 
         completed_episodes = episode_index + 1
+
+        if progress_callback is not None:
+            progress_callback(
+                completed_episodes,
+                episodes,
+                result,
+            )
 
         if completed_episodes % target_update_frequency == 0:
             agent.update_target()
