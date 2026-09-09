@@ -567,3 +567,74 @@ def test_train_against_frozen_reports_progress():
         result
         for _, _, result in progress_calls
     ] == results
+
+def test_train_against_frozen_calls_checkpoint_callback():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    checkpoint_episodes = []
+
+    def checkpoint_callback(
+        completed_episodes,
+        callback_agent,
+    ):
+        checkpoint_episodes.append(
+            (completed_episodes, callback_agent)
+        )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=4,
+        max_agent_steps=1,
+        checkpoint_frequency=2,
+        checkpoint_callback=checkpoint_callback,
+    )
+
+    assert checkpoint_episodes == [
+        (2, agent),
+        (4, agent),
+    ]
+
+def test_train_against_frozen_rejects_invalid_checkpoint_frequency():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="checkpoint_frequency must be greater than zero",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            checkpoint_frequency=0,
+            checkpoint_callback=lambda *_: None,
+        )
+
+def test_train_against_frozen_requires_checkpoint_callback():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="checkpoint_callback is required",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            checkpoint_frequency=1,
+        )
