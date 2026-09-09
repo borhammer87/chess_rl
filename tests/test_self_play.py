@@ -11,6 +11,7 @@ from chess_rl.training.self_play import (
     update_frozen_opponent,
     train_against_frozen,
     evaluate_against_frozen,
+    evaluate_against_frozen_both_colors,
 )
 
 import chess
@@ -684,4 +685,62 @@ def test_evaluate_against_frozen_rejects_zero_episodes():
             agent=agent,
             opponent=opponent,
             episodes=0,
+        )
+
+def test_evaluate_against_frozen_both_colors_combines_results(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+
+    colors = []
+
+    original_evaluate = (
+        self_play_module.evaluate_against_frozen
+    )
+
+    def recording_evaluate(*args, **kwargs):
+        colors.append(kwargs["agent_color"])
+
+        return original_evaluate(
+            *args,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(
+        self_play_module,
+        "evaluate_against_frozen",
+        recording_evaluate,
+    )
+
+    summary = evaluate_against_frozen_both_colors(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes_per_color=2,
+        max_agent_steps=1,
+    )
+
+    assert colors == [
+        chess.WHITE,
+        chess.BLACK,
+    ]
+
+    assert summary.episodes == 4
+
+def test_evaluate_against_frozen_both_colors_rejects_zero_episodes():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+
+    with pytest.raises(
+        ValueError,
+        match="episodes_per_color must be greater than zero",
+    ):
+        evaluate_against_frozen_both_colors(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            episodes_per_color=0,
         )

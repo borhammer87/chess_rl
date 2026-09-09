@@ -205,6 +205,63 @@ def evaluate_against_frozen(
         truncated=truncated,
     )
 
+def evaluate_against_frozen_both_colors(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: DQNCNN,
+    episodes_per_color: int,
+    max_agent_steps: int = 150,
+) -> EvaluationSummary:
+    """
+    Evaluate the DQN equally as White and Black
+    against a frozen opponent.
+    """
+    if episodes_per_color <= 0:
+        raise ValueError(
+            "episodes_per_color must be greater than zero."
+        )
+
+    white_summary = evaluate_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=episodes_per_color,
+        max_agent_steps=max_agent_steps,
+        agent_color=chess.WHITE,
+    )
+
+    black_summary = evaluate_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=episodes_per_color,
+        max_agent_steps=max_agent_steps,
+        agent_color=chess.BLACK,
+    )
+
+    return EvaluationSummary(
+        episodes=(
+            white_summary.episodes
+            + black_summary.episodes
+        ),
+        wins=(
+            white_summary.wins
+            + black_summary.wins
+        ),
+        draws=(
+            white_summary.draws
+            + black_summary.draws
+        ),
+        losses=(
+            white_summary.losses
+            + black_summary.losses
+        ),
+        truncated=(
+            white_summary.truncated
+            + black_summary.truncated
+        ),
+    )
+
 def train_against_frozen(
     env: ChessEnv,
     agent: DQNAgent,
