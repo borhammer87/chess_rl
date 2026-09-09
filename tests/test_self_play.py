@@ -10,6 +10,7 @@ from chess_rl.training.self_play import (
     create_frozen_opponent_selector,
     update_frozen_opponent,
     train_against_frozen,
+    evaluate_against_frozen,
 )
 
 import chess
@@ -637,4 +638,50 @@ def test_train_against_frozen_requires_checkpoint_callback():
             replay_buffer=replay_buffer,
             episodes=1,
             checkpoint_frequency=1,
+        )
+
+def test_evaluate_against_frozen_returns_summary():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+
+    summary = evaluate_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=3,
+        max_agent_steps=1,
+    )
+
+    assert summary.episodes == 3
+
+def test_evaluate_against_frozen_restores_epsilon():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=0.7)
+    opponent = create_frozen_opponent(agent)
+
+    evaluate_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=1,
+        max_agent_steps=1,
+    )
+
+    assert agent.epsilon == pytest.approx(0.7)
+
+def test_evaluate_against_frozen_rejects_zero_episodes():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+
+    with pytest.raises(
+        ValueError,
+        match="episodes must be greater than zero",
+    ):
+        evaluate_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            episodes=0,
         )

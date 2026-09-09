@@ -10,7 +10,10 @@ from chess_rl.training.episodes import (
     get_episode_agent_color,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
-from chess_rl.training.results import VsRandomEpisodeResult
+from chess_rl.training.results import (
+    VsRandomEpisodeResult,
+    EvaluationSummary,
+)
 from chess_rl.env.chess_env import ChessEnv
 from collections.abc import Callable
 
@@ -105,6 +108,101 @@ def run_dqn_vs_frozen_episode(
         batch_size=batch_size,
         min_replay_size=min_replay_size,
         agent_color=agent_color,
+    )
+
+def evaluate_against_frozen(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: DQNCNN,
+    episodes: int,
+    max_agent_steps: int = 150,
+    agent_color: chess.Color = chess.WHITE,
+) -> EvaluationSummary:
+    """
+    Evaluate the current greedy DQN policy against a frozen opponent.
+
+    Evaluation does not train the agent or modify the training
+    replay buffer.
+    """
+    if episodes <= 0:
+        raise ValueError(
+            "episodes must be greater than zero."
+        )
+
+    if max_agent_steps <= 0:
+        raise ValueError(
+            "max_agent_steps must be greater than zero."
+        )
+
+    if agent_color not in (
+        chess.WHITE,
+        chess.BLACK,
+    ):
+        raise ValueError(
+            "agent_color must be chess.WHITE or chess.BLACK."
+        )
+
+    original_epsilon = agent.epsilon
+
+    evaluation_buffer = ReplayBuffer(
+        capacity=max_agent_steps,
+    )
+
+    results: list[VsRandomEpisodeResult] = []
+
+    try:
+        agent.epsilon = 0.0
+
+        for _ in range(episodes):
+            result = run_dqn_vs_frozen_episode(
+                env=env,
+                agent=agent,
+                opponent=opponent,
+                replay_buffer=evaluation_buffer,
+                max_agent_steps=max_agent_steps,
+                batch_size=1,
+                min_replay_size=max_agent_steps + 1,
+                agent_color=agent_color,
+            )
+
+            results.append(result)
+
+    finally:
+        agent.epsilon = original_epsilon
+
+    if agent_color == chess.WHITE:
+        win_result = "1-0"
+        loss_result = "0-1"
+    else:
+        win_result = "0-1"
+        loss_result = "1-0"
+
+    wins = sum(
+        result.final_info.get("result") == win_result
+        for result in results
+    )
+
+    draws = sum(
+        result.final_info.get("result") == "1/2-1/2"
+        for result in results
+    )
+
+    losses = sum(
+        result.final_info.get("result") == loss_result
+        for result in results
+    )
+
+    truncated = sum(
+        result.truncated
+        for result in results
+    )
+
+    return EvaluationSummary(
+        episodes=len(results),
+        wins=wins,
+        draws=draws,
+        losses=losses,
+        truncated=truncated,
     )
 
 def train_against_frozen(
@@ -220,7 +318,7 @@ def train_against_frozen(
                 completed_episodes,
                 agent,
             )
-            
+
         if (
             opponent_update_frequency is not None
             and completed_episodes % opponent_update_frequency == 0
