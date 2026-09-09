@@ -744,3 +744,74 @@ def test_evaluate_against_frozen_both_colors_rejects_zero_episodes():
             opponent=opponent,
             episodes_per_color=0,
         )
+
+def test_train_against_frozen_evaluates_periodically():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    evaluation_calls = []
+
+    def evaluation_callback(
+        completed_episodes,
+        callback_agent,
+    ):
+        evaluation_calls.append(
+            (completed_episodes, callback_agent)
+        )
+
+    train_against_frozen(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=5,
+        max_agent_steps=1,
+        evaluation_frequency=2,
+        evaluation_callback=evaluation_callback,
+    )
+
+    assert evaluation_calls == [
+        (2, agent),
+        (4, agent),
+    ]
+
+def test_train_against_frozen_rejects_invalid_evaluation_frequency():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="evaluation_frequency must be greater than zero",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            evaluation_frequency=0,
+            evaluation_callback=lambda *_: None,
+        )
+
+def test_train_against_frozen_requires_evaluation_callback():
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = create_frozen_opponent(agent)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    with pytest.raises(
+        ValueError,
+        match="evaluation_callback is required",
+    ):
+        train_against_frozen(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=replay_buffer,
+            episodes=1,
+            evaluation_frequency=1,
+        )

@@ -284,6 +284,11 @@ def train_against_frozen(
         [int, DQNAgent],
         None,
     ] | None = None,
+    evaluation_frequency: int | None = None,
+    evaluation_callback: Callable[
+        [int, DQNAgent],
+        None,
+    ] | None = None,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple training episodes against one frozen DQN opponent.
@@ -335,6 +340,23 @@ def train_against_frozen(
             "checkpoint_frequency is set."
         )
 
+    if (
+        evaluation_frequency is not None
+        and evaluation_frequency <= 0
+    ):
+        raise ValueError(
+            "evaluation_frequency must be greater than zero."
+        )
+
+    if (
+        evaluation_frequency is not None
+        and evaluation_callback is None
+    ):
+        raise ValueError(
+            "evaluation_callback is required when "
+            "evaluation_frequency is set."
+        )
+
     for episode_index in range(episodes):
         episode_agent_color = get_episode_agent_color(
             initial_color=agent_color,
@@ -372,6 +394,15 @@ def train_against_frozen(
             and completed_episodes % checkpoint_frequency == 0
         ):
             checkpoint_callback(
+                completed_episodes,
+                agent,
+            )
+
+        if (
+            evaluation_frequency is not None
+            and completed_episodes % evaluation_frequency == 0
+        ):
+            evaluation_callback(
                 completed_episodes,
                 agent,
             )
