@@ -18,6 +18,12 @@ from chess_rl.training.episodes import (
     run_dqn_vs_random_episode,
     get_episode_agent_color,
 )
+
+from chess_rl.training.self_play import (
+    create_frozen_opponent,
+    train_against_frozen,
+)
+
 import chess
 
 def train_against_random(
@@ -402,8 +408,8 @@ def score_evaluation(
 
 def main() -> None:
     """
-    Run multi-episode DQN training against RandomAgent
-    and print a concise training summary.
+    Run multi-episode DQN self-play training,
+    evaluate against RandomAgent, and print a concise summary.
     """
     def print_training_progress(
         completed_episodes: int,
@@ -419,7 +425,7 @@ def main() -> None:
 
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
-    opponent = RandomAgent()
+    benchmark_opponent = RandomAgent()
     replay_buffer = ReplayBuffer(capacity=10_000)
 
     checkpoint_dir = Path("checkpoints")
@@ -463,7 +469,7 @@ def main() -> None:
         evaluation = evaluate_against_random_both_colors(
             env=env,
             agent=agent,
-            opponent=opponent,
+            opponent=benchmark_opponent,
             episodes_per_color=10,
             max_agent_steps=150,
         )
@@ -513,10 +519,12 @@ def main() -> None:
     else:
         print("No checkpoint found. Starting from scratch.")
 
-    results = train_against_random(
+    training_opponent = create_frozen_opponent(agent)
+
+    results = train_against_frozen(
         env=env,
         agent=agent,
-        opponent=opponent,
+        opponent=training_opponent,
         replay_buffer=replay_buffer,
         episodes=100,
         max_agent_steps=150,
@@ -529,6 +537,7 @@ def main() -> None:
         evaluation_frequency=25,
         evaluation_callback=evaluation_callback,
         alternate_colors=True,
+        opponent_update_frequency=25,
     )
 
     summary = summarize_training(results)

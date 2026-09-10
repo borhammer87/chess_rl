@@ -495,7 +495,7 @@ def test_main_runs_multi_episode_training(
 
     received_training_args = {}
 
-    def fake_train_against_random(
+    def fake_train_against_frozen(
         env,
         agent,
         opponent,
@@ -505,6 +505,7 @@ def test_main_runs_multi_episode_training(
         batch_size,
         min_replay_size,
         target_update_frequency,
+        opponent_update_frequency,
         progress_callback,
         checkpoint_frequency,
         checkpoint_callback,
@@ -524,6 +525,9 @@ def test_main_runs_multi_episode_training(
         received_training_args["checkpoint_callback"] = checkpoint_callback
         received_training_args["evaluation_frequency"] = (
             evaluation_frequency
+        )
+        received_training_args["opponent_update_frequency"] = (
+            opponent_update_frequency
         )
         received_training_args["evaluation_callback"] = (
             evaluation_callback
@@ -556,8 +560,8 @@ def test_main_runs_multi_episode_training(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "train_against_random",
-        fake_train_against_random,
+        "train_against_frozen",
+        fake_train_against_frozen,
     )
 
     main()
@@ -582,6 +586,7 @@ def test_main_runs_multi_episode_training(
     assert len(saved_paths) == 1
     assert saved_paths[0].endswith("latest.pt")
     assert received_training_args["alternate_colors"] is True
+    assert received_training_args["opponent_update_frequency"] == 25
 
 def test_train_against_random_reports_progress(
     monkeypatch,
@@ -783,7 +788,7 @@ def test_main_loads_existing_checkpoint(
     def fake_exists(self):
         return self.name == "latest.pt"
 
-    def fake_train_against_random(*args, **kwargs):
+    def fake_train_against_frozen(*args, **kwargs):
         return [
             VsRandomEpisodeResult(
                 agent_steps=1,
@@ -818,8 +823,8 @@ def test_main_loads_existing_checkpoint(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "train_against_random",
-        fake_train_against_random,
+        "train_against_frozen",
+        fake_train_against_frozen,
     )
 
     main()
@@ -841,7 +846,7 @@ def test_main_does_not_load_missing_checkpoint(
     def fake_exists(self):
         return False
 
-    def fake_train_against_random(*args, **kwargs):
+    def fake_train_against_frozen(*args, **kwargs):
         return [
             VsRandomEpisodeResult(
                 agent_steps=1,
@@ -876,8 +881,8 @@ def test_main_does_not_load_missing_checkpoint(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "train_against_random",
-        fake_train_against_random,
+        "train_against_frozen",
+        fake_train_against_frozen,
     )
 
     main()
@@ -1148,7 +1153,7 @@ def test_main_saves_best_checkpoint_after_evaluation(
             truncated=0,
         )
 
-    def fake_train_against_random(
+    def fake_train_against_frozen(
         env,
         agent,
         opponent,
@@ -1164,6 +1169,7 @@ def test_main_saves_best_checkpoint_after_evaluation(
         evaluation_frequency,
         evaluation_callback,
         alternate_colors,
+        opponent_update_frequency,
     ):
         evaluation_callback(
             evaluation_frequency,
@@ -1204,8 +1210,8 @@ def test_main_saves_best_checkpoint_after_evaluation(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "train_against_random",
-        fake_train_against_random,
+        "train_against_frozen",
+        fake_train_against_frozen,
     )
 
     main()
@@ -1262,7 +1268,7 @@ def test_main_replaces_best_checkpoint_when_score_improves(
             truncated=0,
         )
 
-    def fake_train_against_random(
+    def fake_train_against_frozen(
         env,
         agent,
         opponent,
@@ -1278,6 +1284,7 @@ def test_main_replaces_best_checkpoint_when_score_improves(
         evaluation_frequency,
         evaluation_callback,
         alternate_colors,
+        opponent_update_frequency,
     ):
         evaluation_callback(
             evaluation_frequency,
@@ -1324,8 +1331,8 @@ def test_main_replaces_best_checkpoint_when_score_improves(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "train_against_random",
-        fake_train_against_random,
+        "train_against_frozen",
+        fake_train_against_frozen,
     )
 
     main()
@@ -1382,7 +1389,7 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
             truncated=0,
         )
 
-    def fake_train_against_random(
+    def fake_train_against_frozen(
         env,
         agent,
         opponent,
@@ -1398,6 +1405,7 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
         evaluation_frequency,
         evaluation_callback,
         alternate_colors,
+        opponent_update_frequency,
     ):
         evaluation_callback(
             evaluation_frequency,
@@ -1443,8 +1451,8 @@ def test_main_keeps_best_checkpoint_when_score_does_not_improve(
 
     monkeypatch.setattr(
         train_dqn_module,
-        "train_against_random",
-        fake_train_against_random,
+        "train_against_frozen",
+        fake_train_against_frozen,
     )
 
     main()
@@ -1726,3 +1734,70 @@ def test_evaluate_against_random_both_colors_rejects_zero_episodes():
             opponent=opponent,
             episodes_per_color=0,
         )
+
+def test_main_creates_frozen_opponent_after_loading_checkpoint(
+    monkeypatch,
+):
+    call_order = []
+
+    fake_results = [
+        VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=1.0,
+            replay_size=0,
+        )
+    ]
+
+    def fake_exists(self):
+        return self.name == "latest.pt"
+
+    def fake_load_training_checkpoint(
+        path,
+        agent,
+        replay_buffer,
+    ):
+        call_order.append("load")
+
+    def fake_create_frozen_opponent(agent):
+        call_order.append("create_frozen")
+        return object()
+
+    def fake_train_against_frozen(**kwargs):
+        return fake_results
+
+    monkeypatch.setattr(
+        Path,
+        "exists",
+        fake_exists,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "load_training_checkpoint",
+        fake_load_training_checkpoint,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "create_frozen_opponent",
+        fake_create_frozen_opponent,
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "train_against_frozen",
+        fake_train_against_frozen,
+    )
+
+    main()
+
+    assert call_order == [
+        "load",
+        "create_frozen",
+    ]
