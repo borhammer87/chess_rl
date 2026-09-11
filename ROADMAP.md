@@ -57,6 +57,7 @@
 - [x] Design self-play architecture
 - [x] Generate self-play episodes
 - [x] Define opponent-network update policy
+- [x] Integrate self-play into the main training workflow
 - [ ] Evaluate self-play agents
 - [ ] Stronger opponent benchmarks
 

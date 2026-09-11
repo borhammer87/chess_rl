@@ -39,6 +39,11 @@ Implemented features:
 - Frozen-policy self-play opponent.
 - Multi-episode self-play with alternating colors.
 - Independent target-network and frozen-opponent synchronization.
+- trains against a frozen copy of the learner policy,
+- alternates the learner between White and Black,
+- periodically refreshes the frozen opponent,
+- keeps frozen-opponent refresh independent from target-network synchronization,
+- periodically evaluates the learner against RandomAgent.
 
 ## Running training
 
@@ -68,11 +73,18 @@ Black.
 
 ## Current limitations
 
-- The main executable training workflow still trains against RandomAgent.
-- Self-play evaluation is not implemented yet.
+- RandomAgent is retained as a stable evaluation benchmark and is no longer
+the opponent used for the main training workflow.
 - The board representation remains absolute rather than agent-relative.
 - Some chess state such as repetition state, and move counters is not encoded.
 
 ## Next goal
 
-Design and implement the first self-play training workflow.
+- Run and inspect real multi-episode self-play training from the main program,
+using RandomAgent as the provisional stable benchmark.
+
+- Use the resulting training and evaluation metrics to validate the workflow
+before introducing more advanced opponent-selection mechanisms.
+
+- A champion-vs-challenger system and its promotion criterion are intentionally
+postponed until the current self-play workflow has been evaluated.

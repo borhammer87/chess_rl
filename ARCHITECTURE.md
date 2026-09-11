@@ -125,14 +125,38 @@ Board encoding remains absolute:
 
 ## Training workflow
 
-`train_against_random()` coordinates multi-episode training.
+The project provides two multi-episode training workflows.
+
+### Training against RandomAgent
+
+`train_against_random()` coordinates multi-episode DQN training against
+`RandomAgent`.
 
 It supports:
 
 - fixed-color training
 - alternating-color training
 
-The current `main()` configuration alternates:
+This workflow remains available and tested, but it is no longer the
+training workflow used by `main()`.
+
+### Frozen-opponent self-play
+
+`train_against_frozen()` coordinates multi-episode training against a
+frozen DQN opponent.
+
+The frozen opponent is an independent copy of the learner's `policy_net`.
+
+It:
+
+- starts with the learner policy weights,
+- runs in evaluation mode,
+- has gradients disabled,
+- selects legal moves greedily,
+- can be periodically refreshed from the current learner policy.
+
+The current `main()` configuration uses this frozen-opponent self-play
+workflow and alternates the learner color:
 
 White
 → Black
@@ -140,7 +164,26 @@ White
 → Black
 → ...
 
-The same agent and replay buffer are reused across all episodes.
+The same learner and replay buffer are reused across all episodes.
+
+When resuming training, `main()` loads `latest.pt` before creating the
+frozen opponent. This ensures that the opponent is initialized from the
+restored learner policy rather than from newly initialized weights.
+
+The current `main()` configuration uses:
+
+- target-network synchronization every 10 episodes,
+- frozen-opponent refresh every 25 episodes,
+- training checkpointing every 25 episodes,
+- RandomAgent evaluation every 25 episodes.
+
+Frozen-opponent synchronization and target-network synchronization are
+independent mechanisms.
+
+`target_net` stabilizes Bellman targets during DQN learning.
+
+The frozen opponent provides a temporarily stable adversary during
+self-play.
 
 ## Evaluation
 
@@ -152,6 +195,11 @@ Results are interpreted from the DQN's perspective.
 Black and combines the results.
 
 The current periodic evaluation uses 10 games per color.
+
+RandomAgent is the current provisional stable evaluation benchmark.
+
+It is used for periodic evaluation and best-model selection, while the
+main training workflow uses the frozen DQN opponent described above.
 
 During evaluation:
 
@@ -199,7 +247,8 @@ stored score.
 
 ### `self_play.py`
 
-Contains the first self-play infrastructure:
+Contains the frozen-opponent self-play infrastructure used by the main
+training workflow:
 
 - Creation of an independent frozen copy of `policy_net`
 - Greedy legal move selection for the frozen opponent

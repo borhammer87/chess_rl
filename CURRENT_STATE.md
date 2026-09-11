@@ -118,20 +118,30 @@ The board encoder remains absolute:
 
 Running the training module:
 
-1. Creates the environment, agent, opponent, and replay buffer.
+1. Creates the environment, DQN learner, RandomAgent benchmark, and replay buffer.
 2. Reads the previous best evaluation score from `best.pt` when available.
 3. Loads `latest.pt` when available to resume training.
-4. Runs multi-episode training.
-5. Alternates the DQN between White and Black.
-6. Stores rewards from the DQN's perspective.
-7. Reports progress during training.
-8. Synchronizes the target network periodically.
-9. Saves `latest.pt` periodically.
-10. Evaluates the current policy periodically.
-11. Evaluates equally as White and Black.
-12. Calculates a normalized evaluation score.
-13. Replaces `best.pt` only when the new score is strictly better.
-14. Prints an aggregated training summary.
+4. Creates a frozen training opponent from the restored learner `policy_net`.
+5. Runs multi-episode self-play with `train_against_frozen()`.
+6. Alternates the DQN learner between White and Black.
+7. Stores rewards from the DQN's perspective.
+8. Reports progress during training.
+9. Synchronizes the target network every 10 episodes.
+10. Saves `latest.pt` every 25 episodes.
+11. Evaluates the current learner against RandomAgent every 25 episodes.
+12. Evaluates equally as White and Black.
+13. Calculates a normalized evaluation score.
+14. Replaces `best.pt` only when the new score is strictly better.
+15. Refreshes the frozen self-play opponent every 25 episodes.
+16. Prints an aggregated training summary using the existing `TrainingSummary` infrastructure.
+
+RandomAgent remains the provisional stable evaluation benchmark. It is used
+for periodic evaluation and best-checkpoint selection, but it is no longer
+the opponent used by the main training workflow.
+
+Frozen-opponent synchronization is independent from target-network
+synchronization. They currently use different frequencies and serve
+different purposes.
 
 ## Current evaluation metrics
 
@@ -167,16 +177,13 @@ Training checkpoints can preserve:
 
 ## Tests
 
-The repository currently defines 150 tests covering the environment,
+The repository currently defines 170 tests covering the environment,
 encoding, DQN agent, replay buffer, generic episode execution,
 RandomAgent training, frozen-opponent self-play, evaluation,
 checkpointing, reward perspective, and color alternation.
 
 ## Current limitations
 
-- Self-play is implemented at the training-episode level but is not yet
-  integrated into the main executable training workflow.
-- Evaluation currently uses only RandomAgent as the benchmark.
 - Self-play agents are not yet evaluated against frozen or historical
   policies.
 - Board encoding remains absolute rather than agent-relative.
@@ -196,5 +203,7 @@ frozen opponent network.
 
 ## Next milestone
 
-Integrate self-play into a complete training workflow and add evaluation
-for self-play policies.
+Run the integrated self-play workflow from the main program and inspect
+real training behaviour and RandomAgent evaluation results.
+
+Champion-vs-challenger evaluation and promotion criteria remain future work.

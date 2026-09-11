@@ -2,8 +2,8 @@
 
 ## Objective
 
-Build a robust DQN training and evaluation workflow before moving to
-self-play and larger experiments.
+Build and validate a robust DQN self-play training workflow before moving
+to larger experiments and more advanced opponent-selection strategies.
 
 ---
 
@@ -20,7 +20,7 @@ self-play and larger experiments.
 
 - [x] DQN plays White
 - [x] DQN plays Black
-- [x] RandomAgent plays the opposite color
+- [x] RandomAgent can play the opposite color
 - [x] Alternate DQN color between training episodes
 - [x] Complete episodes
 - [x] Reward generation
@@ -86,7 +86,7 @@ self-play and larger experiments.
 - [x] Periodic target-network synchronization
 - [x] Periodic frozen-opponent synchronization
 - [ ] Self-play evaluation
-- [ ] Main-program self-play integration
+- [x] Main-program self-play integration
 
 ### Code organization
 
@@ -126,7 +126,8 @@ same network to learn policies for both colors.
 
 ## Model selection
 
-Periodic evaluation uses an equal number of games as White and Black.
+Periodic evaluation uses an equal number of games as White and Black. RandomAgent is currently used as the provisional stable evaluation
+benchmark, while training itself uses the frozen DQN opponent.
 
 Evaluation performance is normalized using:
 
@@ -151,7 +152,13 @@ far.
 
 ## Next milestone
 
-Design the first self-play workflow.
+## Next milestone
 
-The next architectural question is how to manage the policy controlling
-the opponent side while experience is generated for the learning agent.
+Run the integrated self-play workflow from the main program and inspect
+real training behaviour and RandomAgent evaluation results.
+
+The immediate goal is to validate the current training workflow before
+introducing more advanced opponent-selection mechanisms.
+
+Champion-vs-challenger evaluation and promotion criteria remain future
+work.
