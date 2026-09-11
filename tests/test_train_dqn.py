@@ -448,6 +448,11 @@ def test_summarize_training_returns_expected_metrics():
     assert summary.average_loss == pytest.approx(0.6)
     assert summary.final_epsilon == 0.7
     assert summary.replay_size == 20
+    assert summary.wins == 1
+    assert summary.draws == 0
+    assert summary.losses == 1
+    assert summary.truncated == 0
+    assert summary.average_plies == 5.0
 
 def test_summarize_training_returns_none_without_losses():
     results = [
@@ -579,6 +584,11 @@ def test_main_runs_multi_episode_training(
     output = capsys.readouterr().out
 
     assert "Episodes: 1" in output
+    assert "Wins: 1" in output
+    assert "Draws: 0" in output
+    assert "Losses: 0" in output
+    assert "Truncated: 0" in output
+    assert "Average plies: 20.00" in output
     assert "Average reward: 1.0000" in output
     assert "Average loss: 0.3000" in output
     assert "Final epsilon: 0.8000" in output
@@ -1801,3 +1811,37 @@ def test_main_creates_frozen_opponent_after_loading_checkpoint(
         "load",
         "create_frozen",
     ]
+
+def test_summarize_training_distinguishes_draws_from_truncations():
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=20,
+            total_plies=40,
+            total_reward=0.0,
+            done=True,
+            truncated=False,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.5,
+            replay_size=50,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.4,
+            replay_size=100,
+        ),
+    ]
+
+    summary = summarize_training(results)
+
+    assert summary.wins == 0
+    assert summary.draws == 1
+    assert summary.losses == 0
+    assert summary.truncated == 1
+    assert summary.average_plies == 170.0

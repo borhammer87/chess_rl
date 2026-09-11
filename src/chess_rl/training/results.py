@@ -60,6 +60,11 @@ class TrainingSummary:
     """
 
     episodes: int
+    wins: int
+    draws: int
+    losses: int
+    truncated: int
+    average_plies: float
     average_reward: float
     average_loss: float | None
     final_epsilon: float

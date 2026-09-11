@@ -152,8 +152,6 @@ far.
 
 ## Next milestone
 
-## Next milestone
-
 Run the integrated self-play workflow from the main program and inspect
 real training behaviour and RandomAgent evaluation results.
 

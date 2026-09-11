@@ -209,20 +209,48 @@ def summarize_training(
             "results must contain at least one episode."
         )
 
+    wins = sum(
+        result.done
+        and result.total_reward > 0
+        for result in results
+    )
+
+    draws = sum(
+        result.done
+        and result.total_reward == 0
+        for result in results
+    )
+
+    losses = sum(
+        result.done
+        and result.total_reward < 0
+        for result in results
+    )
+
+    truncated = sum(
+        result.truncated
+        for result in results
+    )
+
+    average_plies = sum(
+        result.total_plies
+        for result in results
+    ) / len(results)
+
     average_reward = sum(
         result.total_reward
         for result in results
     ) / len(results)
 
-    losses = [
+    training_losses = [
         loss
         for result in results
         for loss in result.training_losses
     ]
 
     average_loss = (
-        sum(losses) / len(losses)
-        if losses
+        sum(training_losses) / len(training_losses)
+        if training_losses
         else None
     )
 
@@ -230,6 +258,11 @@ def summarize_training(
 
     return TrainingSummary(
         episodes=len(results),
+        wins=wins,
+        draws=draws,
+        losses=losses,
+        truncated=truncated,
+        average_plies=average_plies,
         average_reward=average_reward,
         average_loss=average_loss,
         final_epsilon=final_result.final_epsilon,
@@ -416,8 +449,21 @@ def main() -> None:
         total_episodes: int,
         result: VsRandomEpisodeResult,
     ) -> None:
+        if result.truncated:
+            outcome = "truncated"
+        elif result.total_reward > 0:
+            outcome = "win"
+        elif result.total_reward < 0:
+            outcome = "loss"
+        elif result.done:
+            outcome = "draw"
+        else:
+            outcome = "unfinished"
+
         print(
             f"Episode {completed_episodes}/{total_episodes} "
+            f"- result: {outcome} "
+            f"- plies: {result.total_plies} "
             f"- reward: {result.total_reward:.4f} "
             f"- epsilon: {result.final_epsilon:.4f} "
             f"- replay: {result.replay_size}"
@@ -543,6 +589,11 @@ def main() -> None:
     summary = summarize_training(results)
 
     print(f"Episodes: {summary.episodes}")
+    print(f"Wins: {summary.wins}")
+    print(f"Draws: {summary.draws}")
+    print(f"Losses: {summary.losses}")
+    print(f"Truncated: {summary.truncated}")
+    print(f"Average plies: {summary.average_plies:.2f}")
     print(f"Average reward: {summary.average_reward:.4f}")
 
     if summary.average_loss is None:
