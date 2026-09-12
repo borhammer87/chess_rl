@@ -501,11 +501,12 @@ def test_dqn_vs_random_attempts_training_after_storing_transition(
         assert received_calls[0]["batch_size"] == 2
         assert received_calls[0]["min_replay_size"] == 4
 
-def test_train_from_replay_decays_epsilon_once_after_training(
-        
-    monkeypatch,
-):
-    agent = DQNAgent()
+def test_train_from_replay_does_not_decay_epsilon_after_training():
+    agent = DQNAgent(
+        epsilon=1.0,
+        epsilon_min=0.1,
+        epsilon_decay=0.5,
+    )
     replay_buffer = ReplayBuffer(capacity=10)
 
     state = torch.zeros((BOARD_CHANNELS, 8, 8))
@@ -520,17 +521,6 @@ def test_train_from_replay_decays_epsilon_once_after_training(
             next_legal_actions=[1, 2],
         )
 
-    decay_calls = []
-
-    def fake_decay_epsilon():
-        decay_calls.append(True)
-
-    monkeypatch.setattr(
-        agent,
-        "decay_epsilon",
-        fake_decay_epsilon,
-    )
-
     loss = train_from_replay(
         agent=agent,
         replay_buffer=replay_buffer,
@@ -539,7 +529,7 @@ def test_train_from_replay_decays_epsilon_once_after_training(
     )
 
     assert isinstance(loss, float)
-    assert len(decay_calls) == 1
+    assert agent.epsilon == 1.0
 
 def test_dqn_vs_random_records_training_loss(
     monkeypatch,
@@ -608,8 +598,9 @@ def test_dqn_vs_random_ignores_missing_training_loss(
     )
 
     assert result.training_losses == []
+    assert agent.epsilon == 1.0
 
-def test_dqn_vs_random_records_final_epsilon(
+def test_dqn_vs_random_decays_epsilon_once_after_training_episode(
     monkeypatch,
 ):
     env = ChessEnv()
@@ -627,7 +618,6 @@ def test_dqn_vs_random_records_final_epsilon(
         batch_size,
         min_replay_size,
     ):
-        agent.decay_epsilon()
         return 0.25
 
     monkeypatch.setattr(

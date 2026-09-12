@@ -208,8 +208,6 @@ def train_from_replay(
 
     loss = agent.train_step(batch)
 
-    agent.decay_epsilon()
-
     return loss
 
 def run_episode(
@@ -423,6 +421,9 @@ def run_dqn_vs_opponent_episode(
             )
 
         total_reward += agent_reward
+
+    if training_losses:
+        agent.decay_epsilon()
 
     truncated = (
         not env.done
