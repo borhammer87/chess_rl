@@ -588,6 +588,9 @@ def test_main_runs_multi_episode_training(
     assert "Draws: 0" in output
     assert "Losses: 0" in output
     assert "Truncated: 0" in output
+    assert "Truncated with claimable threefold: 0" in output
+    assert "Truncated with claimable fifty-move draw: 0" in output
+    assert "Truncated without claimable draw: 0" in output
     assert "Average plies: 20.00" in output
     assert "Average reward: 1.0000" in output
     assert "Average loss: 0.3000" in output
@@ -1845,3 +1848,49 @@ def test_summarize_training_distinguishes_draws_from_truncations():
     assert summary.losses == 0
     assert summary.truncated == 1
     assert summary.average_plies == 170.0
+
+def test_summarize_training_counts_truncated_draw_claims():
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.9,
+            replay_size=100,
+            claimable_threefold=True,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.8,
+            replay_size=200,
+            claimable_fifty_moves=True,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.7,
+            replay_size=300,
+        ),
+    ]
+
+    summary = summarize_training(results)
+
+    assert summary.truncated == 3
+    assert summary.truncated_claimable_threefold == 1
+    assert summary.truncated_claimable_fifty_moves == 1
+    assert summary.truncated_without_claimable_draw == 1

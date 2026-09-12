@@ -902,3 +902,56 @@ def test_get_episode_agent_color_rejects_invalid_color():
             episode_index=0,
             alternate_colors=True,
         )
+
+def test_truncated_episode_records_claimable_draw_state(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    monkeypatch.setattr(
+        chess.Board,
+        "can_claim_threefold_repetition",
+        lambda self: True,
+    )
+
+    monkeypatch.setattr(
+        chess.Board,
+        "can_claim_fifty_moves",
+        lambda self: True,
+    )
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    assert result.truncated is True
+    assert result.claimable_threefold is True
+    assert result.claimable_fifty_moves is True
+
+def test_episode_draw_claim_flags_default_to_false():
+    result = VsRandomEpisodeResult(
+        agent_steps=1,
+        total_plies=2,
+        total_reward=1.0,
+        done=True,
+        truncated=False,
+        final_info={},
+        training_losses=[],
+        final_epsilon=1.0,
+        replay_size=1,
+    )
+
+    assert result.claimable_threefold is False
+    assert result.claimable_fifty_moves is False

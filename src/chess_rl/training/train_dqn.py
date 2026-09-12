@@ -232,6 +232,25 @@ def summarize_training(
         for result in results
     )
 
+    truncated_claimable_threefold = sum(
+        result.truncated
+        and result.claimable_threefold
+        for result in results
+    )
+
+    truncated_claimable_fifty_moves = sum(
+        result.truncated
+        and result.claimable_fifty_moves
+        for result in results
+    )
+
+    truncated_without_claimable_draw = sum(
+        result.truncated
+        and not result.claimable_threefold
+        and not result.claimable_fifty_moves
+        for result in results
+    )
+
     average_plies = sum(
         result.total_plies
         for result in results
@@ -267,6 +286,15 @@ def summarize_training(
         average_loss=average_loss,
         final_epsilon=final_result.final_epsilon,
         replay_size=final_result.replay_size,
+        truncated_claimable_threefold=(
+            truncated_claimable_threefold
+        ),
+        truncated_claimable_fifty_moves=(
+            truncated_claimable_fifty_moves
+        ),
+        truncated_without_claimable_draw=(
+            truncated_without_claimable_draw
+        ),
     )
 
 def evaluate_against_random(
@@ -593,6 +621,18 @@ def main() -> None:
     print(f"Draws: {summary.draws}")
     print(f"Losses: {summary.losses}")
     print(f"Truncated: {summary.truncated}")
+    print(
+        "Truncated with claimable threefold: "
+        f"{summary.truncated_claimable_threefold}"
+    )
+    print(
+        "Truncated with claimable fifty-move draw: "
+        f"{summary.truncated_claimable_fifty_moves}"
+    )
+    print(
+        "Truncated without claimable draw: "
+        f"{summary.truncated_without_claimable_draw}"
+    )
     print(f"Average plies: {summary.average_plies:.2f}")
     print(f"Average reward: {summary.average_reward:.4f}")
 

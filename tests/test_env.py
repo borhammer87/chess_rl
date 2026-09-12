@@ -134,3 +134,128 @@ def test_step_returns_info_dictionary():
     assert isinstance(info, dict)
     assert info["result"] is None
     assert info["termination"] is None
+
+def test_env_detects_checkmate():
+    env = ChessEnv()
+    env.reset()
+
+    env.step(chess.Move.from_uci("f2f3"))
+    env.step(chess.Move.from_uci("e7e5"))
+    env.step(chess.Move.from_uci("g2g4"))
+
+    _, reward, done, info = env.step(
+        chess.Move.from_uci("d8h4")
+    )
+
+    assert done is True
+    assert reward == -1.0
+    assert info["result"] == "0-1"
+    assert info["termination"] == "CHECKMATE"
+
+
+def test_env_detects_stalemate():
+    env = ChessEnv()
+
+    env.board = chess.Board(
+        "7k/5K2/8/6Q1/8/8/8/8 w - - 0 1"
+    )
+
+    _, reward, done, info = env.step(
+        chess.Move.from_uci("g5g6")
+    )
+
+    assert done is True
+    assert reward == 0.0
+    assert info["result"] == "1/2-1/2"
+    assert info["termination"] == "STALEMATE"
+
+
+def test_env_detects_insufficient_material():
+    env = ChessEnv()
+
+    env.board = chess.Board(
+        "7k/8/8/8/8/8/1B6/K7 w - - 0 1"
+    )
+
+    _, reward, done, info = env.step(
+        chess.Move.from_uci("b2c3")
+    )
+
+    assert done is True
+    assert reward == 0.0
+    assert info["result"] == "1/2-1/2"
+    assert info["termination"] == "INSUFFICIENT_MATERIAL"
+
+
+def test_env_does_not_end_on_claimable_threefold_repetition():
+    env = ChessEnv()
+    env.reset()
+
+    moves = [
+        "g1f3",
+        "g8f6",
+        "f3g1",
+        "f6g8",
+        "g1f3",
+        "g8f6",
+        "f3g1",
+        "f6g8",
+    ]
+
+    for uci in moves:
+        _, _, done, _ = env.step(
+            chess.Move.from_uci(uci)
+        )
+
+    assert env.board.can_claim_threefold_repetition() is True
+    assert done is False
+
+
+def test_env_detects_automatic_fivefold_repetition():
+    env = ChessEnv()
+    env.reset()
+
+    moves = [
+        "g1f3",
+        "g8f6",
+        "f3g1",
+        "f6g8",
+    ] * 4
+
+    for uci in moves:
+        _, reward, done, info = env.step(
+            chess.Move.from_uci(uci)
+        )
+
+    assert done is True
+    assert reward == 0.0
+    assert info["result"] == "1/2-1/2"
+    assert info["termination"] == "FIVEFOLD_REPETITION"
+
+
+def test_env_distinguishes_claimable_and_automatic_move_rule_draws():
+    claimable_env = ChessEnv()
+    claimable_env.board = chess.Board(
+        "8/8/8/8/8/8/R6k/K7 w - - 99 50"
+    )
+
+    _, _, claimable_done, _ = claimable_env.step(
+        chess.Move.from_uci("a2a3")
+    )
+
+    assert claimable_env.board.can_claim_fifty_moves() is True
+    assert claimable_done is False
+
+    automatic_env = ChessEnv()
+    automatic_env.board = chess.Board(
+        "8/8/8/8/8/8/R6k/K7 w - - 149 75"
+    )
+
+    _, reward, automatic_done, info = automatic_env.step(
+        chess.Move.from_uci("a2a3")
+    )
+
+    assert automatic_done is True
+    assert reward == 0.0
+    assert info["result"] == "1/2-1/2"
+    assert info["termination"] == "SEVENTYFIVE_MOVES"

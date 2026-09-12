@@ -430,6 +430,16 @@ def run_dqn_vs_opponent_episode(
         and agent_steps >= max_agent_steps
     )
 
+    claimable_threefold = (
+        truncated
+        and env.board.can_claim_threefold_repetition()
+    )
+
+    claimable_fifty_moves = (
+        truncated
+        and env.board.can_claim_fifty_moves()
+    )
+
     return VsRandomEpisodeResult(
         agent_steps=agent_steps,
         total_plies=total_plies,
@@ -440,6 +450,8 @@ def run_dqn_vs_opponent_episode(
         training_losses=training_losses,
         final_epsilon=agent.epsilon,
         replay_size=len(replay_buffer),
+        claimable_threefold=claimable_threefold,
+        claimable_fifty_moves=claimable_fifty_moves
     )
 
 

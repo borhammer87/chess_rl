@@ -51,6 +51,8 @@ class VsRandomEpisodeResult:
     training_losses: list[float]
     final_epsilon: float
     replay_size: int
+    claimable_threefold: bool = False
+    claimable_fifty_moves: bool = False
 
 
 @dataclass
@@ -69,6 +71,9 @@ class TrainingSummary:
     average_loss: float | None
     final_epsilon: float
     replay_size: int
+    truncated_claimable_threefold: int = 0
+    truncated_claimable_fifty_moves: int = 0
+    truncated_without_claimable_draw: int = 0
 
 
 @dataclass
