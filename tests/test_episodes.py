@@ -16,6 +16,7 @@ from chess_rl.training.episodes import (
     create_random_opponent_selector,
     run_dqn_vs_opponent_episode,
     get_episode_agent_color,
+    TRUNCATION_PENALTY,
 )
 from chess_rl.training.results import (
     EpisodeResult,
@@ -955,3 +956,98 @@ def test_episode_draw_claim_flags_default_to_false():
 
     assert result.claimable_threefold is False
     assert result.claimable_fifty_moves is False
+
+def test_truncated_episode_stores_terminal_penalty():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    transition = replay_buffer.buffer[-1]
+
+    assert result.truncated is True
+    assert result.done is False
+
+    assert transition.reward == pytest.approx(
+        TRUNCATION_PENALTY
+    )
+    assert transition.done is True
+    assert transition.next_legal_actions == []
+
+    assert result.total_reward == pytest.approx(
+        TRUNCATION_PENALTY
+    )
+
+def test_completed_episode_does_not_apply_truncation_penalty(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    rewards = iter([
+        (0.0, False),
+        (1.0, True),
+    ])
+
+    def fake_step(move):
+        reward, done = next(rewards)
+
+        env.board.push(move)
+        env.done = done
+
+        info = {
+            "result": "1-0" if done else None,
+            "termination": (
+                "CHECKMATE"
+                if done
+                else None
+            ),
+        }
+
+        return (
+            env.board,
+            reward,
+            done,
+            info,
+        )
+
+    monkeypatch.setattr(
+        env,
+        "step",
+        fake_step,
+    )
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    transition = replay_buffer.buffer[-1]
+
+    assert result.done is True
+    assert result.truncated is False
+    assert transition.reward == pytest.approx(1.0)
+    assert transition.done is True

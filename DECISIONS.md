@@ -752,3 +752,60 @@ training state.
 - The frozen opponent has no optimizer or exploration schedule.
 - Future self-play can extend this design with historical opponent pools
   or stronger model-selection policies.
+
+## D-019 — Keep current chess draw termination semantics after truncation diagnosis
+
+### Status
+
+Accepted
+
+### Decision
+
+Keep the current `python-chess` game-over semantics instead of treating
+claimable threefold repetition or the fifty-move rule as automatically
+terminal.
+
+Record claimable-draw state separately when an episode reaches the training
+step limit.
+
+Also retain a greedy PGN diagnostic game for qualitative inspection of the
+current policy.
+
+### Reason
+
+Real training runs produced a high number of truncated episodes.
+
+Additional diagnostics showed that only a small minority of those
+truncations occurred in positions where a draw could be claimed.
+
+Therefore, changing draw-claim semantics would not address the main source
+of long unfinished games.
+
+A greedy evaluation game also demonstrated that the learned policy can enter
+long non-progressing move sequences even when epsilon is zero.
+
+The current problem is therefore treated primarily as a learning-quality
+problem rather than an environment termination problem.
+
+### Alternatives considered
+
+1. Automatically terminate games when threefold repetition can be claimed.
+2. Automatically terminate games when the fifty-move rule can be claimed.
+3. Increase the episode step limit.
+4. Treat all truncations as equivalent without collecting diagnostic data.
+
+These options were rejected as solutions to the observed truncation problem
+because the diagnostics show that most truncated games do not satisfy either
+claimable-draw condition.
+
+### Consequences
+
+- Standard current environment termination behaviour is preserved.
+- Claimable draws remain observable in training diagnostics.
+- Genuine non-progressing truncations can be distinguished from draw-related
+  truncations.
+- Diagnostic PGN inspection can be used to study policy behaviour.
+- The next design question moves from termination rules to learning signal
+  quality.
+- Truncation penalties and intermediate reward shaping remain separate,
+  undecided future experiments.

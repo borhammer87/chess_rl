@@ -61,7 +61,17 @@
 - [ ] Evaluate self-play agents
 - [ ] Stronger opponent benchmarks
 
-## Phase 6 — Future work
+## Phase 6 — Learning-signal validation
+
+- [x] Inspect real integrated self-play runs
+- [x] Diagnose high truncation rate
+- [x] Distinguish claimable draws from genuine truncations
+- [x] Export and inspect a greedy evaluation game
+- [ ] Decide truncation reward semantics
+- [ ] Evaluate whether intermediate reward shaping is needed
+- [ ] Validate learning behaviour after reward decision
+
+## Phase 7 — Future work
 
 - [ ] Hyperparameter tuning
 - [ ] Long training experiments

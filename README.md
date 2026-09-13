@@ -22,7 +22,7 @@ Implemented features:
 - Random replay sampling.
 - Multi-episode training.
 - Target network synchronization.
-- Epsilon decay after successful training updates.
+- Epsilon decay once per episode when     replay training occurred
 - Training metrics collection.
 - Aggregated training summaries.
 - Console progress reporting.
@@ -39,11 +39,11 @@ Implemented features:
 - Frozen-policy self-play opponent.
 - Multi-episode self-play with alternating colors.
 - Independent target-network and frozen-opponent synchronization.
-- trains against a frozen copy of the learner policy,
-- alternates the learner between White and Black,
-- periodically refreshes the frozen opponent,
 - keeps frozen-opponent refresh independent from target-network synchronization,
 - periodically evaluates the learner against RandomAgent.
+- Truncation diagnostics for claimable draws.
+- Greedy diagnostic evaluation game against RandomAgent.
+- PGN export to `checkpoints/evaluation_game.pgn`.
 
 ## Running training
 
@@ -80,11 +80,24 @@ the opponent used for the main training workflow.
 
 ## Next goal
 
-- Run and inspect real multi-episode self-play training from the main program,
-using RandomAgent as the provisional stable benchmark.
+## Next goal
 
-- Use the resulting training and evaluation metrics to validate the workflow
-before introducing more advanced opponent-selection mechanisms.
+Real training runs and diagnostic PGN inspection have shown that the current
+DQN policy does not yet produce reliable chess behaviour.
 
-- A champion-vs-challenger system and its promotion criterion are intentionally
-postponed until the current self-play workflow has been evaluated.
+Most truncated games are not caused by claimable draw rules, and the greedy
+policy can enter long non-progressing move sequences even without
+exploration.
+
+The next goal is to design the smallest useful improvement to the learning
+signal.
+
+Current candidates are:
+
+- penalizing episodes that reach the truncation limit,
+- introducing minimal material-based reward shaping,
+- or keeping the sparse terminal reward while training substantially longer.
+
+No reward-model change has been selected yet.
+
+Champion-vs-challenger opponent management remains intentionally postponed.

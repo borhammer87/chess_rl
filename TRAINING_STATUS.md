@@ -41,7 +41,7 @@ to larger experiments and more advanced opponent-selection strategies.
 - [x] Target network
 - [x] Periodic target synchronization
 - [x] Mini-batch training
-- [x] Epsilon decay after successful training updates
+- [x] Epsilon decay once per episode when replay training occurred
 
 ### Training metrics
 
@@ -51,6 +51,9 @@ to larger experiments and more advanced opponent-selection strategies.
 - [x] Replay buffer size
 - [x] Training summary
 - [x] Console progress reporting
+- [x] Claimable-threefold truncation count
+- [x] Claimable-fifty-move truncation count
+- [x] Truncations without claimable draw
 
 ### Evaluation
 
@@ -63,6 +66,8 @@ to larger experiments and more advanced opponent-selection strategies.
 - [x] Periodic evaluation during training
 - [x] Normalized evaluation scoring
 - [x] Best-checkpoint selection
+- [x] Greedy diagnostic game against RandomAgent
+- [x] Diagnostic PGN export
 
 ### Persistence
 
@@ -152,11 +157,27 @@ far.
 
 ## Next milestone
 
-Run the integrated self-play workflow from the main program and inspect
-real training behaviour and RandomAgent evaluation results.
+## Next milestone
 
-The immediate goal is to validate the current training workflow before
-introducing more advanced opponent-selection mechanisms.
+Design an improved learning signal based on the observed training behaviour.
 
-Champion-vs-challenger evaluation and promotion criteria remain future
-work.
+Current diagnostic evidence shows:
+
+- most long games are genuine truncations rather than unclaimed draws,
+- the greedy DQN can enter non-progressing move cycles,
+- RandomAgent evaluation still contains many truncated games,
+- reducing exploration alone does not solve the problem.
+
+Candidate next experiments:
+
+1. Apply a negative reward when an episode reaches the truncation limit.
+2. Add minimal material-based reward shaping.
+3. Continue sparse-reward training for substantially longer before changing
+   the reward model.
+
+The truncation-penalty option is currently attractive because it preserves
+the primary win/loss objective more directly than material shaping.
+
+Its exact semantics have not yet been decided.
+
+Champion-vs-challenger evaluation and promotion criteria remain future work.

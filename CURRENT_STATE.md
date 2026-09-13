@@ -2,8 +2,12 @@
 
 ## Status
 
-The project currently contains a complete DQN training, evaluation, and
-checkpoint-selection workflow against RandomAgent.
+The project currently contains a complete DQN training, evaluation,
+checkpoint-selection, frozen-opponent self-play, and diagnostic workflow.
+
+The main training workflow uses frozen-policy self-play.
+
+RandomAgent remains the provisional stable evaluation benchmark.
 
 The DQN can train and evaluate as both White and Black.
 
@@ -19,7 +23,7 @@ Implemented components:
 - Multi-episode training
 - Replay sampling
 - Target network synchronization
-- Epsilon decay after successful training updates
+- Epsilon decay once per episode when replay training occurred
 - Training metrics collection
 - Training summary generation
 - Console progress reporting
@@ -46,6 +50,11 @@ Implemented components:
 - Multi-episode self-play training
 - Alternating White/Black self-play episodes
 - Periodic frozen-opponent synchronization
+- Truncation diagnostics for claimable threefold repetition
+- Truncation diagnostics for claimable fifty-move draws
+- Truncation classification without claimable draw
+- Greedy diagnostic evaluation game against RandomAgent
+- PGN export of the diagnostic evaluation game
 
 ## State representation
 
@@ -134,6 +143,11 @@ Running the training module:
 14. Replaces `best.pt` only when the new score is strictly better.
 15. Refreshes the frozen self-play opponent every 25 episodes.
 16. Prints an aggregated training summary using the existing `TrainingSummary` infrastructure.
+17. Classifies truncated episodes according to whether a draw could have
+    been claimed by threefold repetition or the fifty-move rule.
+18. Runs one additional greedy diagnostic game against RandomAgent after
+    training.
+19. Saves that diagnostic game to `checkpoints/evaluation_game.pgn`.
 
 RandomAgent remains the provisional stable evaluation benchmark. It is used
 for periodic evaluation and best-checkpoint selection, but it is no longer
@@ -184,26 +198,60 @@ checkpointing, reward perspective, and color alternation.
 
 ## Current limitations
 
+- The current policy has not yet demonstrated useful chess-playing
+  behaviour.
+- Training and RandomAgent evaluation still produce a very high proportion
+  of truncated games.
+- Diagnostic runs showed that most truncations occur without a claimable
+  threefold repetition or fifty-move draw.
+- Greedy diagnostic evaluation can enter long non-progressing move cycles
+  even with epsilon set to zero.
+- The current reward remains sparse and terminal:
+  win `+1`, loss `-1`, draw or unfinished game `0`.
+- Truncated games currently provide no explicit negative training reward.
+- Board encoding does not include repetition state or move counters.
 - Self-play agents are not yet evaluated against frozen or historical
   policies.
 - Board encoding remains absolute rather than agent-relative.
 - Checkpoints do not preserve random-number-generator state.
 - Checkpoints do not store a global lifetime episode counter.
-- Checkpoint compatibility assumes compatible code and hyperparameters.
-- Evaluation currently uses only RandomAgent as the benchmark.
+- Evaluation currently uses only RandomAgent as the stable benchmark.
 - Evaluation scores may be noisy because they use a finite number of games.
+
 
 ## Current focus
 
-The first frozen-opponent self-play workflow is implemented and tested.
+The integrated frozen-opponent self-play workflow has now been exercised
+with real training runs.
 
-The learning DQN can train across multiple episodes while alternating
-colors, periodically synchronizing both its target network and a separate
-frozen opponent network.
+Truncation diagnostics and a greedy PGN evaluation were added to investigate
+the high number of unfinished games.
+
+The diagnostics indicate that claimable draw rules are not the main cause
+of truncation.
+
+The current greedy policy can make non-progressing move sequences even when
+exploration is disabled, indicating that useful chess behaviour has not yet
+emerged reliably.
 
 ## Next milestone
 
-Run the integrated self-play workflow from the main program and inspect
-real training behaviour and RandomAgent evaluation results.
+Design the next improvement to the learning signal.
+
+The first alternatives to evaluate are:
+
+1. Penalize episodes that reach the training truncation limit.
+2. Introduce minimal intermediate reward shaping, such as material-based
+   feedback.
+3. Keep the current sparse terminal reward and instead perform substantially
+   longer training.
+
+No reward change has been selected yet.
+
+Any truncation penalty must affect replay transitions to become a real
+learning signal; changing only the episode summary reward would not train
+the DQN.
 
 Champion-vs-challenger evaluation and promotion criteria remain future work.
+
+

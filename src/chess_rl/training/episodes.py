@@ -22,6 +22,8 @@ OpponentMoveSelector = Callable[
     chess.Move,
 ]
 
+TRUNCATION_PENALTY = -0.1
+
 def create_random_opponent_selector(
     opponent: RandomAgent,
 ) -> OpponentMoveSelector:
@@ -387,11 +389,24 @@ def run_dqn_vs_opponent_episode(
             agent_color,
         )
 
+        truncated_transition = (
+            not done
+            and agent_steps >= max_agent_steps
+        )
+
+        if truncated_transition:
+            agent_reward = TRUNCATION_PENALTY
+
         next_state = encode_board(
             next_board
         )
 
-        if done:
+        transition_done = (
+            done
+            or truncated_transition
+        )
+
+        if transition_done:
             next_legal_actions = []
         else:
             next_legal_actions = [
@@ -404,7 +419,7 @@ def run_dqn_vs_opponent_episode(
             action=action,
             reward=agent_reward,
             next_state=next_state,
-            done=done,
+            done=transition_done,
             next_legal_actions=next_legal_actions,
         )
 

@@ -102,6 +102,9 @@ Its responsibilities include:
 - Training summaries
 - Best-model selection
 - Main program execution
+- Truncation diagnostics
+- Greedy diagnostic-game generation
+- PGN diagnostic export
 
 ### `checkpoint.py`
 
@@ -208,6 +211,19 @@ During evaluation:
 - the training replay buffer is not modified
 - wins, draws, losses, and truncations are collected
 - epsilon is restored afterwards
+
+After the main training run, `main()` also plays one additional greedy
+diagnostic game against RandomAgent.
+
+This game:
+
+- temporarily uses epsilon `0`,
+- does not train the agent,
+- does not modify the training replay buffer,
+- is saved as `checkpoints/evaluation_game.pgn`.
+
+The diagnostic PGN is intended for qualitative inspection of the learned
+policy and is not used for checkpoint scoring.
 
 ## Persistence
 
