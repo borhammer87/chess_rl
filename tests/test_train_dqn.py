@@ -2,6 +2,7 @@ from pathlib import Path
 import chess
 import pytest
 import chess_rl.training.train_dqn as train_dqn_module
+from chess_rl.training.train_dqn import save_greedy_evaluation_game
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.agents.random_agent import RandomAgent
 from chess_rl.env.chess_env import ChessEnv
@@ -1894,3 +1895,67 @@ def test_summarize_training_counts_truncated_draw_claims():
     assert summary.truncated_claimable_threefold == 1
     assert summary.truncated_claimable_fifty_moves == 1
     assert summary.truncated_without_claimable_draw == 1
+
+def test_save_greedy_evaluation_game_writes_pgn(
+    monkeypatch,
+    tmp_path,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=0.4)
+    opponent = RandomAgent()
+
+    received_epsilon = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        agent_color,
+    ):
+        received_epsilon.append(agent.epsilon)
+
+        env.reset()
+        env.step(chess.Move.from_uci("e2e4"))
+        env.step(chess.Move.from_uci("e7e5"))
+
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=agent.epsilon,
+            replay_size=1,
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    path = tmp_path / "evaluation_game.pgn"
+
+    result = save_greedy_evaluation_game(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        path=path,
+    )
+
+    pgn = path.read_text(
+        encoding="utf-8",
+    )
+
+    assert received_epsilon == [0.0]
+    assert agent.epsilon == 0.4
+    assert result.truncated is True
+    assert '[White "DQN"]' in pgn
+    assert '[Black "RandomAgent"]' in pgn
+    assert "1. e4 e5" in pgn

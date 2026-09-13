@@ -25,6 +25,7 @@ from chess_rl.training.self_play import (
 )
 
 import chess
+import chess.pgn
 
 def train_against_random(
     env: ChessEnv,
@@ -467,6 +468,62 @@ def score_evaluation(
 
     return points / evaluation.episodes
 
+def save_greedy_evaluation_game(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: RandomAgent,
+    path: Path,
+    max_agent_steps: int = 150,
+    agent_color: chess.Color = chess.WHITE,
+) -> VsRandomEpisodeResult:
+    """
+    Play one greedy evaluation game against RandomAgent
+    and save the complete game as PGN.
+
+    The evaluation does not train the agent or modify the
+    training replay buffer.
+    """
+    original_epsilon = agent.epsilon
+
+    evaluation_buffer = ReplayBuffer(
+        capacity=max_agent_steps,
+    )
+
+    try:
+        agent.epsilon = 0.0
+
+        result = run_dqn_vs_random_episode(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            replay_buffer=evaluation_buffer,
+            max_agent_steps=max_agent_steps,
+            batch_size=1,
+            min_replay_size=max_agent_steps + 1,
+            agent_color=agent_color,
+        )
+
+    finally:
+        agent.epsilon = original_epsilon
+
+    game = chess.pgn.Game.from_board(
+        env.board
+    )
+
+    if agent_color == chess.WHITE:
+        game.headers["White"] = "DQN"
+        game.headers["Black"] = "RandomAgent"
+    else:
+        game.headers["White"] = "RandomAgent"
+        game.headers["Black"] = "DQN"
+
+    path.write_text(
+        str(game),
+        encoding="utf-8",
+    )
+
+    return result
+
 def main() -> None:
     """
     Run multi-episode DQN self-play training,
@@ -643,6 +700,38 @@ def main() -> None:
 
     print(f"Final epsilon: {summary.final_epsilon:.4f}")
     print(f"Replay buffer size: {summary.replay_size}")
+    diagnostic_game_path = (
+        checkpoint_dir / "evaluation_game.pgn"
+    )
+
+    diagnostic_result = save_greedy_evaluation_game(
+        env=env,
+        agent=agent,
+        opponent=benchmark_opponent,
+        path=diagnostic_game_path,
+        max_agent_steps=150,
+        agent_color=chess.WHITE,
+    )
+
+    if diagnostic_result.truncated:
+        diagnostic_outcome = "truncated"
+    else:
+        diagnostic_outcome = (
+            diagnostic_result.final_info.get(
+                "result",
+                "*",
+            )
+        )
+
+    print(
+        "Diagnostic evaluation game: "
+        f"{diagnostic_outcome} "
+        f"- {diagnostic_result.total_plies} plies"
+    )
+    print(
+        f"Diagnostic PGN saved: "
+        f"{diagnostic_game_path}"
+    )
 
 if __name__ == "__main__":
     main()
