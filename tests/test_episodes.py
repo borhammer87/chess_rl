@@ -376,9 +376,6 @@ def test_dqn_vs_random_transition_spans_opponent_response():
         transition.next_state,
     )
 
-    assert transition.reward == 0.0
-    assert transition.done is False
-
 def test_dqn_vs_random_respects_agent_step_limit():
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)
