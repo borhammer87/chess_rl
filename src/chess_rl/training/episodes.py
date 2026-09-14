@@ -24,6 +24,16 @@ OpponentMoveSelector = Callable[
 
 TRUNCATION_PENALTY = -0.1
 
+MATERIAL_REWARD_SCALE = 0.01
+
+PIECE_VALUES = {
+    chess.PAWN: 1,
+    chess.KNIGHT: 3,
+    chess.BISHOP: 3,
+    chess.ROOK: 5,
+    chess.QUEEN: 9,
+}
+
 def create_random_opponent_selector(
     opponent: RandomAgent,
 ) -> OpponentMoveSelector:
@@ -66,6 +76,74 @@ def reward_for_color(
     raise ValueError(
         "color must be chess.WHITE or chess.BLACK."
     )
+
+def material_balance(
+    board: chess.Board,
+    color: chess.Color,
+) -> int:
+    """
+    Return the material advantage from the requested color's perspective.
+
+    Positive values mean that color has more material.
+    Negative values mean the opponent has more material.
+    """
+    if color not in (
+        chess.WHITE,
+        chess.BLACK,
+    ):
+        raise ValueError(
+            "color must be chess.WHITE or chess.BLACK."
+        )
+
+    opponent_color = not color
+
+    balance = 0
+
+    for piece_type, value in PIECE_VALUES.items():
+        own_pieces = len(
+            board.pieces(
+                piece_type,
+                color,
+            )
+        )
+
+        opponent_pieces = len(
+            board.pieces(
+                piece_type,
+                opponent_color,
+            )
+        )
+
+        balance += (
+            own_pieces
+            - opponent_pieces
+        ) * value
+
+    return balance
+
+def material_reward(
+    previous_board: chess.Board,
+    next_board: chess.Board,
+    color: chess.Color,
+) -> float:
+    """
+    Return the scaled material change between two positions
+    from the requested color's perspective.
+    """
+    previous_balance = material_balance(
+        previous_board,
+        color,
+    )
+
+    next_balance = material_balance(
+        next_board,
+        color,
+    )
+
+    return (
+        next_balance
+        - previous_balance
+    ) * MATERIAL_REWARD_SCALE
 
 def run_single_step(
     env: ChessEnv,

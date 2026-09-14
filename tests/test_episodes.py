@@ -17,6 +17,9 @@ from chess_rl.training.episodes import (
     run_dqn_vs_opponent_episode,
     get_episode_agent_color,
     TRUNCATION_PENALTY,
+    MATERIAL_REWARD_SCALE,
+    material_balance,
+    material_reward,
 )
 from chess_rl.training.results import (
     EpisodeResult,
@@ -375,6 +378,7 @@ def test_dqn_vs_random_transition_spans_opponent_response():
         transition.state,
         transition.next_state,
     )
+
 
 def test_dqn_vs_random_respects_agent_step_limit():
     env = ChessEnv()
@@ -1048,3 +1052,85 @@ def test_completed_episode_does_not_apply_truncation_penalty(
     assert result.truncated is False
     assert transition.reward == pytest.approx(1.0)
     assert transition.done is True
+
+def test_material_balance_is_zero_on_initial_board():
+    board = chess.Board()
+
+    assert material_balance(
+        board,
+        chess.WHITE,
+    ) == 0
+
+    assert material_balance(
+        board,
+        chess.BLACK,
+    ) == 0
+
+def test_material_balance_uses_requested_color_perspective():
+    board = chess.Board()
+
+    board.remove_piece_at(
+        chess.D8
+    )
+
+    assert material_balance(
+        board,
+        chess.WHITE,
+    ) == 9
+
+    assert material_balance(
+        board,
+        chess.BLACK,
+    ) == -9
+
+def test_material_reward_is_positive_when_agent_gains_material():
+    previous_board = chess.Board()
+
+    next_board = previous_board.copy()
+    next_board.remove_piece_at(
+        chess.D8
+    )
+
+    reward = material_reward(
+        previous_board,
+        next_board,
+        chess.WHITE,
+    )
+
+    assert reward == pytest.approx(
+        9 * MATERIAL_REWARD_SCALE
+    )
+
+def test_material_reward_is_negative_when_agent_loses_material():
+    previous_board = chess.Board()
+
+    next_board = previous_board.copy()
+    next_board.remove_piece_at(
+        chess.D1
+    )
+
+    reward = material_reward(
+        previous_board,
+        next_board,
+        chess.WHITE,
+    )
+
+    assert reward == pytest.approx(
+        -9 * MATERIAL_REWARD_SCALE
+    )
+
+def test_material_reward_is_zero_without_material_change():
+    previous_board = chess.Board()
+
+    next_board = previous_board.copy()
+    next_board.push(
+        chess.Move.from_uci("e2e4")
+    )
+
+    reward = material_reward(
+        previous_board,
+        next_board,
+        chess.WHITE,
+    )
+
+    assert reward == pytest.approx(0.0)
