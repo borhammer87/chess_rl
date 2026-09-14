@@ -45,7 +45,7 @@ Implemented:
 - Replay sampling
 - Multi-episode training
 - Target network synchronization
-- Epsilon decay after successful training updates
+- Epsilon decay once per episode when replay training occurred
 - Episode metrics
 - Training summary generation
 - Console progress reporting
@@ -63,6 +63,11 @@ Implemented:
 - Greedy frozen-opponent action selection
 - Periodic frozen-opponent synchronization
 - Main-program self-play integration
+- Truncation diagnostics for claimable draws
+- Greedy diagnostic evaluation game against RandomAgent
+- PGN diagnostic export
+- Explicit `-0.1` truncation penalty
+- Terminal replay treatment for artificial truncation
 
 The main executable training workflow now trains the DQN learner against
 an independent frozen copy of its `policy_net`.
@@ -106,6 +111,16 @@ Training checkpoints preserve:
 Rewards stored in replay memory are expressed from the learner's
 perspective.
 
+When an episode reaches the artificial `max_agent_steps` horizon without a
+real chess terminal state, the episode remains classified as truncated but
+its final replay transition receives a `-0.1` reward and is stored as
+terminal with no next legal actions.
+
+This prevents Bellman bootstrapping beyond the artificial training horizon.
+
+The `-0.1` value is an initial experimental value and has not been established
+as optimal.
+
 Board encoding remains absolute rather than agent-relative.
 
 The frozen opponent and the target network serve different purposes even
@@ -133,13 +148,26 @@ Do not rewrite large sections without architectural justification.
 NEXT OBJECTIVE
 ------------------------------------------------------------
 
-The next recommended task is:
+The current experiment is validating the newly implemented truncation
+penalty.
 
-Run the integrated multi-episode self-play workflow from the main program
-and inspect the resulting training and RandomAgent evaluation behaviour.
+Compare the new training run with previous diagnostic runs using:
 
-The immediate objective is to validate the current workflow before adding
-more opponent-management architecture.
+- proportion of truncated games,
+- balanced RandomAgent evaluation,
+- greedy diagnostic-game behaviour,
+- and the exported `evaluation_game.pgn`.
+
+The initial artificial-truncation reward is `-0.1`.
+
+Do not introduce material-based reward shaping or a per-move living penalty
+until the isolated effect of this change has been evaluated.
+
+If the penalty appears useful but insufficient, consider controlled future
+runs with stronger fixed values such as `-0.2` or `-0.3`.
+
+Do not automatically change the penalty during a single run because replay
+memory should not mix transitions generated under changing reward semantics.
 
 Use RandomAgent as the provisional stable benchmark.
 
@@ -151,6 +179,5 @@ promotion criterion must be explicitly designed before implementation.
 Do not change the current frozen-opponent architecture unless repository
 evidence or training results provide a concrete reason to do so.
 
-Checkpoints created before v0.8.0 are incompatible with the current
-network architecture because both the CNN input shape and action output
-size changed.
+Checkpoints created before v0.8.0 are incompatible with the current network
+architecture because both the CNN input shape and action output size changed.

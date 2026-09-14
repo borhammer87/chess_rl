@@ -67,9 +67,9 @@
 - [x] Diagnose high truncation rate
 - [x] Distinguish claimable draws from genuine truncations
 - [x] Export and inspect a greedy evaluation game
-- [ ] Decide truncation reward semantics
+- [x] Implement terminal replay penalty for artificial truncation
+- [ ] Validate truncation penalty in real training
 - [ ] Evaluate whether intermediate reward shaping is needed
-- [ ] Validate learning behaviour after reward decision
 
 ## Phase 7 — Future work
 

@@ -53,8 +53,11 @@ Implemented components:
 - Truncation diagnostics for claimable threefold repetition
 - Truncation diagnostics for claimable fifty-move draws
 - Truncation classification without claimable draw
+- Explicit truncation penalty for the final replay transition
+- Truncated replay transitions treated as terminal for Bellman targets
 - Greedy diagnostic evaluation game against RandomAgent
 - PGN export of the diagnostic evaluation game
+
 
 ## State representation
 
@@ -116,6 +119,15 @@ Therefore:
 - Positive reward always represents a good outcome for the DQN.
 - Negative reward always represents a bad outcome for the DQN.
 - Draws remain neutral.
+- A game that reaches the artificial training horizon receives a
+  `-0.1` truncation penalty on its final replay transition.
+
+A truncated chess game remains non-terminal from the environment's
+perspective (`env.done == False`).
+
+For DQN learning, however, the final replay transition is stored as terminal
+with `done=True` and no next legal actions. This prevents the Bellman target
+from bootstrapping beyond the artificial training horizon.
 
 The board encoder remains absolute:
 
@@ -145,9 +157,12 @@ Running the training module:
 16. Prints an aggregated training summary using the existing `TrainingSummary` infrastructure.
 17. Classifies truncated episodes according to whether a draw could have
     been claimed by threefold repetition or the fifty-move rule.
-18. Runs one additional greedy diagnostic game against RandomAgent after
+18. Applies a `-0.1` penalty to the final replay transition when an episode
+    reaches the artificial training horizon, and stores that transition as
+    terminal for DQN learning.
+19. Runs one additional greedy diagnostic game against RandomAgent after
     training.
-19. Saves that diagnostic game to `checkpoints/evaluation_game.pgn`.
+20. Saves that diagnostic game to `checkpoints/evaluation_game.pgn`.
 
 RandomAgent remains the provisional stable evaluation benchmark. It is used
 for periodic evaluation and best-checkpoint selection, but it is no longer
@@ -206,9 +221,11 @@ checkpointing, reward perspective, and color alternation.
   threefold repetition or fifty-move draw.
 - Greedy diagnostic evaluation can enter long non-progressing move cycles
   even with epsilon set to zero.
-- The current reward remains sparse and terminal:
-  win `+1`, loss `-1`, draw or unfinished game `0`.
-- Truncated games currently provide no explicit negative training reward.
+- The learning signal remains mostly sparse: normal chess outcomes use
+  win `+1`, loss `-1`, and draw `0`, while artificial truncation adds a
+  `-0.1` terminal replay penalty.
+- The `-0.1` truncation penalty is an initial experimental value and has not
+  yet been validated as optimal.
 - Board encoding does not include repetition state or move counters.
 - Self-play agents are not yet evaluated against frozen or historical
   policies.
@@ -236,21 +253,28 @@ emerged reliably.
 
 ## Next milestone
 
-Design the next improvement to the learning signal.
+Validate the new truncation penalty in real training.
 
-The first alternatives to evaluate are:
+The first experiment uses:
 
-1. Penalize episodes that reach the training truncation limit.
-2. Introduce minimal intermediate reward shaping, such as material-based
-   feedback.
-3. Keep the current sparse terminal reward and instead perform substantially
-   longer training.
+- win: `+1`
+- loss: `-1`
+- draw: `0`
+- artificial truncation: `-0.1`
 
-No reward change has been selected yet.
+The main questions are whether the penalty:
 
-Any truncation penalty must affect replay transitions to become a real
-learning signal; changing only the episode summary reward would not train
-the DQN.
+1. reduces the proportion of truncated games,
+2. reduces non-progressing greedy move cycles,
+3. improves qualitative behaviour in the diagnostic PGN,
+4. and improves or at least does not degrade balanced RandomAgent
+   evaluation.
+
+The `-0.1` value is intentionally conservative and should be treated as an
+experimental starting point rather than a tuned hyperparameter.
+
+Do not introduce material-based reward shaping or a per-move living penalty
+until the effect of this isolated change has been evaluated.
 
 Champion-vs-challenger evaluation and promotion criteria remain future work.
 

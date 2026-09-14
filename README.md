@@ -22,7 +22,7 @@ Implemented features:
 - Random replay sampling.
 - Multi-episode training.
 - Target network synchronization.
-- Epsilon decay once per episode when     replay training occurred
+- Epsilon decay once per episode when replay training occurred.
 - Training metrics collection.
 - Aggregated training summaries.
 - Console progress reporting.
@@ -39,9 +39,10 @@ Implemented features:
 - Frozen-policy self-play opponent.
 - Multi-episode self-play with alternating colors.
 - Independent target-network and frozen-opponent synchronization.
-- keeps frozen-opponent refresh independent from target-network synchronization,
-- periodically evaluates the learner against RandomAgent.
+- Periodic evaluation of the learner against RandomAgent.
 - Truncation diagnostics for claimable draws.
+- Explicit `-0.1` penalty for artificial training truncation.
+- Terminal replay treatment at the artificial training horizon.
 - Greedy diagnostic evaluation game against RandomAgent.
 - PGN export to `checkpoints/evaluation_game.pgn`.
 
@@ -80,24 +81,27 @@ the opponent used for the main training workflow.
 
 ## Next goal
 
-## Next goal
-
-Real training runs and diagnostic PGN inspection have shown that the current
-DQN policy does not yet produce reliable chess behaviour.
+Real training runs and diagnostic PGN inspection showed that the current DQN
+policy does not yet produce reliable chess behaviour.
 
 Most truncated games are not caused by claimable draw rules, and the greedy
 policy can enter long non-progressing move sequences even without
 exploration.
 
-The next goal is to design the smallest useful improvement to the learning
-signal.
+The current experiment therefore adds a small `-0.1` penalty when an episode
+reaches the artificial training horizon.
 
-Current candidates are:
+The next goal is to validate this change in real training by comparing:
 
-- penalizing episodes that reach the truncation limit,
-- introducing minimal material-based reward shaping,
-- or keeping the sparse terminal reward while training substantially longer.
+- truncation frequency,
+- balanced RandomAgent evaluation,
+- and qualitative behaviour in the greedy diagnostic PGN.
 
-No reward-model change has been selected yet.
+The truncation penalty is intentionally small and should be treated as an
+experimental starting value.
+
+Material-based reward shaping and per-move penalties remain possible future
+experiments, but they should not be introduced until the isolated effect of
+the truncation penalty has been evaluated.
 
 Champion-vs-challenger opponent management remains intentionally postponed.

@@ -807,5 +807,77 @@ claimable-draw condition.
 - Diagnostic PGN inspection can be used to study policy behaviour.
 - The next design question moves from termination rules to learning signal
   quality.
-- Truncation penalties and intermediate reward shaping remain separate,
-  undecided future experiments.
+- Truncation penalties and intermediate reward shaping remain separate
+  learning-signal decisions.
+
+  ## D-020 — Penalize artificial training truncation in replay
+
+### Status
+
+Accepted
+
+### Decision
+
+When a training episode reaches `max_agent_steps` without the chess
+environment reaching a terminal state, apply:
+
+`TRUNCATION_PENALTY = -0.1`
+
+to the final learner transition.
+
+The chess environment remains non-terminal and the episode remains classified
+as truncated.
+
+For replay and Bellman-target purposes only, the final transition is stored
+with:
+
+- `done=True`
+- `next_legal_actions=[]`
+
+The penalty remains fixed during a training run.
+
+No material-based reward shaping or per-move living penalty is introduced at
+this stage.
+
+### Reason
+
+Previous diagnostics showed that most truncated games were not caused by
+claimable draw rules.
+
+Greedy PGN inspection also showed long non-progressing move sequences even
+with exploration disabled.
+
+Under the previous reward model, reaching the artificial training horizon
+provided no negative learning signal. The final transition had reward `0`
+and could still bootstrap from the next state.
+
+A small negative truncation reward explicitly makes unresolved artificial
+termination undesirable while preserving the primary importance of real
+wins and losses.
+
+Treating the final replay transition as terminal prevents the DQN from
+bootstrapping beyond a horizon where no further experience is generated.
+
+### Alternatives considered
+
+1. Keep truncation reward at `0`.
+2. Add a negative reward on every non-terminal move.
+3. Add material-based intermediate reward shaping.
+4. Increase the episode step limit.
+5. Increase the truncation penalty automatically during a training run.
+
+These alternatives were rejected for the current experiment because they
+either leave the observed problem unchanged, modify the learning objective
+more broadly, hide truncation by extending the horizon, or mix different
+reward semantics inside the same replay buffer.
+
+### Consequences
+
+- Artificial truncation now produces an explicit negative learning signal.
+- Real chess termination remains controlled by `ChessEnv`.
+- Episode reporting can still distinguish losses from truncations.
+- The final truncated replay transition is terminal for Bellman learning.
+- `-0.1` is an experimental starting value rather than a tuned optimum.
+- Future controlled runs may compare stronger fixed truncation penalties.
+- Material-based shaping and per-move penalties remain separate future
+  experiments.

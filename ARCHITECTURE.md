@@ -79,6 +79,21 @@ before the first DQN decision.
 
 Replay transitions store rewards from the DQN's perspective.
 
+Artificial training truncation is handled separately from real chess
+termination.
+
+If the episode reaches `max_agent_steps` while `ChessEnv` is still
+non-terminal:
+
+- the episode remains classified as truncated,
+- the final learner replay transition receives `TRUNCATION_PENALTY = -0.1`,
+- that replay transition is stored with `done=True`,
+- and its `next_legal_actions` list is empty.
+
+This terminal flag belongs to the DQN learning transition rather than to the
+chess environment. It prevents Bellman bootstrapping beyond the artificial
+training horizon.
+
 `run_dqn_vs_opponent_episode()` contains the common DQN-versus-opponent
 episode logic.
 
@@ -125,6 +140,34 @@ Board encoding remains absolute:
 - White piece channels remain White.
 - Black piece channels remain Black.
 - The board is not rotated when the DQN plays Black.
+
+## Terminal-state semantics
+
+The architecture distinguishes two kinds of termination.
+
+### Chess termination
+
+`ChessEnv` determines whether the chess game itself has ended.
+
+Examples include:
+
+- checkmate,
+- stalemate,
+- insufficient material,
+- and other automatic game-over conditions recognized by `python-chess`.
+
+### Training-horizon termination
+
+Training additionally limits the number of learner decisions with
+`max_agent_steps`.
+
+Reaching this limit does not change `ChessEnv.done`.
+
+Instead, the episode is classified as truncated and the final replay
+transition is treated as terminal for DQN learning.
+
+This separation preserves correct chess semantics while defining a finite
+learning horizon for the Bellman target.
 
 ## Training workflow
 
