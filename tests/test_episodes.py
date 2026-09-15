@@ -718,6 +718,7 @@ def test_dqn_vs_random_defaults_to_white():
 
     assert result.agent_steps == 1
     assert result.total_plies == 2
+    assert result.agent_color == chess.WHITE
 
 def test_dqn_vs_random_black_waits_for_white_move():
     env = ChessEnv()
@@ -736,6 +737,7 @@ def test_dqn_vs_random_black_waits_for_white_move():
 
     assert result.agent_steps == 1
     assert result.total_plies >= 2
+    assert result.agent_color == chess.BLACK
 
 def test_dqn_vs_random_rejects_invalid_agent_color():
     env = ChessEnv()

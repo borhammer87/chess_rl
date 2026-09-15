@@ -38,8 +38,7 @@ class EpisodeResult:
 @dataclass
 class VsRandomEpisodeResult:
     """
-    Result of one episode where the DQN plays White
-    and RandomAgent plays Black.
+    Result of one episode 
     """
 
     agent_steps: int
@@ -53,6 +52,7 @@ class VsRandomEpisodeResult:
     replay_size: int
     claimable_threefold: bool = False
     claimable_fifty_moves: bool = False
+    agent_color: chess.Color = chess.WHITE
 
 
 @dataclass

@@ -552,7 +552,8 @@ def run_dqn_vs_opponent_episode(
         final_epsilon=agent.epsilon,
         replay_size=len(replay_buffer),
         claimable_threefold=claimable_threefold,
-        claimable_fifty_moves=claimable_fifty_moves
+        claimable_fifty_moves=claimable_fifty_moves,
+        agent_color=agent_color,
     )
 
 
