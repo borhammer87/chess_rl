@@ -1134,3 +1134,126 @@ def test_material_reward_is_zero_without_material_change():
     )
 
     assert reward == pytest.approx(0.0)
+
+def test_episode_stores_material_reward(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    step_count = 0
+
+    def fake_step(move):
+        nonlocal step_count
+
+        env.board.push(move)
+        step_count += 1
+
+        if step_count == 2:
+            env.board.remove_piece_at(
+                chess.D8
+            )
+
+        env.done = False
+
+        return (
+            env.get_state(),
+            0.0,
+            False,
+            {},
+        )
+
+    monkeypatch.setattr(
+        env,
+        "step",
+        fake_step,
+    )
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=2,
+    )
+
+    first_transition = replay_buffer.buffer[0]
+
+    assert first_transition.reward == pytest.approx(
+        9 * MATERIAL_REWARD_SCALE
+    )
+
+def test_truncation_penalty_is_added_to_material_reward(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    step_count = 0
+
+    def fake_step(move):
+        nonlocal step_count
+
+        env.board.push(move)
+        step_count += 1
+
+        if step_count == 2:
+            env.board.remove_piece_at(
+                chess.D8
+            )
+
+        env.done = False
+
+        return (
+            env.get_state(),
+            0.0,
+            False,
+            {},
+        )
+
+    monkeypatch.setattr(
+        env,
+        "step",
+        fake_step,
+    )
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+    )
+
+    transition = replay_buffer.buffer[-1]
+
+    expected_reward = (
+        9 * MATERIAL_REWARD_SCALE
+        + TRUNCATION_PENALTY
+    )
+
+    assert result.truncated is True
+
+    assert transition.reward == pytest.approx(
+        expected_reward
+    )
+
+    assert transition.done is True
+
+    assert result.total_reward == pytest.approx(
+        expected_reward
+    )

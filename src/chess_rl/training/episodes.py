@@ -425,8 +425,10 @@ def run_dqn_vs_opponent_episode(
                 "of a DQN decision."
             )
 
+        previous_board = env.get_state()
+
         state = encode_board(
-            env.get_state()
+            previous_board
         )
 
         legal_moves = env.legal_moves()
@@ -467,14 +469,20 @@ def run_dqn_vs_opponent_episode(
             agent_color,
         )
 
+        agent_reward += material_reward(
+            previous_board,
+            next_board,
+            agent_color,
+        )
+
         truncated_transition = (
             not done
             and agent_steps >= max_agent_steps
         )
 
         if truncated_transition:
-            agent_reward = TRUNCATION_PENALTY
-
+            agent_reward += TRUNCATION_PENALTY
+            
         next_state = encode_board(
             next_board
         )
