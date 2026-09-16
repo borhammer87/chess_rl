@@ -18,6 +18,7 @@ from chess_rl.training.train_dqn import (
     train_against_random,
     score_evaluation,
     evaluate_against_random_both_colors,
+    get_episode_outcome,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
 
@@ -423,7 +424,8 @@ def test_summarize_training_returns_expected_metrics():
             total_reward=1.0,
             done=True,
             truncated=False,
-            final_info={},
+            final_info={"result": "1-0"},
+            agent_color=chess.WHITE,
             training_losses=[0.8, 0.6],
             final_epsilon=0.8,
             replay_size=10,
@@ -434,7 +436,8 @@ def test_summarize_training_returns_expected_metrics():
             total_reward=-1.0,
             done=True,
             truncated=False,
-            final_info={},
+            final_info={"result": "0-1"},
+            agent_color=chess.WHITE,
             training_losses=[0.4],
             final_epsilon=0.7,
             replay_size=20,
@@ -492,7 +495,7 @@ def test_main_runs_multi_episode_training(
             total_reward=1.0,
             done=True,
             truncated=False,
-            final_info={},
+            final_info={"result": "1-0"},
             training_losses=[0.4, 0.2],
             final_epsilon=0.8,
             replay_size=100,
@@ -616,7 +619,7 @@ def test_train_against_random_reports_progress(
         total_reward=0.0,
         done=False,
         truncated=True,
-        final_info={},
+        final_info={"result": "1/2-1/2"},
         training_losses=[],
         final_epsilon=1.0,
         replay_size=1,
@@ -1824,7 +1827,7 @@ def test_summarize_training_distinguishes_draws_from_truncations():
             total_reward=0.0,
             done=True,
             truncated=False,
-            final_info={},
+            final_info={"result": "1/2-1/2"},
             training_losses=[],
             final_epsilon=0.5,
             replay_size=50,
@@ -1959,3 +1962,73 @@ def test_save_greedy_evaluation_game_writes_pgn(
     assert '[White "DQN"]' in pgn
     assert '[Black "RandomAgent"]' in pgn
     assert "1. e4 e5" in pgn
+
+def test_episode_outcome_uses_chess_result_not_positive_reward():
+    result = VsRandomEpisodeResult(
+        agent_steps=10,
+        total_plies=20,
+        total_reward=0.05,
+        done=True,
+        truncated=False,
+        final_info={"result": "0-1"},
+        training_losses=[],
+        final_epsilon=0.5,
+        replay_size=100,
+        agent_color=chess.WHITE,
+    )
+
+    assert get_episode_outcome(result) == "loss"
+
+def test_episode_outcome_uses_chess_result_not_negative_reward():
+    result = VsRandomEpisodeResult(
+        agent_steps=10,
+        total_plies=20,
+        total_reward=-0.05,
+        done=True,
+        truncated=False,
+        final_info={"result": "0-1"},
+        training_losses=[],
+        final_epsilon=0.5,
+        replay_size=100,
+        agent_color=chess.BLACK,
+    )
+
+    assert get_episode_outcome(result) == "win"
+
+def test_summarize_training_uses_chess_outcomes_not_reward_sign():
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=0.05,
+            done=True,
+            truncated=False,
+            final_info={"result": "0-1"},
+            training_losses=[],
+            final_epsilon=0.5,
+            replay_size=100,
+            agent_color=chess.WHITE,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=-0.05,
+            done=True,
+            truncated=False,
+            final_info={"result": "0-1"},
+            training_losses=[],
+            final_epsilon=0.5,
+            replay_size=100,
+            agent_color=chess.BLACK,
+        ),
+    ]
+
+    summary = summarize_training(results)
+
+    assert summary.wins == 1
+    assert summary.draws == 0
+    assert summary.losses == 1
+
+    assert summary.average_reward == pytest.approx(
+        0.0
+    )

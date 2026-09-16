@@ -199,6 +199,42 @@ def train_against_random(
 
     return results
 
+def get_episode_outcome(
+    result: VsRandomEpisodeResult,
+) -> str:
+    """
+    Return the chess outcome from the DQN agent's perspective.
+    """
+    if result.truncated:
+        return "truncated"
+
+    if not result.done:
+        return "unfinished"
+
+    chess_result = result.final_info.get(
+        "result"
+    )
+
+    if chess_result == "1/2-1/2":
+        return "draw"
+
+    if result.agent_color == chess.WHITE:
+        win_result = "1-0"
+        loss_result = "0-1"
+    else:
+        win_result = "0-1"
+        loss_result = "1-0"
+
+    if chess_result == win_result:
+        return "win"
+
+    if chess_result == loss_result:
+        return "loss"
+
+    raise ValueError(
+        "Completed episode has an invalid chess result."
+    )
+
 def summarize_training(
     results: list[VsRandomEpisodeResult],
 ) -> TrainingSummary:
@@ -210,23 +246,14 @@ def summarize_training(
             "results must contain at least one episode."
         )
 
-    wins = sum(
-        result.done
-        and result.total_reward > 0
+    outcomes = [
+        get_episode_outcome(result)
         for result in results
-    )
+    ]
 
-    draws = sum(
-        result.done
-        and result.total_reward == 0
-        for result in results
-    )
-
-    losses = sum(
-        result.done
-        and result.total_reward < 0
-        for result in results
-    )
+    wins = outcomes.count("win")
+    draws = outcomes.count("draw")
+    losses = outcomes.count("loss")
 
     truncated = sum(
         result.truncated
@@ -534,16 +561,10 @@ def main() -> None:
         total_episodes: int,
         result: VsRandomEpisodeResult,
     ) -> None:
-        if result.truncated:
-            outcome = "truncated"
-        elif result.total_reward > 0:
-            outcome = "win"
-        elif result.total_reward < 0:
-            outcome = "loss"
-        elif result.done:
-            outcome = "draw"
-        else:
-            outcome = "unfinished"
+
+        outcome = get_episode_outcome(
+            result
+        )
 
         print(
             f"Episode {completed_episodes}/{total_episodes} "
