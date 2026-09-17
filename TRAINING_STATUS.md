@@ -44,6 +44,8 @@ to larger experiments and more advanced opponent-selection strategies.
 - [x] Epsilon decay once per episode when replay training occurred
 - [x] Explicit `-0.1` truncation penalty
 - [x] Terminal Bellman treatment for truncated replay transitions
+- [x] Material-based reward shaping from net material change
+- [x] Chess-outcome classification independent of shaped reward
 
 ### Training metrics
 
@@ -130,24 +132,44 @@ This decision keeps the current representation simple while allowing the
 same network to learn policies for both colors.
 
 ---
-## Truncation reward
+## Training reward
 
-Chess termination and training-horizon termination are intentionally kept
-separate.
+The learning reward now combines several signals.
 
-When a game reaches `max_agent_steps` without a real chess terminal state:
+Real chess termination uses the canonical environment reward, converted
+to the DQN's perspective:
 
-- the environment remains non-terminal,
-- the episode is reported as truncated,
-- the final replay reward is `-0.1`,
-- the final replay transition is stored with `done=True`,
-- and `next_legal_actions` is empty.
+- win: `+1`
+- draw: `0`
+- loss: `-1`
 
-Treating the replay transition as terminal prevents Bellman bootstrapping
-beyond a state for which training deliberately stops generating experience.
+Intermediate transitions receive material shaping:
 
-The `-0.1` penalty is an initial experimental value and may be adjusted in
-future controlled experiments.
+`material_reward = 0.01 * net material-balance change`
+
+Piece values are:
+
+- pawn: 1
+- knight: 3
+- bishop: 3
+- rook: 5
+- queen: 9
+
+The material change is measured across the full DQN transition, including
+the opponent response.
+
+Artificial truncation adds:
+
+`TRUNCATION_PENALTY = -0.1`
+
+to the final transition.
+
+The final transition of a truncated episode is also stored as terminal for
+Bellman learning even though the chess environment itself has not reached
+a real terminal state.
+
+The `0.01` material scale and `-0.1` truncation penalty are experimental
+values, not tuned hyperparameters.
 
 
 ## Model selection
@@ -176,27 +198,41 @@ far.
 
 ---
 
+## Outcome classification
+
+Chess outcome and training reward are separate concepts.
+
+Win, draw, and loss counts are determined from the actual chess result
+stored in `final_info["result"]`, interpreted according to `agent_color`.
+
+`total_reward` is not used to determine the game outcome.
+
+This separation is necessary because material shaping can make the sign of
+the accumulated learning reward differ from the actual chess result.
+
 ## Next milestone
 
-Validate the truncation penalty with real training data.
+Validate the combined reward model with a fresh real training run.
 
-The current experiment changes only the artificial-horizon reward:
+Current experimental reward:
 
-- normal win: `+1`
-- normal loss: `-1`
-- normal draw: `0`
-- truncation: `-0.1`
+- terminal win: `+1`
+- terminal draw: `0`
+- terminal loss: `-1`
+- material change: `0.01 * net material-balance change`
+- artificial truncation: additional `-0.1`
 
-Compare the resulting truncation rate, balanced RandomAgent evaluation, and
-greedy diagnostic PGN with previous runs.
+The experiment starts without previous checkpoints or replay memory so that
+all stored transitions use the same reward semantics.
 
-Do not add material-based shaping or a per-move penalty until this isolated
-change has been evaluated.
+Compare:
 
-If the truncation penalty is useful but too weak, later experiments may test
-stronger fixed values such as `-0.2` or `-0.3`.
+- truncation rate,
+- average episode length,
+- balanced RandomAgent evaluation,
+- greedy diagnostic PGN behavior,
+- material quality of learned decisions,
+- occurrence of non-progressing move cycles.
 
-Do not automatically change the penalty during a single training run because
-that would mix different reward semantics in the same replay buffer.
-
-Champion-vs-challenger evaluation and promotion criteria remain future work.
+Do not change another reward component until this experiment has been
+observed.

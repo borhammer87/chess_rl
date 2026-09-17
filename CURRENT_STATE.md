@@ -54,9 +54,12 @@ Implemented components:
 - Truncation diagnostics for claimable fifty-move draws
 - Truncation classification without claimable draw
 - Explicit truncation penalty for the final replay transition
+- Material-based reward shaping from net material change
+- Separation between chess outcome classification and shaped training reward
 - Truncated replay transitions treated as terminal for Bellman targets
 - Greedy diagnostic evaluation game against RandomAgent
 - PGN export of the diagnostic evaluation game
+
 
 
 ## State representation
@@ -106,34 +109,41 @@ Training responsibilities are separated into focused modules:
 
 ## Color and reward semantics
 
-`ChessEnv` keeps a canonical White-perspective reward:
+`ChessEnv` keeps a canonical White-perspective terminal reward:
 
 - White win: `+1`
 - Black win: `-1`
 - Draw or unfinished game: `0`
 
-The training layer converts this reward to the DQN agent's perspective.
+The training layer converts this terminal reward to the DQN agent's
+perspective.
 
-Therefore:
+Training transitions additionally receive material-based reward shaping
+from the DQN's perspective:
 
-- Positive reward always represents a good outcome for the DQN.
-- Negative reward always represents a bad outcome for the DQN.
-- Draws remain neutral.
-- A game that reaches the artificial training horizon receives a
-  `-0.1` truncation penalty on its final replay transition.
+`0.01 * net material-balance change`
+
+using piece values:
+
+- pawn: 1
+- knight: 3
+- bishop: 3
+- rook: 5
+- queen: 9
+
+Artificial truncation adds a `-0.1` penalty to the final replay transition.
+
+These components are additive.
+
+Therefore, `total_reward` is now a learning signal and must not be used to
+infer whether the DQN won, drew, or lost the chess game.
+
+Chess outcomes are classified independently using the actual chess result
+in `final_info["result"]` together with `agent_color`.
 
 A truncated chess game remains non-terminal from the environment's
-perspective (`env.done == False`).
-
-For DQN learning, however, the final replay transition is stored as terminal
-with `done=True` and no next legal actions. This prevents the Bellman target
-from bootstrapping beyond the artificial training horizon.
-
-The board encoder remains absolute:
-
-- Channels 0–5 represent White pieces.
-- Channels 6–11 represent Black pieces.
-- The board is not rotated when the DQN plays Black.
+perspective, but its final replay transition is stored as terminal for
+Bellman learning.
 
 ## Current training workflow
 
@@ -146,23 +156,24 @@ Running the training module:
 5. Runs multi-episode self-play with `train_against_frozen()`.
 6. Alternates the DQN learner between White and Black.
 7. Stores rewards from the DQN's perspective.
-8. Reports progress during training.
-9. Synchronizes the target network every 10 episodes.
-10. Saves `latest.pt` every 25 episodes.
-11. Evaluates the current learner against RandomAgent every 25 episodes.
-12. Evaluates equally as White and Black.
-13. Calculates a normalized evaluation score.
-14. Replaces `best.pt` only when the new score is strictly better.
-15. Refreshes the frozen self-play opponent every 25 episodes.
-16. Prints an aggregated training summary using the existing `TrainingSummary` infrastructure.
-17. Classifies truncated episodes according to whether a draw could have
+8. Adds scaled net material change to the replay reward.
+9. Reports progress during training.
+10. Synchronizes the target network every 10 episodes.
+11. Saves `latest.pt` every 25 episodes.
+12. Evaluates the current learner against RandomAgent every 25 episodes.
+13. Evaluates equally as White and Black.
+14. Calculates a normalized evaluation score.
+15. Replaces `best.pt` only when the new score is strictly better.
+16. Refreshes the frozen self-play opponent every 25 episodes.
+17. Prints an aggregated training summary using the existing `TrainingSummary` infrastructure.
+18. Classifies truncated episodes according to whether a draw could have
     been claimed by threefold repetition or the fifty-move rule.
-18. Applies a `-0.1` penalty to the final replay transition when an episode
+19. Applies a `-0.1` penalty to the final replay transition when an episode
     reaches the artificial training horizon, and stores that transition as
     terminal for DQN learning.
-19. Runs one additional greedy diagnostic game against RandomAgent after
+20. Runs one additional greedy diagnostic game against RandomAgent after
     training.
-20. Saves that diagnostic game to `checkpoints/evaluation_game.pgn`.
+21. Saves that diagnostic game to `checkpoints/evaluation_game.pgn`.
 
 RandomAgent remains the provisional stable evaluation benchmark. It is used
 for periodic evaluation and best-checkpoint selection, but it is no longer
@@ -171,6 +182,9 @@ the opponent used by the main training workflow.
 Frozen-opponent synchronization is independent from target-network
 synchronization. They currently use different frequencies and serve
 different purposes.
+
+- Training outcomes are classified from the actual chess result and agent
+  color, independently of `total_reward`.
 
 ## Current evaluation metrics
 
@@ -253,29 +267,31 @@ emerged reliably.
 
 ## Next milestone
 
-Validate the new truncation penalty in real training.
+Validate the combined learning signal in a fresh real training run.
 
-The first experiment uses:
+The current experiment uses:
 
-- win: `+1`
-- loss: `-1`
-- draw: `0`
-- artificial truncation: `-0.1`
+- chess terminal reward: `+1 / 0 / -1`
+- material shaping: `0.01 * net material-balance change`
+- artificial truncation penalty: `-0.1`
 
-The main questions are whether the penalty:
+The run must start from a fresh learner and empty replay buffer because
+previous checkpoints contain experience generated under different reward
+semantics.
 
-1. reduces the proportion of truncated games,
-2. reduces non-progressing greedy move cycles,
-3. improves qualitative behaviour in the diagnostic PGN,
-4. and improves or at least does not degrade balanced RandomAgent
-   evaluation.
+Observe:
 
-The `-0.1` value is intentionally conservative and should be treated as an
-experimental starting point rather than a tuned hyperparameter.
+1. training win/draw/loss/truncation counts,
+2. truncation frequency,
+3. average episode length,
+4. balanced RandomAgent evaluation every 25 episodes,
+5. greedy diagnostic PGN behavior,
+6. whether the policy begins to prefer materially sensible actions,
+7. whether material shaping reduces the previously observed non-progressing
+   move cycles.
 
-Do not introduce material-based reward shaping or a per-move living penalty
-until the effect of this isolated change has been evaluated.
+Do not introduce additional reward components during this experiment.
 
-Champion-vs-challenger evaluation and promotion criteria remain future work.
-
-
+In particular, do not add a per-move living penalty or change the material
+scale or truncation penalty until the current combined reward has been
+evaluated.

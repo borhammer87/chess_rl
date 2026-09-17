@@ -66,10 +66,13 @@
 - [x] Inspect real integrated self-play runs
 - [x] Diagnose high truncation rate
 - [x] Distinguish claimable draws from genuine truncations
-- [x] Export and inspect a greedy evaluation game
 - [x] Implement terminal replay penalty for artificial truncation
-- [ ] Validate truncation penalty in real training
-- [ ] Evaluate whether intermediate reward shaping is needed
+- [x] Validate initial `-0.1` truncation penalty in real training
+- [x] Determine that truncation penalty alone is insufficient
+- [x] Add material-based reward shaping
+- [x] Separate chess outcomes from shaped training reward
+- [ ] Validate combined material shaping and truncation penalty in real training
+- [ ] Evaluate whether further reward changes are needed
 
 ## Phase 7 — Future work
 

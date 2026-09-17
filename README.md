@@ -42,6 +42,8 @@ Implemented features:
 - Periodic evaluation of the learner against RandomAgent.
 - Truncation diagnostics for claimable draws.
 - Explicit `-0.1` penalty for artificial training truncation.
+- Material-based reward shaping using scaled net material change.
+- Chess-outcome tracking independent of shaped training reward.
 - Terminal replay treatment at the artificial training horizon.
 - Greedy diagnostic evaluation game against RandomAgent.
 - PGN export to `checkpoints/evaluation_game.pgn`.
@@ -81,27 +83,26 @@ the opponent used for the main training workflow.
 
 ## Next goal
 
-Real training runs and diagnostic PGN inspection showed that the current DQN
-policy does not yet produce reliable chess behaviour.
+Real training and diagnostic PGN inspection showed that terminal-only
+learning plus a truncation penalty was not sufficient to produce useful
+chess behavior. The greedy policy continued to show long non-progressing
+move cycles and a very high truncation rate.
 
-Most truncated games are not caused by claimable draw rules, and the greedy
-policy can enter long non-progressing move sequences even without
-exploration.
+The current experiment therefore keeps the `-0.1` artificial-truncation
+penalty and adds a small material-based shaping signal:
 
-The current experiment therefore adds a small `-0.1` penalty when an episode
-reaches the artificial training horizon.
+`0.01 * net material-balance change`
 
-The next goal is to validate this change in real training by comparing:
+The experiment is being run from scratch so the replay buffer contains only
+transitions generated under the new reward semantics.
+
+The main observations are:
 
 - truncation frequency,
+- average episode length,
 - balanced RandomAgent evaluation,
-- and qualitative behaviour in the greedy diagnostic PGN.
+- greedy diagnostic PGN behavior,
+- whether materially sensible play begins to emerge.
 
-The truncation penalty is intentionally small and should be treated as an
-experimental starting value.
-
-Material-based reward shaping and per-move penalties remain possible future
-experiments, but they should not be introduced until the isolated effect of
-the truncation penalty has been evaluated.
-
-Champion-vs-challenger opponent management remains intentionally postponed.
+No additional reward shaping or per-move penalty should be introduced until
+this experiment has been evaluated.

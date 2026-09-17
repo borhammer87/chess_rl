@@ -881,3 +881,52 @@ reward semantics inside the same replay buffer.
 - Future controlled runs may compare stronger fixed truncation penalties.
 - Material-based shaping and per-move penalties remain separate future
   experiments.
+
+  ## D-021 — Add small material-based reward shaping
+
+### Status
+
+Accepted experimentally.
+
+### Decision
+
+Keep the canonical chess terminal reward unchanged and add a small
+material-based shaping signal in the training layer.
+
+Material values are:
+
+- pawn: 1
+- knight: 3
+- bishop: 3
+- rook: 5
+- queen: 9
+
+The shaping reward is:
+
+`0.01 * net material-balance change`
+
+measured across the complete DQN transition.
+
+Artificial truncation continues to add a `-0.1` penalty.
+
+### Reason
+
+Real self-play experiments showed that the terminal reward plus the
+artificial-truncation penalty provided an insufficient learning signal.
+
+The greedy policy continued to produce long non-progressing move cycles,
+and most evaluation games still reached the artificial training horizon.
+
+Material shaping provides a local chess-relevant learning signal while
+remaining small relative to the `+1 / -1` terminal result.
+
+### Consequences
+
+- Training reward no longer directly represents chess outcome.
+- `total_reward` must not be used to classify wins, draws, or losses.
+- Chess outcomes are determined independently from the actual game result
+  and the DQN's color.
+- Existing replay memory generated under earlier reward semantics should
+  not be mixed with the new experiment.
+- Further reward components should be evaluated separately rather than
+  added simultaneously.

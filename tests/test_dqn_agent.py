@@ -11,6 +11,11 @@ from chess_rl.utils.action_encoder import (
     encode_move,
 )
 import chess_rl.agents.dqn_agent as dqn_agent_module
+from chess_rl.agents.random_agent import RandomAgent
+from chess_rl.env.chess_env import ChessEnv
+from chess_rl.training.episodes import run_dqn_vs_random_episode
+from chess_rl.utils.replay_buffer import ReplayBuffer
+
 
 def test_agent_selects_action_in_valid_range():
     agent = DQNAgent()
@@ -330,3 +335,170 @@ def test_train_step_rejects_non_terminal_transition_without_legal_actions():
         match="must have legal next actions",
     ):
         agent.train_step(batch)
+
+def test_agent_learns_to_prefer_rewarded_action():
+    torch.manual_seed(0)
+
+    agent = DQNAgent(
+        lr=1e-3,
+        epsilon=0.0,
+    )
+
+    board = chess.Board()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    good_move = chess.Move.from_uci("e2e4")
+    bad_move = chess.Move.from_uci("d2d4")
+
+    good_action = encode_move(good_move)
+    bad_action = encode_move(bad_move)
+
+    batch = [
+        Transition(
+            state=state,
+            action=good_action,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+        Transition(
+            state=state,
+            action=bad_action,
+            reward=-1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+    ]
+
+    for _ in range(100):
+        agent.train_step(batch)
+
+    with torch.no_grad():
+        q_values = agent.policy_net(
+            state.unsqueeze(0)
+        )[0]
+
+    assert q_values[good_action] > q_values[bad_action]
+
+    selected_action = agent.select_action(
+        state=state,
+        legal_moves=[
+            good_move,
+            bad_move,
+        ],
+    )
+
+    assert selected_action == good_action
+
+def mean_absolute_td_error(
+    agent: DQNAgent,
+    batch: list[Transition],
+) -> float:
+    states = torch.stack(
+        [transition.state for transition in batch]
+    )
+
+    actions = torch.tensor(
+        [transition.action for transition in batch]
+    )
+
+    rewards = torch.tensor(
+        [transition.reward for transition in batch],
+        dtype=torch.float32,
+    )
+
+    next_states = torch.stack(
+        [transition.next_state for transition in batch]
+    )
+
+    with torch.no_grad():
+        q_values = agent.policy_net(states)
+        selected_q_values = q_values.gather(
+            1,
+            actions.unsqueeze(1),
+        ).squeeze(1)
+
+        all_next_q_values = agent.target_net(
+            next_states
+        )
+
+        next_q_values = torch.zeros(
+            len(batch),
+            dtype=torch.float32,
+        )
+
+        for index, transition in enumerate(batch):
+            if transition.done:
+                continue
+
+            legal_actions = torch.tensor(
+                transition.next_legal_actions,
+                dtype=torch.long,
+            )
+
+            next_q_values[index] = all_next_q_values[
+                index,
+                legal_actions,
+            ].max()
+
+        targets = (
+            rewards
+            + agent.gamma * next_q_values
+        )
+
+        td_errors = torch.abs(
+            targets - selected_q_values
+        )
+
+    return td_errors.mean().item()
+
+def test_agent_can_reduce_td_error_on_real_chess_transitions():
+    torch.manual_seed(0)
+
+    agent = DQNAgent(
+        lr=1e-3,
+        epsilon=1.0,
+    )
+
+    env = ChessEnv()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(
+        capacity=100
+    )
+
+    result = run_dqn_vs_random_episode(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        max_agent_steps=10,
+        batch_size=32,
+        min_replay_size=100,
+    )
+
+    assert result.training_losses == []
+    assert len(replay_buffer) == 10
+
+    batch = list(
+        replay_buffer.buffer
+    )
+
+    initial_td_error = mean_absolute_td_error(
+        agent,
+        batch,
+    )
+
+    for _ in range(200):
+        agent.train_step(batch)
+
+    final_td_error = mean_absolute_td_error(
+        agent,
+        batch,
+    )
+
+    assert final_td_error < initial_td_error

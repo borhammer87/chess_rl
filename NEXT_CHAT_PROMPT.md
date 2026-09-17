@@ -64,6 +64,8 @@ Implemented:
 - Periodic frozen-opponent synchronization
 - Main-program self-play integration
 - Truncation diagnostics for claimable draws
+- Material-based reward shaping from net material change
+- Independent chess-outcome classification using game result and agent color
 - Greedy diagnostic evaluation game against RandomAgent
 - PGN diagnostic export
 - Explicit `-0.1` truncation penalty
@@ -111,15 +113,20 @@ Training checkpoints preserve:
 Rewards stored in replay memory are expressed from the learner's
 perspective.
 
-When an episode reaches the artificial `max_agent_steps` horizon without a
-real chess terminal state, the episode remains classified as truncated but
-its final replay transition receives a `-0.1` reward and is stored as
-terminal with no next legal actions.
+The current training reward combines:
 
-This prevents Bellman bootstrapping beyond the artificial training horizon.
+- canonical chess terminal reward from the DQN's perspective,
+- `0.01 * net material-balance change`,
+- an additional `-0.1` penalty on artificial truncation.
 
-The `-0.1` value is an initial experimental value and has not been established
-as optimal.
+The material change is measured across the complete DQN transition,
+including the opponent response.
+
+Artificial truncation remains distinct from real chess termination, but the
+final replay transition is stored as terminal for Bellman learning.
+
+Chess win/draw/loss classification is independent of `total_reward` and is
+derived from `final_info["result"]` together with `agent_color`.
 
 Board encoding remains absolute rather than agent-relative.
 
@@ -148,36 +155,34 @@ Do not rewrite large sections without architectural justification.
 NEXT OBJECTIVE
 ------------------------------------------------------------
 
-The current experiment is validating the newly implemented truncation
-penalty.
+Validate the combined material-shaping and truncation reward in a fresh
+real training run.
 
-Compare the new training run with previous diagnostic runs using:
+The current experiment starts without previous checkpoints or replay
+memory.
 
-- proportion of truncated games,
+Reward semantics:
+
+- win: `+1`
+- draw: `0`
+- loss: `-1`
+- material shaping: `0.01 * net material-balance change`
+- artificial truncation: additional `-0.1`
+
+Observe:
+
+- truncation frequency,
+- average episode length,
 - balanced RandomAgent evaluation,
-- greedy diagnostic-game behaviour,
-- and the exported `evaluation_game.pgn`.
+- greedy diagnostic PGN behavior,
+- whether materially sensible play emerges,
+- whether long non-progressing move cycles decrease.
 
-The initial artificial-truncation reward is `-0.1`.
+Do not change the reward scale, truncation penalty, add a per-move penalty,
+or introduce another learning-signal modification until this experiment has
+been evaluated.
 
-Do not introduce material-based reward shaping or a per-move living penalty
-until the isolated effect of this change has been evaluated.
+RandomAgent remains the provisional stable evaluation benchmark.
 
-If the penalty appears useful but insufficient, consider controlled future
-runs with stronger fixed values such as `-0.2` or `-0.3`.
-
-Do not automatically change the penalty during a single run because replay
-memory should not mix transitions generated under changing reward semantics.
-
-Use RandomAgent as the provisional stable benchmark.
-
-Do not implement champion-vs-challenger promotion yet.
-
-The future champion-vs-challenger system should remain modular, and its
-promotion criterion must be explicitly designed before implementation.
-
-Do not change the current frozen-opponent architecture unless repository
-evidence or training results provide a concrete reason to do so.
-
-Checkpoints created before v0.8.0 are incompatible with the current network
-architecture because both the CNN input shape and action output size changed.
+Champion-vs-challenger remains future work. Do not choose promotion criteria
+yet.
