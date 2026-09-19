@@ -33,6 +33,9 @@ PIECE_VALUES = {
     chess.ROOK: 5,
     chess.QUEEN: 9,
 }
+PER_ALPHA = 0.6
+PER_BETA = 0.4
+PER_PRIORITY_EPSILON = 1e-6
 
 def create_random_opponent_selector(
     opponent: RandomAgent,
@@ -253,10 +256,14 @@ def train_from_replay(
     min_replay_size: int,
 ) -> float | None:
     """
-    Train the DQN agent using one random batch from replay memory.
+    Train the DQN agent using one prioritized batch from replay memory.
 
     Training starts only when the replay buffer contains at least
     min_replay_size transitions.
+
+    Sampled transitions are weighted using importance-sampling weights.
+    Their priorities are then updated from the absolute TD errors
+    produced by the training step.
 
     Args:
         agent: DQN agent to train.
@@ -269,7 +276,9 @@ def train_from_replay(
         The training loss, or None when replay memory is not ready.
     """
     if batch_size <= 0:
-        raise ValueError("batch_size must be greater than zero.")
+        raise ValueError(
+            "batch_size must be greater than zero."
+        )
 
     if min_replay_size <= 0:
         raise ValueError(
@@ -284,9 +293,31 @@ def train_from_replay(
     if len(replay_buffer) < min_replay_size:
         return None
 
-    batch = replay_buffer.sample(batch_size)
+    (
+        batch,
+        indices,
+        weights,
+    ) = replay_buffer.sample_prioritized(
+        batch_size=batch_size,
+        alpha=PER_ALPHA,
+        beta=PER_BETA,
+    )
 
-    loss = agent.train_step(batch)
+    loss, td_errors = agent.train_step(
+        batch,
+        weights=weights,
+        return_td_errors=True,
+    )
+
+    priorities = [
+        td_error + PER_PRIORITY_EPSILON
+        for td_error in td_errors
+    ]
+
+    replay_buffer.update_priorities(
+        indices=indices,
+        priorities=priorities,
+    )
 
     return loss
 

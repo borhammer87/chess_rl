@@ -1259,3 +1259,182 @@ def test_truncation_penalty_is_added_to_material_reward(
     assert result.total_reward == pytest.approx(
         expected_reward
     )
+
+def test_train_from_replay_uses_prioritized_sampling(
+    monkeypatch,
+):
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    for action in range(4):
+        replay_buffer.push(
+            state=state,
+            action=action,
+            reward=0.0,
+            next_state=state,
+            done=False,
+            next_legal_actions=[1, 2],
+        )
+
+    received_sampling_args = {}
+
+    original_sample_prioritized = (
+        replay_buffer.sample_prioritized
+    )
+
+    def capture_sample_prioritized(
+        batch_size,
+        alpha,
+        beta,
+    ):
+        received_sampling_args["batch_size"] = batch_size
+        received_sampling_args["alpha"] = alpha
+        received_sampling_args["beta"] = beta
+
+        return original_sample_prioritized(
+            batch_size=batch_size,
+            alpha=alpha,
+            beta=beta,
+        )
+
+    monkeypatch.setattr(
+        replay_buffer,
+        "sample_prioritized",
+        capture_sample_prioritized,
+    )
+
+    train_from_replay(
+        agent=agent,
+        replay_buffer=replay_buffer,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert received_sampling_args == {
+        "batch_size": 2,
+        "alpha": 0.6,
+        "beta": 0.4,
+    }
+
+def test_train_from_replay_updates_priorities():
+    torch.manual_seed(0)
+
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    for action in range(4):
+        replay_buffer.push(
+            state=state,
+            action=action,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        )
+
+    initial_priorities = list(
+        replay_buffer.priorities
+    )
+
+    train_from_replay(
+        agent=agent,
+        replay_buffer=replay_buffer,
+        batch_size=4,
+        min_replay_size=4,
+    )
+
+    assert list(
+        replay_buffer.priorities
+    ) != initial_priorities
+
+def test_train_from_replay_updates_sampled_priorities_from_td_errors(
+    monkeypatch,
+):
+    agent = DQNAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    for action in range(4):
+        replay_buffer.push(
+            state=state,
+            action=action,
+            reward=0.0,
+            next_state=state,
+            done=False,
+            next_legal_actions=[1, 2],
+        )
+
+    sampled_batch = [
+        replay_buffer.buffer[1],
+        replay_buffer.buffer[3],
+    ]
+
+    weights = torch.tensor(
+        [1.0, 0.5],
+        dtype=torch.float32,
+    )
+
+    def fake_sample_prioritized(
+        batch_size,
+        alpha,
+        beta,
+    ):
+        return (
+            sampled_batch,
+            [1, 3],
+            weights,
+        )
+
+    def fake_train_step(
+        batch,
+        weights=None,
+        return_td_errors=False,
+    ):
+        assert batch == sampled_batch
+        assert torch.equal(
+            weights,
+            torch.tensor([1.0, 0.5]),
+        )
+        assert return_td_errors is True
+
+        return 0.25, [0.2, 0.8]
+
+    monkeypatch.setattr(
+        replay_buffer,
+        "sample_prioritized",
+        fake_sample_prioritized,
+    )
+
+    monkeypatch.setattr(
+        agent,
+        "train_step",
+        fake_train_step,
+    )
+
+    loss = train_from_replay(
+        agent=agent,
+        replay_buffer=replay_buffer,
+        batch_size=2,
+        min_replay_size=4,
+    )
+
+    assert loss == 0.25
+
+    assert replay_buffer.priorities[1] == pytest.approx(
+        0.2 + 1e-6
+    )
+
+    assert replay_buffer.priorities[3] == pytest.approx(
+        0.8 + 1e-6
+    )
