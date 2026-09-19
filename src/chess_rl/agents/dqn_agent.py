@@ -73,7 +73,12 @@ class DQNAgent:
     # -------------------------
     # TRAINING STEP
     # -------------------------
-    def train_step(self, batch):
+    def train_step(
+        self,
+        batch,
+        weights: torch.Tensor | None = None,
+        return_td_errors: bool = False,
+    ):
         """
         Perform one DQN update using a batch of transitions.
         """
@@ -122,11 +127,35 @@ class DQNAgent:
                 + self.gamma * next_q_values
             )
 
-        loss = F.mse_loss(q_values, targets)
+        td_errors = targets - q_values
+
+        elementwise_losses = F.mse_loss(
+            q_values,
+            targets,
+            reduction="none",
+        )
+
+        if weights is not None:
+            if weights.shape != elementwise_losses.shape:
+                raise ValueError(
+                    "weights must match the batch size."
+                )
+
+            elementwise_losses = (
+                elementwise_losses * weights
+            )
+
+        loss = elementwise_losses.mean()
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
+        if return_td_errors:
+            return (
+                loss.item(),
+                td_errors.detach().abs().tolist(),
+            )
 
         return loss.item()
 

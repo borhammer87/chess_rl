@@ -253,6 +253,7 @@ def test_train_step_uses_only_legal_next_actions(
     def fake_mse_loss(
         q_values,
         targets,
+        reduction="mean",
     ):
         captured_targets.append(
             targets.detach().clone()
@@ -295,6 +296,7 @@ def test_train_step_uses_zero_future_value_for_terminal_transition(
     def fake_mse_loss(
         q_values,
         targets,
+        reduction="mean",
     ):
         captured_targets.append(
             targets.detach().clone()
@@ -502,3 +504,146 @@ def test_agent_can_reduce_td_error_on_real_chess_transitions():
     )
 
     assert final_td_error < initial_td_error
+
+def test_train_step_can_return_td_errors():
+    agent = DQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=1,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+        Transition(
+            state=state,
+            action=2,
+            reward=-1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+    ]
+
+    loss, td_errors = agent.train_step(
+        batch,
+        return_td_errors=True,
+    )
+
+    assert isinstance(loss, float)
+    assert isinstance(td_errors, list)
+    assert len(td_errors) == len(batch)
+    assert all(
+        td_error >= 0
+        for td_error in td_errors
+    )
+
+def test_train_step_applies_importance_sampling_weights(
+    monkeypatch,
+):
+    agent = DQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=1,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+        Transition(
+            state=state,
+            action=2,
+            reward=-1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+    ]
+
+    captured_reduction = []
+
+    original_mse_loss = dqn_agent_module.F.mse_loss
+
+    def capture_mse_loss(
+        input,
+        target,
+        reduction="mean",
+    ):
+        captured_reduction.append(reduction)
+
+        return original_mse_loss(
+            input,
+            target,
+            reduction=reduction,
+        )
+
+    monkeypatch.setattr(
+        dqn_agent_module.F,
+        "mse_loss",
+        capture_mse_loss,
+    )
+
+    weights = torch.tensor(
+        [1.0, 0.5],
+        dtype=torch.float32,
+    )
+
+    loss = agent.train_step(
+        batch,
+        weights=weights,
+    )
+
+    assert isinstance(loss, float)
+    assert captured_reduction == ["none"]
+
+def test_train_step_rejects_wrong_number_of_weights():
+    agent = DQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=1,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+        Transition(
+            state=state,
+            action=2,
+            reward=-1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        ),
+    ]
+
+    weights = torch.tensor(
+        [1.0],
+        dtype=torch.float32,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="weights must match the batch size",
+    ):
+        agent.train_step(
+            batch,
+            weights=weights,
+        )
