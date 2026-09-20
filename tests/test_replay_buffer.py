@@ -387,3 +387,36 @@ def test_replay_buffer_loads_old_state_without_priorities():
     restored_buffer.load_state_dict(old_state)
 
     assert list(restored_buffer.priorities) == [1.0]
+
+def test_prioritized_sampling_can_sample_with_replacement():
+    random.seed(0)
+
+    buffer = ReplayBuffer(capacity=10)
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    buffer.push(
+        state=state,
+        action=1,
+        reward=0.0,
+        next_state=state,
+        done=False,
+        next_legal_actions=[1, 2],
+    )
+
+    transitions, indices, weights = (
+        buffer.sample_prioritized(
+            batch_size=4,
+            alpha=0.6,
+            beta=0.4,
+        )
+    )
+
+    assert len(transitions) == 4
+    assert indices == [0, 0, 0, 0]
+    assert torch.allclose(
+        weights,
+        torch.ones(4),
+    )
