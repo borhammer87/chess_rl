@@ -26,6 +26,8 @@ TRUNCATION_PENALTY = -0.1
 
 MATERIAL_REWARD_SCALE = 0.01
 
+STEP_PENALTY = -0.0005
+
 PIECE_VALUES = {
     chess.PAWN: 1,
     chess.KNIGHT: 3,
@@ -513,7 +515,9 @@ def run_dqn_vs_opponent_episode(
 
         if truncated_transition:
             agent_reward += TRUNCATION_PENALTY
-            
+        elif not done:
+            agent_reward += STEP_PENALTY
+
         next_state = encode_board(
             next_board
         )

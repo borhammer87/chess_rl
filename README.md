@@ -19,7 +19,8 @@ Implemented features:
 - CNN-based DQN.
 - Legal action masking.
 - Replay Buffer.
-- Random replay sampling.
+- Prioritized Experience Replay with importance-sampling correction.
+- TD-error-based replay-priority updates.
 - Multi-episode training.
 - Target network synchronization.
 - Epsilon decay once per episode when replay training occurred.
@@ -43,6 +44,7 @@ Implemented features:
 - Truncation diagnostics for claimable draws.
 - Explicit `-0.1` penalty for artificial training truncation.
 - Material-based reward shaping using scaled net material change.
+- Small per-step penalty for non-terminal, non-truncated training transitions.
 - Chess-outcome tracking independent of shaped training reward.
 - Terminal replay treatment at the artificial training horizon.
 - Greedy diagnostic evaluation game against RandomAgent.
@@ -83,26 +85,18 @@ the opponent used for the main training workflow.
 
 ## Next goal
 
-Real training and diagnostic PGN inspection showed that terminal-only
-learning plus a truncation penalty was not sufficient to produce useful
-chess behavior. The greedy policy continued to show long non-progressing
-move cycles and a very high truncation rate.
+Real training has now tested truncation penalties, material-based reward
+shaping, Prioritized Experience Replay, and a small non-terminal step
+penalty.
 
-The current experiment therefore keeps the `-0.1` artificial-truncation
-penalty and adds a small material-based shaping signal:
+The learned greedy policy still shows a high truncation rate and can enter
+long non-progressing move cycles.
 
-`0.01 * net material-balance change`
+Q-value diagnostics show that legal actions are not globally assigned the
+same value, but the highest-ranked actions are often separated by small
+Q-value gaps.
 
-The experiment is being run from scratch so the replay buffer contains only
-transitions generated under the new reward semantics.
-
-The main observations are:
-
-- truncation frequency,
-- average episode length,
-- balanced RandomAgent evaluation,
-- greedy diagnostic PGN behavior,
-- whether materially sensible play begins to emerge.
-
-No additional reward shaping or per-move penalty should be introduced until
-this experiment has been evaluated.
+The next goal is therefore to determine whether further progress should come
+from reward design, network architecture, or a more fundamental change to
+the current DQN learning formulation before running substantially longer
+training experiments.

@@ -300,9 +300,13 @@ Random replay reduces temporal correlation between consecutive chess positions a
 
 ### Consequences
 
-- Training samples are drawn randomly from previous interactions.
+### Consequences
+
+- The deque remains the fixed-capacity storage container.
 - Very old transitions are discarded once capacity is reached.
-- The buffer does not currently implement prioritized replay.
+- Replay priorities are stored in a parallel fixed-capacity deque.
+- Uniform `sample()` remains available, but the current training workflow
+  uses prioritized replay sampling.
 
 ---
 
@@ -930,3 +934,63 @@ remaining small relative to the `+1 / -1` terminal result.
   not be mixed with the new experiment.
 - Further reward components should be evaluated separately rather than
   added simultaneously.
+
+## D-022 — Use Prioritized Experience Replay
+
+### Status
+
+Accepted experimentally.
+
+### Decision
+
+Use Prioritized Experience Replay for DQN training.
+
+The current configuration uses:
+
+- `alpha = 0.6`
+- `beta = 0.4`
+- priority epsilon `1e-6`
+
+New transitions initially receive the maximum current replay priority.
+
+Sampling is performed with replacement.
+
+The DQN computes per-transition losses and applies normalized
+importance-sampling weights before averaging the loss.
+
+After each training update, sampled replay priorities are updated from the
+absolute TD errors.
+
+### Reason
+
+Replay diagnostics showed that terminal and other difficult transitions were
+rare while some of them had substantially larger TD errors than typical
+replay experiences.
+
+Uniform replay gave every stored transition the same sampling probability,
+so important high-error experiences could be underrepresented in training.
+
+A separate DQN-vs-Double-DQN diagnostic showed no measurable difference in
+the analysed replay, so Double DQN was not selected as the next modification.
+
+### Alternatives considered
+
+1. Keep uniform replay.
+2. Implement Double DQN.
+3. Increase network capacity immediately.
+4. Change several learning mechanisms simultaneously.
+
+PER was selected as a controlled experiment because it directly addressed
+the observed replay distribution while preserving the existing DQN
+architecture.
+
+### Consequences
+
+- ReplayBuffer now persists priorities together with transitions.
+- Training loss supports importance-sampling weights.
+- DQN training exposes absolute TD errors for priority updates.
+- Replay sampling is no longer uniform in the main training path.
+- The first real PER experiment did not demonstrate a clear improvement in
+  greedy RandomAgent performance.
+- PER remains part of the current implementation, but further PER tuning is
+  not currently assumed to solve the policy-quality problem.

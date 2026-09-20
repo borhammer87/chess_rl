@@ -70,6 +70,11 @@ Implemented:
 - PGN diagnostic export
 - Explicit `-0.1` truncation penalty
 - Terminal replay treatment for artificial truncation
+- Prioritized Experience Replay
+- Importance-sampling weighted loss
+- TD-error-based replay-priority updates
+- Replay-priority persistence
+- Small `-0.0005` non-terminal step penalty
 
 The main executable training workflow now trains the DQN learner against
 an independent frozen copy of its `policy_net`.
@@ -115,9 +120,21 @@ perspective.
 
 The current training reward combines:
 
+The current training reward combines:
+
 - canonical chess terminal reward from the DQN's perspective,
 - `0.01 * net material-balance change`,
+- `-0.0005` on ordinary non-terminal, non-truncated learner transitions,
 - an additional `-0.1` penalty on artificial truncation.
+
+The current training path uses Prioritized Experience Replay with:
+
+- `alpha = 0.6`
+- `beta = 0.4`
+- priority epsilon `1e-6`
+
+Replay sampling is performed with replacement and sampled priorities are
+updated from absolute TD error.
 
 The material change is measured across the complete DQN transition,
 including the opponent response.
@@ -155,32 +172,31 @@ Do not rewrite large sections without architectural justification.
 NEXT OBJECTIVE
 ------------------------------------------------------------
 
-Validate the combined material-shaping and truncation reward in a fresh
-real training run.
+Determine the next learning-direction change from the accumulated diagnostic
+evidence before modifying the implementation again.
 
-The current experiment starts without previous checkpoints or replay
-memory.
+Completed experiments have shown:
 
-Reward semantics:
+- truncation penalty alone was insufficient;
+- material shaping did not produce reliable greedy chess play;
+- a DQN-vs-Double-DQN diagnostic showed no target difference in the analysed
+  replay;
+- Prioritized Experience Replay did not clearly improve greedy RandomAgent
+  performance;
+- Q-value diagnostics showed small gaps between many top-ranked legal
+  actions during non-progressing play;
+- an initial `-0.0005` step-penalty experiment still produced a high
+  truncation rate.
 
-- win: `+1`
-- draw: `0`
-- loss: `-1`
-- material shaping: `0.01 * net material-balance change`
-- artificial truncation: additional `-0.1`
+Before another training run or learning modification, decide whether the
+next experiment should address:
 
-Observe:
+1. reward/learning objective,
+2. model architecture/capacity,
+3. or the suitability of the current DQN formulation.
 
-- truncation frequency,
-- average episode length,
-- balanced RandomAgent evaluation,
-- greedy diagnostic PGN behavior,
-- whether materially sensible play emerges,
-- whether long non-progressing move cycles decrease.
-
-Do not change the reward scale, truncation penalty, add a per-move penalty,
-or introduce another learning-signal modification until this experiment has
-been evaluated.
+Do not simply add another DQN enhancement or extend training without a
+specific hypothesis supported by the existing diagnostics.
 
 RandomAgent remains the provisional stable evaluation benchmark.
 

@@ -18,6 +18,7 @@ from chess_rl.training.episodes import (
     get_episode_agent_color,
     TRUNCATION_PENALTY,
     MATERIAL_REWARD_SCALE,
+    STEP_PENALTY,
     material_balance,
     material_reward,
 )
@@ -994,7 +995,7 @@ def test_truncated_episode_stores_terminal_penalty():
         TRUNCATION_PENALTY
     )
 
-def test_completed_episode_does_not_apply_truncation_penalty(
+def test_completed_episode_does_not_apply_artificial_penalties(
     monkeypatch,
 ):
     env = ChessEnv()
@@ -1190,6 +1191,7 @@ def test_episode_stores_material_reward(
 
     assert first_transition.reward == pytest.approx(
         9 * MATERIAL_REWARD_SCALE
+        + STEP_PENALTY
     )
 
 def test_truncation_penalty_is_added_to_material_reward(
@@ -1437,4 +1439,31 @@ def test_train_from_replay_updates_sampled_priorities_from_td_errors(
 
     assert replay_buffer.priorities[3] == pytest.approx(
         0.8 + 1e-6
+    )
+
+def test_non_terminal_transition_receives_step_penalty():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=2,
+    )
+
+    first_transition = replay_buffer.buffer[0]
+
+    assert first_transition.done is False
+
+    assert first_transition.reward == pytest.approx(
+        STEP_PENALTY
     )

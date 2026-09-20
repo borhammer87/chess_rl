@@ -71,8 +71,18 @@
 - [x] Determine that truncation penalty alone is insufficient
 - [x] Add material-based reward shaping
 - [x] Separate chess outcomes from shaped training reward
-- [ ] Validate combined material shaping and truncation penalty in real training
-- [ ] Evaluate whether further reward changes are needed
+- [x] Validate combined material shaping and truncation penalty in real training
+- [x] Diagnose replay TD-error distribution
+- [x] Compare standard DQN and Double-DQN targets diagnostically
+- [x] Determine that Double DQN would not change the analysed targets
+- [x] Implement Prioritized Experience Replay
+- [x] Validate PER in real training
+- [x] Diagnose legal-action Q-value separation
+- [x] Identify small top-action Q gaps during non-progressing greedy play
+- [x] Add a small non-terminal step penalty
+- [x] Run initial PER + step-penalty experiment
+- [ ] Decide whether the next change should target reward design,
+      network architecture, or the DQN formulation itself
 
 ## Phase 7 — Future work
 
