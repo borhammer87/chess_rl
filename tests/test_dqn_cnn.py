@@ -153,3 +153,15 @@ def test_dqn_cnn_accepts_encoded_board_shape():
         2,
         ACTION_SIZE,
     )
+
+def test_dqn_cnn_output_layer_has_no_bias():
+    model = DQNCNN()
+
+    output_layer = model.classifier[-1]
+
+    assert isinstance(
+        output_layer,
+        torch.nn.Linear,
+    )
+
+    assert output_layer.bias is None

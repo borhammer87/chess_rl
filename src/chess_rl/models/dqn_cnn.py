@@ -32,7 +32,7 @@ class DQNCNN(nn.Module):
             nn.Linear(64 * 8 * 8, 512),
             nn.ReLU(),
 
-            nn.Linear(512, action_size)
+            nn.Linear(512, action_size, bias=False)
         )
 
     def forward(self, x):

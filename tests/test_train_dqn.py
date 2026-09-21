@@ -487,6 +487,7 @@ def test_summarize_training_rejects_empty_results():
 def test_main_runs_multi_episode_training(
     monkeypatch,
     capsys,
+    tmp_path,
 ):
     fake_results = [
         VsRandomEpisodeResult(
@@ -560,7 +561,8 @@ def test_main_runs_multi_episode_training(
         replay_buffer,
     ):
         saved_paths.append(path)
-
+    monkeypatch.chdir(tmp_path)
+    
     monkeypatch.setattr(
         train_dqn_module,
         "save_training_checkpoint",
