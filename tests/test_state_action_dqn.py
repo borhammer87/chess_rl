@@ -262,3 +262,110 @@ def test_evaluate_action_ids_rejects_empty_action_list():
             state,
             [],
         )
+
+def test_evaluate_state_action_pairs_returns_one_q_per_pair():
+    model = StateActionDQN()
+
+    states = torch.zeros(
+        (3, BOARD_CHANNELS, 8, 8)
+    )
+
+    action_ids = [
+        encode_move(
+            chess.Move.from_uci("e2e4")
+        ),
+        encode_move(
+            chess.Move.from_uci("g1f3")
+        ),
+        encode_move(
+            chess.Move.from_uci("d2d4")
+        ),
+    ]
+
+    q_values = model.evaluate_state_action_pairs(
+        states,
+        action_ids,
+    )
+
+    assert q_values.shape == (3,)
+
+def test_evaluate_state_action_pairs_encodes_batch_once(
+    monkeypatch,
+):
+    model = StateActionDQN()
+
+    batch_size = 32
+
+    states = torch.zeros(
+        (
+            batch_size,
+            BOARD_CHANNELS,
+            8,
+            8,
+        )
+    )
+
+    action_id = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    action_ids = [
+        action_id
+        for _ in range(batch_size)
+    ]
+
+    original_encode_state = model.encode_state
+    call_count = 0
+    encoded_batch_sizes = []
+
+    def counting_encode_state(states):
+        nonlocal call_count
+
+        call_count += 1
+        encoded_batch_sizes.append(
+            states.shape[0]
+        )
+
+        return original_encode_state(states)
+
+    monkeypatch.setattr(
+        model,
+        "encode_state",
+        counting_encode_state,
+    )
+
+    q_values = model.evaluate_state_action_pairs(
+        states,
+        action_ids,
+    )
+
+    assert q_values.shape == (
+        batch_size,
+    )
+
+    assert call_count == 1
+    assert encoded_batch_sizes == [
+        batch_size
+    ]
+
+def test_evaluate_state_action_pairs_rejects_mismatched_batch_sizes():
+    model = StateActionDQN()
+
+    states = torch.zeros(
+        (2, BOARD_CHANNELS, 8, 8)
+    )
+
+    action_ids = [
+        encode_move(
+            chess.Move.from_uci("e2e4")
+        )
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="batch sizes must match",
+    ):
+        model.evaluate_state_action_pairs(
+            states,
+            action_ids,
+        )

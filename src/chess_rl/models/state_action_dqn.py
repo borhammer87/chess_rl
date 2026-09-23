@@ -232,3 +232,97 @@ class StateActionDQN(nn.Module):
             to_squares,
             promotion_types,
         )
+
+    def score_state_action_pairs(
+        self,
+        state_features: torch.Tensor,
+        from_squares: torch.Tensor,
+        to_squares: torch.Tensor,
+        promotion_types: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Score one action for each already-encoded state.
+
+        Each row in state_features is paired with the action at the
+        same index.
+        """
+        action_features = self.encode_actions(
+            from_squares,
+            to_squares,
+            promotion_types,
+        )
+
+        if state_features.shape[0] != action_features.shape[0]:
+            raise ValueError(
+                "State and action batch sizes must match."
+            )
+
+        combined_features = torch.cat(
+            (
+                state_features,
+                action_features,
+            ),
+            dim=-1,
+        )
+
+        return self.q_head(
+            combined_features
+        ).squeeze(-1)
+
+    def evaluate_state_action_pairs(
+        self,
+        states: torch.Tensor,
+        action_ids: list[int],
+    ) -> torch.Tensor:
+        """
+        Score one encoded chess action for each state in a batch.
+        """
+        if states.dim() != 4:
+            raise ValueError(
+                "States must be a batch with shape "
+                "(batch, channels, 8, 8)."
+            )
+
+        if states.shape[0] != len(action_ids):
+            raise ValueError(
+                "State and action batch sizes must match."
+            )
+
+        if not action_ids:
+            raise ValueError(
+                "Cannot evaluate an empty state-action batch."
+            )
+
+        components = [
+            decode_action_components(action_id)
+            for action_id in action_ids
+        ]
+
+        from_squares = torch.tensor(
+            [component[0] for component in components],
+            dtype=torch.long,
+            device=states.device,
+        )
+
+        to_squares = torch.tensor(
+            [component[1] for component in components],
+            dtype=torch.long,
+            device=states.device,
+        )
+
+        promotion_types = torch.tensor(
+            [component[2] for component in components],
+            dtype=torch.long,
+            device=states.device,
+        )
+
+        state_features = self.encode_state(
+            states
+        )
+
+        return self.score_state_action_pairs(
+            state_features,
+            from_squares,
+            to_squares,
+            promotion_types,
+        )
