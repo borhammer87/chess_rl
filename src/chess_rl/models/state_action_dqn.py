@@ -2,7 +2,9 @@ import torch
 import torch.nn as nn
 
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
-
+from chess_rl.utils.action_encoder import (
+    decode_action_components,
+)
 
 STATE_FEATURE_SIZE = 256
 SQUARE_EMBEDDING_SIZE = 16
@@ -174,6 +176,58 @@ class StateActionDQN(nn.Module):
 
         return self.score_actions(
             state_features,
+            from_squares,
+            to_squares,
+            promotion_types,
+        )
+
+    def evaluate_action_ids(
+        self,
+        state: torch.Tensor,
+        action_ids: list[int],
+    ) -> torch.Tensor:
+        """
+        Encode one state once and score encoded chess actions.
+        """
+        if not action_ids:
+            raise ValueError(
+                "Cannot evaluate an empty action list."
+            )
+
+        components = [
+            decode_action_components(action_id)
+            for action_id in action_ids
+        ]
+
+        from_squares = torch.tensor(
+            [
+                from_square
+                for from_square, _, _ in components
+            ],
+            dtype=torch.long,
+            device=state.device,
+        )
+
+        to_squares = torch.tensor(
+            [
+                to_square
+                for _, to_square, _ in components
+            ],
+            dtype=torch.long,
+            device=state.device,
+        )
+
+        promotion_types = torch.tensor(
+            [
+                promotion_type
+                for _, _, promotion_type in components
+            ],
+            dtype=torch.long,
+            device=state.device,
+        )
+
+        return self.evaluate_actions(
+            state,
             from_squares,
             to_squares,
             promotion_types,

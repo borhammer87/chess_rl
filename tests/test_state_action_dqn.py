@@ -5,6 +5,12 @@ from chess_rl.models.state_action_dqn import (
     STATE_FEATURE_SIZE,
     StateActionDQN,
 )
+import chess
+import pytest
+
+from chess_rl.utils.action_encoder import (
+    encode_move,
+)
 
 def test_state_encoder_accepts_encoded_board_batch():
     model = StateActionDQN()
@@ -172,3 +178,87 @@ def test_evaluate_actions_encodes_state_only_once(
     )
 
     assert call_count == 1
+
+def test_evaluate_action_ids_returns_one_q_value_per_action():
+    model = StateActionDQN()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action_ids = [
+        encode_move(
+            chess.Move.from_uci("e2e4")
+        ),
+        encode_move(
+            chess.Move.from_uci("g1f3")
+        ),
+        encode_move(
+            chess.Move.from_uci("d2d4")
+        ),
+    ]
+
+    q_values = model.evaluate_action_ids(
+        state,
+        action_ids,
+    )
+
+    assert q_values.shape == (3,)
+
+def test_evaluate_action_ids_encodes_state_only_once(
+    monkeypatch,
+):
+    model = StateActionDQN()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action_ids = [
+        encode_move(
+            chess.Move(
+                from_square=index,
+                to_square=(index + 1) % 64,
+            )
+        )
+        for index in range(40)
+    ]
+
+    original_encode_state = model.encode_state
+    call_count = 0
+
+    def counting_encode_state(states):
+        nonlocal call_count
+        call_count += 1
+
+        return original_encode_state(states)
+
+    monkeypatch.setattr(
+        model,
+        "encode_state",
+        counting_encode_state,
+    )
+
+    q_values = model.evaluate_action_ids(
+        state,
+        action_ids,
+    )
+
+    assert q_values.shape == (40,)
+    assert call_count == 1
+
+def test_evaluate_action_ids_rejects_empty_action_list():
+    model = StateActionDQN()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="empty action list",
+    ):
+        model.evaluate_action_ids(
+            state,
+            [],
+        )
