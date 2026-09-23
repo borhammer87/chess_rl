@@ -210,3 +210,34 @@ def decode_legal_action(
         )
 
     return decoded_move
+
+def decode_action_components(
+    action: int,
+) -> tuple[int, int, int]:
+    """
+    Decode an action index into structured model features.
+
+    Promotion type:
+    0 = no promotion
+    1 = queen
+    2 = rook
+    3 = bishop
+    4 = knight
+    """
+    move = decode_move(action)
+
+    if move.promotion is None:
+        promotion_type = 0
+    else:
+        promotion_type = (
+            PROMOTION_PIECES.index(
+                move.promotion
+            )
+            + 1
+        )
+
+    return (
+        move.from_square,
+        move.to_square,
+        promotion_type,
+    )

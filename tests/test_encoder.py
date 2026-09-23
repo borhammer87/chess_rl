@@ -18,6 +18,7 @@ from chess_rl.utils.action_encoder import (
     encode_move,
     get_legal_actions,
     uci_to_action,
+    decode_action_components,
 )
 
 from chess_rl.utils.action_masking import mask_illegal_moves
@@ -262,3 +263,48 @@ def test_non_promotion_action_keeps_original_encoding():
 
     assert action == expected_action
     assert action < 4096
+
+def test_decode_action_components_for_non_promotion():
+    move = chess.Move.from_uci("e2e4")
+
+    action = encode_move(move)
+
+    (
+        from_square,
+        to_square,
+        promotion_type,
+    ) = decode_action_components(action)
+
+    assert from_square == chess.E2
+    assert to_square == chess.E4
+    assert promotion_type == 0
+
+@pytest.mark.parametrize(
+    ("uci", "expected_promotion_type"),
+    [
+        ("g7g8q", 1),
+        ("g7g8r", 2),
+        ("g7g8b", 3),
+        ("g7g8n", 4),
+    ],
+)
+def test_decode_action_components_for_promotions(
+    uci,
+    expected_promotion_type,
+):
+    move = chess.Move.from_uci(uci)
+
+    action = encode_move(move)
+
+    (
+        from_square,
+        to_square,
+        promotion_type,
+    ) = decode_action_components(action)
+
+    assert from_square == move.from_square
+    assert to_square == move.to_square
+    assert (
+        promotion_type
+        == expected_promotion_type
+    )

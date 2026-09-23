@@ -1,9 +1,4 @@
 import torch
-
-from chess_rl.models.state_action_dqn import (
-    STATE_FEATURE_SIZE,
-    StateActionDQN,
-)
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
 from chess_rl.models.state_action_dqn import (
     ACTION_FEATURE_SIZE,
