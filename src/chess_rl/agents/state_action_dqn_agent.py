@@ -8,7 +8,7 @@ from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.action_selection import (
     select_state_action_greedy_action,
 )
-
+import torch.nn.functional as F
 
 class StateActionDQNAgent:
     """
@@ -66,6 +66,117 @@ class StateActionDQNAgent:
             state=state,
             legal_moves=legal_moves,
         )
+
+    def train_step(
+        self,
+        batch,
+        weights: torch.Tensor | None = None,
+        return_td_errors: bool = False,
+    ):
+        """
+        Perform one State-Action DQN update using a batch of transitions.
+        """
+        states = torch.stack([
+            transition.state
+            for transition in batch
+        ])
+
+        actions = [
+            transition.action
+            for transition in batch
+        ]
+
+        rewards = torch.tensor(
+            [
+                transition.reward
+                for transition in batch
+            ],
+            dtype=torch.float32,
+        )
+
+        # Q(s, a) for the action actually taken in each transition.
+        q_values = self.policy_net.evaluate_state_action_pairs(
+            states,
+            actions,
+        )
+
+        # Bellman future values. Terminal transitions keep zero.
+        with torch.no_grad():
+            next_q_values = torch.zeros(
+                len(batch),
+                dtype=torch.float32,
+            )
+
+            non_terminal_indices = [
+                index
+                for index, transition in enumerate(batch)
+                if not transition.done
+            ]
+
+            for index in non_terminal_indices:
+                if not batch[index].next_legal_actions:
+                    raise ValueError(
+                        "Non-terminal transition must have legal next actions."
+                    )
+
+            if non_terminal_indices:
+                non_terminal_next_states = torch.stack([
+                    batch[index].next_state
+                    for index in non_terminal_indices
+                ])
+
+                non_terminal_legal_actions = [
+                    batch[index].next_legal_actions
+                    for index in non_terminal_indices
+                ]
+
+                non_terminal_next_q_values = (
+                    self.target_net.evaluate_legal_action_maxes(
+                        non_terminal_next_states,
+                        non_terminal_legal_actions,
+                    )
+                )
+
+                next_q_values[
+                    non_terminal_indices
+                ] = non_terminal_next_q_values
+
+            targets = (
+                rewards
+                + self.gamma * next_q_values
+            )
+
+        td_errors = targets - q_values
+
+        elementwise_losses = F.mse_loss(
+            q_values,
+            targets,
+            reduction="none",
+        )
+
+        if weights is not None:
+            if weights.shape != elementwise_losses.shape:
+                raise ValueError(
+                    "weights must match the batch size."
+                )
+
+            elementwise_losses = (
+                elementwise_losses * weights
+            )
+
+        loss = elementwise_losses.mean()
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
+        if return_td_errors:
+            return (
+                loss.item(),
+                td_errors.detach().abs().tolist(),
+            )
+
+        return loss.item()
 
     def update_target_network(self):
         self.target_net.load_state_dict(

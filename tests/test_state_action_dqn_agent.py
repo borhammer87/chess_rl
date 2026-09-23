@@ -7,6 +7,7 @@ from chess_rl.agents.state_action_dqn_agent import (
 )
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
+from chess_rl.utils.replay_buffer import Transition
 
 def test_state_action_agent_random_exploration_selects_only_legal_actions():
     agent = StateActionDQNAgent(
@@ -109,3 +110,224 @@ def test_state_action_agent_epsilon_decay_respects_minimum():
     agent.decay_epsilon()
 
     assert agent.epsilon == 0.1
+
+def test_state_action_train_step_uses_zero_future_value_for_terminal_transition(
+    monkeypatch,
+):
+    agent = StateActionDQNAgent(
+        gamma=0.99
+    )
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=action,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        )
+    ]
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError(
+            "Target network must not evaluate terminal next states."
+        )
+
+    monkeypatch.setattr(
+        agent.target_net,
+        "evaluate_legal_action_maxes",
+        fail_if_called,
+    )
+
+    loss = agent.train_step(batch)
+
+    assert isinstance(loss, float)
+
+def test_state_action_train_step_rejects_non_terminal_without_legal_actions():
+    agent = StateActionDQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=action,
+            reward=0.0,
+            next_state=state,
+            done=False,
+            next_legal_actions=[],
+        )
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="must have legal next actions",
+    ):
+        agent.train_step(batch)
+
+def test_state_action_train_step_can_return_td_errors():
+    agent = StateActionDQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=action,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        )
+    ]
+
+    loss, td_errors = agent.train_step(
+        batch,
+        return_td_errors=True,
+    )
+
+    assert isinstance(loss, float)
+    assert len(td_errors) == 1
+    assert td_errors[0] >= 0.0
+
+def test_state_action_train_step_rejects_wrong_number_of_weights():
+    agent = StateActionDQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    batch = [
+        Transition(
+            state=state,
+            action=action,
+            reward=1.0,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        )
+    ]
+
+    weights = torch.ones(2)
+
+    with pytest.raises(
+        ValueError,
+        match="weights must match",
+    ):
+        agent.train_step(
+            batch,
+            weights=weights,
+        )
+
+def test_state_action_train_step_batches_policy_and_target_state_encoding(
+    monkeypatch,
+):
+    agent = StateActionDQNAgent()
+
+    state = torch.zeros(
+        (BOARD_CHANNELS, 8, 8)
+    )
+
+    action = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    next_legal_actions = [
+        encode_move(
+            chess.Move.from_uci("e7e5")
+        ),
+        encode_move(
+            chess.Move.from_uci("d7d5")
+        ),
+    ]
+
+    # 8 transitions:
+    # 5 non-terminal -> must enter target CNN
+    # 3 terminal     -> must NOT enter target CNN
+    batch = []
+
+    for index in range(8):
+        done = index >= 5
+
+        batch.append(
+            Transition(
+                state=state,
+                action=action,
+                reward=0.0,
+                next_state=state,
+                done=done,
+                next_legal_actions=(
+                    []
+                    if done
+                    else next_legal_actions
+                ),
+            )
+        )
+
+    policy_encode_state = (
+        agent.policy_net.encode_state
+    )
+    target_encode_state = (
+        agent.target_net.encode_state
+    )
+
+    policy_batch_sizes = []
+    target_batch_sizes = []
+
+    def counting_policy_encode_state(states):
+        policy_batch_sizes.append(
+            states.shape[0]
+        )
+
+        return policy_encode_state(states)
+
+    def counting_target_encode_state(states):
+        target_batch_sizes.append(
+            states.shape[0]
+        )
+
+        return target_encode_state(states)
+
+    monkeypatch.setattr(
+        agent.policy_net,
+        "encode_state",
+        counting_policy_encode_state,
+    )
+
+    monkeypatch.setattr(
+        agent.target_net,
+        "encode_state",
+        counting_target_encode_state,
+    )
+
+    loss = agent.train_step(batch)
+
+    assert isinstance(loss, float)
+
+    assert policy_batch_sizes == [8]
+    assert target_batch_sizes == [5]
