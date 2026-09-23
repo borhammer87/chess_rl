@@ -369,3 +369,151 @@ def test_evaluate_state_action_pairs_rejects_mismatched_batch_sizes():
             states,
             action_ids,
         )
+
+def test_evaluate_legal_action_maxes_returns_one_max_per_state(
+    monkeypatch,
+):
+    model = StateActionDQN()
+
+    states = torch.zeros(
+        (3, BOARD_CHANNELS, 8, 8)
+    )
+
+    legal_action_ids = [
+        [
+            encode_move(chess.Move.from_uci("e2e4")),
+            encode_move(chess.Move.from_uci("d2d4")),
+        ],
+        [
+            encode_move(chess.Move.from_uci("g1f3")),
+            encode_move(chess.Move.from_uci("b1c3")),
+            encode_move(chess.Move.from_uci("e2e3")),
+        ],
+        [
+            encode_move(chess.Move.from_uci("c2c4")),
+        ],
+    ]
+
+    expected_q_values = torch.tensor(
+        [
+            1.0,
+            3.0,
+            2.0,
+            5.0,
+            4.0,
+            -1.0,
+        ]
+    )
+
+    def fake_score_state_action_pairs(
+        state_features,
+        from_squares,
+        to_squares,
+        promotion_types,
+    ):
+        return expected_q_values
+
+    monkeypatch.setattr(
+        model,
+        "score_state_action_pairs",
+        fake_score_state_action_pairs,
+    )
+
+    max_q_values = model.evaluate_legal_action_maxes(
+        states,
+        legal_action_ids,
+    )
+
+    assert torch.equal(
+        max_q_values,
+        torch.tensor(
+            [3.0, 5.0, -1.0]
+        ),
+    )
+
+def test_evaluate_legal_action_maxes_encodes_state_batch_once(
+    monkeypatch,
+):
+    model = StateActionDQN()
+
+    batch_size = 4
+
+    states = torch.zeros(
+        (
+            batch_size,
+            BOARD_CHANNELS,
+            8,
+            8,
+        )
+    )
+
+    action_id = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    legal_action_ids = [
+        [action_id] * 10,
+        [action_id] * 20,
+        [action_id] * 30,
+        [action_id] * 40,
+    ]
+
+    original_encode_state = model.encode_state
+
+    call_count = 0
+    encoded_batch_sizes = []
+
+    def counting_encode_state(states):
+        nonlocal call_count
+
+        call_count += 1
+        encoded_batch_sizes.append(
+            states.shape[0]
+        )
+
+        return original_encode_state(states)
+
+    monkeypatch.setattr(
+        model,
+        "encode_state",
+        counting_encode_state,
+    )
+
+    max_q_values = model.evaluate_legal_action_maxes(
+        states,
+        legal_action_ids,
+    )
+
+    assert max_q_values.shape == (
+        batch_size,
+    )
+
+    assert call_count == 1
+    assert encoded_batch_sizes == [
+        batch_size
+    ]
+
+def test_evaluate_legal_action_maxes_rejects_state_without_legal_actions():
+    model = StateActionDQN()
+
+    states = torch.zeros(
+        (2, BOARD_CHANNELS, 8, 8)
+    )
+
+    action_id = encode_move(
+        chess.Move.from_uci("e2e4")
+    )
+
+    legal_action_ids = [
+        [action_id],
+        [],
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="at least one legal action",
+    ):
+        model.evaluate_legal_action_maxes(
+            states,
+            legal_action_ids,
+        )

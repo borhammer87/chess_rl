@@ -326,3 +326,109 @@ class StateActionDQN(nn.Module):
             to_squares,
             promotion_types,
         )
+
+    def evaluate_legal_action_maxes(
+        self,
+        states: torch.Tensor,
+        legal_action_ids: list[list[int]],
+    ) -> torch.Tensor:
+        """
+        Return the maximum legal Q-value for each state in a batch.
+
+        States are encoded together once. Legal actions from all
+        states are then flattened and scored in one shared Q-head
+        batch.
+        """
+        if states.dim() != 4:
+            raise ValueError(
+                "States must be a batch with shape "
+                "(batch, channels, 8, 8)."
+            )
+
+        if states.shape[0] != len(legal_action_ids):
+            raise ValueError(
+                "State and legal-action batch sizes must match."
+            )
+
+        if not legal_action_ids:
+            raise ValueError(
+                "Cannot evaluate an empty state batch."
+            )
+
+        if any(
+            not actions
+            for actions in legal_action_ids
+        ):
+            raise ValueError(
+                "Each state must have at least one legal action."
+            )
+
+        state_features = self.encode_state(
+            states
+        )
+
+        action_counts = [
+            len(actions)
+            for actions in legal_action_ids
+        ]
+
+        repeated_state_features = torch.repeat_interleave(
+            state_features,
+            torch.tensor(
+                action_counts,
+                device=states.device,
+            ),
+            dim=0,
+        )
+
+        flattened_action_ids = [
+            action_id
+            for actions in legal_action_ids
+            for action_id in actions
+        ]
+
+        components = [
+            decode_action_components(action_id)
+            for action_id in flattened_action_ids
+        ]
+
+        from_squares = torch.tensor(
+            [component[0] for component in components],
+            dtype=torch.long,
+            device=states.device,
+        )
+
+        to_squares = torch.tensor(
+            [component[1] for component in components],
+            dtype=torch.long,
+            device=states.device,
+        )
+
+        promotion_types = torch.tensor(
+            [component[2] for component in components],
+            dtype=torch.long,
+            device=states.device,
+        )
+
+        q_values = self.score_state_action_pairs(
+            repeated_state_features,
+            from_squares,
+            to_squares,
+            promotion_types,
+        )
+
+        max_q_values = []
+        start = 0
+
+        for action_count in action_counts:
+            end = start + action_count
+
+            max_q_values.append(
+                q_values[start:end].max()
+            )
+
+            start = end
+
+        return torch.stack(
+            max_q_values
+        )
