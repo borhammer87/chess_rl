@@ -33,6 +33,13 @@ def main() -> None:
     min_replay_size = 1_000
     target_update_frequency = 10
 
+
+    initialization_seed = 12345
+    evaluation_seed = 54321
+    training_seed = 67890
+
+    set_random_seed(initialization_seed)
+
     env = ChessEnv()
 
     agent = StateActionDQNAgent(
@@ -55,6 +62,7 @@ def main() -> None:
 
     print("\nInitial greedy evaluation...")
 
+    set_random_seed(evaluation_seed)    
     initial_evaluation = evaluate_against_random_both_colors(
         env=env,
         agent=agent,
@@ -79,6 +87,7 @@ def main() -> None:
 
     print("\nTraining...")
 
+    set_random_seed(training_seed)
     start_time = perf_counter()
 
     results = train_against_random(
@@ -124,6 +133,8 @@ def main() -> None:
     )
 
     print("\nFinal greedy evaluation...")
+
+    set_random_seed(evaluation_seed)
 
     final_evaluation = evaluate_against_random_both_colors(
         env=env,
