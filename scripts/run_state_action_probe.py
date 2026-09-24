@@ -1,4 +1,7 @@
+import random
 from time import perf_counter
+
+import torch
 
 from chess_rl.agents.random_agent import RandomAgent
 from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
@@ -10,7 +13,10 @@ from chess_rl.training.train_dqn import (
     train_against_random,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
-
+def set_random_seed(seed: int) -> None:
+    """Seed Python and PyTorch random number generators."""
+    random.seed(seed)
+    torch.manual_seed(seed)
 
 def main() -> None:
     """

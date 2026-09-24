@@ -37,6 +37,45 @@ For each development step:
 7. have the user make the change locally;
 8. provide the exact test or command to run;
 9. wait for the user's actual result before assuming the change works or moving to the next development step.
+10. after the user modifies the local repository, do not propose further
+code changes from the previously inspected repository snapshot if the next
+step depends on the modified code;
+11. ask the user for a fresh ZIP of the current repository;
+12. inspect that fresh ZIP before continuing development.
+13. actively track whether accumulated development changes make the project
+Markdown documentation materially stale;
+
+14. do not ask the user to update documentation after every small intermediate
+change. Prefer documenting coherent milestones rather than creating
+documentation churn;
+
+15. explicitly remind the user when the accumulated changes are significant
+enough that the relevant Markdown files should be updated. This should normally
+happen when a development step or experiment establishes a new capability,
+changes the documented architecture or workflow, resolves an open question,
+changes the known project status, or makes existing documentation materially
+inaccurate;
+
+16. when recommending a documentation update, identify which Markdown files
+actually need changes and why. Do not modify unrelated documentation merely for
+consistency or completeness;
+
+17. actively watch for signs that conversation context may be degrading. Signs
+include uncertainty about code that was previously inspected, confusing old
+and new repository states, contradicting established project decisions,
+forgetting changes made during the current development sequence, or relying
+increasingly on assumptions instead of repository evidence;
+
+18. if there is a meaningful risk that context has degraded, tell the user
+explicitly before proposing further code changes. Recommend starting a fresh
+chat when appropriate, using an updated `NEXT_CHAT_PROMPT.md` and a fresh ZIP
+of the repository. Do not continue confidently from potentially corrupted or
+mixed context.
+
+A previously inspected ZIP becomes stale as soon as the user changes the
+local repository. Test output or pasted console output may be used to analyse
+the result of a change, but it does not replace inspection of the updated
+repository before proposing the next code modification.
 
 Do not claim that tests pass unless they have actually been run successfully in an appropriate environment.
 
