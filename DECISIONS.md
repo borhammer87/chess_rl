@@ -2,1072 +2,410 @@
 
 ## Purpose
 
-This document records the main architectural and technical decisions of the Chess Reinforcement Learning project.
-
-The goal is to preserve the reasoning behind each decision, avoid reopening already-settled discussions, and make future refactors easier to evaluate.
-
----
+Chronological architectural decision record. Older decisions remain here when later decisions supersede them so that the evolution of the project stays understandable. `CURRENT_STATE.md` is the authority for the present HEAD snapshot.
 
 ## D-001 — Use a CNN-based DQN
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Use a convolutional Deep Q-Network as the original learning architecture for board-state evaluation and discrete chess actions.
 
-The project uses a convolutional neural network as a Deep Q-Network.
+### Motivation
+The project is educational and intentionally develops the DQN pipeline component by component while using a spatial model suitable for board tensors.
 
-### Reason
-
-The board is represented as spatial data, so a CNN is a natural first model for learning local and positional patterns.
-
-The main goal of the project is to understand Deep Q-Learning clearly before introducing more advanced systems.
+### Alternatives considered
+Tabular Q-learning, non-convolutional networks and policy-gradient-first designs.
 
 ### Consequences
+The project requires a fixed state tensor, action encoding, replay memory, policy/target networks and legal-action handling.
 
-- The model predicts one Q-value per action.
-- The architecture remains simpler than AlphaZero-style systems.
-- No MCTS, policy/value dual heads, transformers, or residual towers are used at this stage.
-
----
-
-## D-002 — Board representation uses 12 channels
+## D-002 — Board representation uses 12 piece channels
 
 ### Status
-
 Superseded by D-016.
 
 ### Decision
+Initially encode only the six White and six Black piece types as 12 planes.
 
-The board encoder returns a PyTorch tensor with shape:
+### Motivation
+Start with the smallest clear board representation while building the pipeline incrementally.
 
-```python
-(12, 8, 8)
-```
-
-The channels represent:
-
-- 6 white piece types
-- 6 black piece types
-
-The format is channels-first.
-
-### Reason
-
-This layout is directly compatible with PyTorch `Conv2d`.
+### Alternatives considered
+Richer chess-state features from the start.
 
 ### Consequences
+The initial representation omitted turn, castling and en-passant state. D-016 later expanded it to 18 channels.
 
-- The CNN receives batched inputs with shape `(batch_size, 12, 8, 8)`.
-- Castling rights, en passant information, move counters, and repetition state are not represented yet.
-- Two positions with identical piece placement but different auxiliary chess state may currently receive the same encoding.
-
----
-
-## D-003 — Fixed action space of 4096 actions
+## D-003 — Fixed action space of 4096 origin/destination actions
 
 ### Status
-
 Superseded by D-017.
 
 ### Decision
+Initially encode actions as `from_square * 64 + to_square`.
 
-Actions are encoded using:
+### Motivation
+A simple fixed output space made the first DQN and legal masking straightforward.
 
-```python
-action = from_square * 64 + to_square
-```
-
-The total action space is:
-
-```text
-64 × 64 = 4096
-```
-
-### Reason
-
-A neural network requires a fixed output size.
-
-The 4096-action encoding is simple, easy to test, and sufficient for building the first complete DQN training pipeline.
+### Alternatives considered
+Move lists of variable length and structured action models.
 
 ### Consequences
-
-- Most output actions are illegal in any given position.
-- Legal action masking is required before action selection.
-- The encoding does not distinguish promotion piece types.
-- The model cannot directly learn the difference between promotion to queen, rook, bishop, or knight.
-
----
+Moves sharing origin/destination, especially different promotion pieces, could not be distinguished. D-017 later expanded the action space.
 
 ## D-004 — Automatically prefer queen promotion
 
 ### Status
-
 Superseded by D-017.
 
 ### Decision
+Under the original 4096-action representation, resolve ambiguous promotion actions as queen promotion.
 
-When multiple legal promotion moves share the same encoded action, `decode_legal_action()` returns the queen promotion.
+### Motivation
+The original action ID could not encode promotion type.
 
-Example:
-
-```text
-g7g8q
-g7g8r
-g7g8b
-g7g8n
-```
-
-All four moves share the same origin and destination, and therefore the same action index.
-
-The decoder selects:
-
-```text
-g7g8q
-```
-
-### Reason
-
-Supporting underpromotions would require expanding or redesigning the action space, the network output, the decoder, the masking logic, and related tests.
-
-That redesign would distract from the current goal: completing and understanding the DQN pipeline.
-
-Queen promotion is also the strongest and most common promotion choice in ordinary positions.
+### Alternatives considered
+Expanding the action space immediately or introducing a separate promotion head.
 
 ### Consequences
-
-- The agent cannot choose a rook, bishop, or knight promotion.
-- It may fail in rare positions where underpromotion is required for mate, avoiding stalemate, or tactical reasons.
-- This limitation must be reconsidered before claiming full chess move coverage.
-
-### Future alternatives
-
-Possible future redesigns include:
-
-1. Add explicit promotion actions to the current action space.
-2. Use an action representation similar to AlphaZero's move planes.
-3. Represent actions as `(from_square, to_square, promotion_type)`.
-
-No redesign is planned until the basic DQN training pipeline works.
-
----
+Underpromotion could not be learned. D-017 removed the need for this fallback by representing promotion types explicitly.
 
 ## D-005 — Apply legal action masking after inference
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Restrict greedy fixed-output DQN selection to actions legal in the current chess position rather than asking the network to learn legality from reward.
 
-The CNN always predicts 4096 Q-values.
+### Motivation
+Chess legality is known exactly and should not consume learning capacity.
 
-Illegal actions are masked after inference and before greedy action selection.
-
-Conceptually:
-
-```text
-CNN
-→ 4096 Q-values
-→ illegal actions receive a very negative value
-→ argmax selects only a legal action
-```
-
-### Reason
-
-The set of legal chess moves changes in every position, while the neural network output size must remain fixed.
+### Alternatives considered
+Penalizing illegal actions or changing the network output dynamically.
 
 ### Consequences
-
-- The network still computes values for illegal actions.
-- Python-chess remains responsible for determining move legality.
-- The greedy branch can only select legal moves after masking.
-- The exploration branch must sample directly from the list of legal moves.
-
----
+The network may output arbitrary values for illegal actions, but they cannot be selected greedily.
 
 ## D-006 — Exploration samples only legal moves
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Epsilon exploration chooses among legal chess moves only.
 
-During epsilon-greedy exploration, the agent selects a random move from the legal move list and encodes it.
+### Motivation
+Exploration should investigate valid game behavior rather than waste transitions on impossible actions.
 
-It does not use:
-
-```python
-random.randint(0, 4095)
-```
-
-### Reason
-
-Randomly selecting from all 4096 actions would frequently produce illegal moves and break environment interaction.
-
-Exploration means trying different valid actions, not attempting impossible actions.
+### Alternatives considered
+Uniform sampling across the full action space followed by rejection/penalty.
 
 ### Consequences
+Every exploratory action can be executed by the environment.
 
-- Both exploration and exploitation return legal encoded actions.
-- `DQNAgent.select_action()` requires the current legal move list.
-
----
-
-## D-007 — ChessEnv accepts chess.Move objects
+## D-007 — ChessEnv accepts `chess.Move` objects
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Keep action IDs outside the environment; `ChessEnv.step()` receives legal `chess.Move` objects.
 
-`ChessEnv.step()` receives a `chess.Move`, not an encoded integer action.
+### Motivation
+Separate chess rules/environment concerns from neural-network action representation.
 
-The training layer performs the conversion:
-
-```text
-DQNAgent
-→ encoded integer action
-→ decode_legal_action()
-→ chess.Move
-→ ChessEnv.step()
-```
-
-### Reason
-
-This keeps responsibilities separated:
-
-- `ChessEnv` understands chess rules.
-- `DQNAgent` understands tensors and action indices.
-- `train_dqn.py` connects the components.
+### Alternatives considered
+Making the environment decode integer DQN actions.
 
 ### Consequences
-
-- The environment does not depend on the neural-network action encoding.
-- The training layer acts as the integration layer.
-
----
+Training/action-selection code is responsible for encoding and decoding actions.
 
 ## D-008 — ChessEnv returns independent board copies
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+`reset()`, `get_state()` and `step()` expose copied board states rather than the mutable internal board object.
 
-`ChessEnv.get_state()` returns a copy of the internal board.
+### Motivation
+Prevent accidental external mutation of environment state.
 
-### Reason
-
-Returning the internal `Board` object would allow external code to modify environment state without calling `step()`.
+### Alternatives considered
+Returning the internal board directly.
 
 ### Consequences
+Callers can inspect returned boards safely at a small copying cost.
 
-- Environment state changes only through controlled methods.
-- Tests and training code can inspect returned boards safely.
-
----
-
-## D-009 — ReplayBuffer uses deque
+## D-009 — ReplayBuffer uses bounded deque storage
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Store replay transitions in a bounded `deque`, later paired with a bounded priority deque.
 
-The replay buffer stores transitions in a fixed-capacity `collections.deque`.
+### Motivation
+Automatic FIFO eviction gives simple fixed-capacity replay memory.
 
-Each transition contains:
-
-```text
-state
-action
-reward
-next_state
-done
-```
-
-### Reason
-
-A deque provides efficient insertion and automatically removes the oldest transition when capacity is reached.
-
-Random replay reduces temporal correlation between consecutive chess positions and allows experiences to be reused.
+### Alternatives considered
+Manual ring buffers or unbounded lists.
 
 ### Consequences
-
-### Consequences
-
-- The deque remains the fixed-capacity storage container.
-- Very old transitions are discarded once capacity is reached.
-- Replay priorities are stored in a parallel fixed-capacity deque.
-- Uniform `sample()` remains available, but the current training workflow
-  uses prioritized replay sampling.
-
----
+Old experiences are discarded when capacity is reached. PER priorities must stay index-aligned with transitions.
 
 ## D-010 — Use policy and target networks
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Maintain a trainable policy network and a separately synchronized target network.
 
-The DQN agent maintains:
+### Motivation
+Reduce instability from using the same rapidly changing network for both current estimates and Bellman targets.
 
-- `policy_net`
-- `target_net`
-
-The policy network is trained continuously.
-
-The target network is synchronized periodically.
-
-### Reason
-
-Using the same changing network for predictions and Bellman targets makes DQN unstable.
-
-A temporarily fixed target network provides more stable learning targets.
+### Alternatives considered
+A single network for both roles.
 
 ### Consequences
+Training orchestration must schedule target synchronization independently of other updates.
 
-- Training must track when to update the target network.
-- Only the policy network is optimized directly.
-
----
-
-## D-011 — Current reward is terminal and from White's perspective
+## D-011 — Environment reward is terminal and from White's perspective
 
 ### Status
-
-Accepted temporarily; must be reviewed before full training
+Accepted for the environment; extended by D-015 and later shaping decisions in the training layer.
 
 ### Decision
+`ChessEnv` returns `+1` for a White win, `-1` for a Black win and `0` for draws or unfinished games.
 
-The current environment reward is:
+### Motivation
+Keep the environment simple and color-neutral from the trainer's point of view.
 
-```text
-White win: +1
-Black win: -1
-Draw: 0
-Non-terminal move: 0
-```
-
-### Reason
-
-This is a simple and unambiguous first reward model.
+### Alternatives considered
+Agent-relative environment rewards or dense environment shaping.
 
 ### Consequences
-
-- Rewards are sparse and delayed.
-- The same agent controlling both colors requires careful perspective handling.
-- A black-side transition cannot be interpreted correctly without transforming the reward or the state perspective.
-- Reward semantics must be resolved before serious self-play training.
-
-### Required follow-up
-
-Before implementing final self-play, decide whether to:
-
-1. train a single agent from side-to-move perspective;
-2. negate rewards for black;
-3. normalize board encoding to the current player;
-4. initially train only one color against a separate opponent.
-
----
+Training code must convert reward to learner perspective. Dense shaping belongs above the environment.
 
 ## D-012 — Build training incrementally
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Add training capabilities in small tested steps rather than implementing a large subsystem at once.
 
-The training pipeline is implemented in small, tested stages:
+### Motivation
+The project prioritizes understanding, testability and architectural clarity.
 
-1. one agent-environment step;
-2. store one transition;
-3. run one episode;
-4. sample and train from replay;
-5. update the target network;
-6. decay epsilon;
-7. add checkpoints and metrics.
-
-### Reason
-
-Incremental integration makes failures easier to locate and ensures every component is understood.
+### Alternatives considered
+A single end-to-end implementation pass.
 
 ### Consequences
+Training responsibilities are split into episode operations, orchestration, results, self-play and persistence modules.
 
-- Development is slower per feature but more reliable.
-- Every major behavior should have tests before moving forward.
-
----
 ## D-013 — Separate checkpoint state ownership from checkpoint scheduling
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Agents/replay objects expose serializable state, `checkpoint.py` composes/restores complete training checkpoints, and training loops decide when checkpoint callbacks fire.
 
-Each stateful component is responsible for describing and restoring its
-own state.
-
-`DQNAgent` exposes:
-
-- `state_dict()`
-- `load_state_dict()`
-
-Its state includes:
-
-- policy network
-- target network
-- optimizer
-- epsilon
-
-`ReplayBuffer` exposes:
-
-- `state_dict()`
-- `load_state_dict()`
-
-Its state includes:
-
-- replay capacity
-- stored transitions
-
-The training layer composes both component states into a resumable
-training checkpoint.
-
-Checkpoint scheduling belongs to the training workflow.
-
-`main()` provides the checkpoint path and callback, while
-`train_against_random()` decides when the callback is triggered.
-
-### Reason
-
-The agent should not need to know that a ReplayBuffer exists, and the
-ReplayBuffer should not need to know anything about neural networks or
-optimizers.
-
-Separating state ownership from checkpoint scheduling keeps component
-responsibilities explicit and allows checkpoint policy to evolve without
-changing the underlying components.
+### Motivation
+Persistence format and scheduling are different responsibilities.
 
 ### Alternatives considered
-
-1. Store the ReplayBuffer directly inside `DQNAgent`.
-2. Let `main()` decide both when and how every checkpoint is saved.
-3. Save only neural-network weights.
-
-These alternatives were rejected because they either couple unrelated
-components or do not preserve enough state to resume training
-practically.
+Hard-code checkpoint timing inside agents or checkpoint helpers.
 
 ### Consequences
-
-- Training can resume with the previous agent and replay memory.
-- Checkpoints are larger because replay transitions are serialized.
-- The training workflow can later support policies such as `latest.pt`
-  and `best.pt` without changing `DQNAgent`.
-- Checkpoints do not yet preserve random-number-generator state or a
-  global lifetime episode counter.
-  
-## Known limitations
-
-The current implementation intentionally keeps the scope focused on a
-single-agent DQN training pipeline.
-
-Current limitations include:
-
-- The DQN agent always plays White.
-- The opponent is always a RandomAgent.
-- Self-play is not implemented yet.
-
-
----
-
-## Next decision to resolve
-
-The next major design decision is:
-
-> How should rewards and state perspective be represented when the DQN plays both White and Black?
-
-This must be resolved before implementing meaningful self-play training.
+The same checkpoint helpers can be reused by different training workflows and callbacks.
 
 ## D-014 — Select the best checkpoint using normalized chess score
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Use balanced evaluation score `(wins + 0.5 * draws) / episodes` and replace `best.pt` only on strict improvement.
 
-Periodic evaluation results are converted into a normalized score:
-
-`(wins + 0.5 * draws) / episodes`
-
-A win contributes 1 point, a draw 0.5 points, and a loss or truncated
-game 0 points.
-
-The project maintains two checkpoint roles:
-
-- `latest.pt` stores the most recent resumable training state.
-- `best.pt` stores the state associated with the highest evaluation score
-  observed so far.
-
-`best.pt` is replaced only when a new score is strictly greater than the
-previous best score.
-
-The best evaluation score is stored as checkpoint metadata.
-
-### Reason
-
-Training recency and playing strength are different concepts.
-
-The latest model is required to resume training, while the best model
-should represent the strongest policy observed according to the current
-evaluation benchmark.
-
-Using standard chess scoring gives a simple and understandable model
-selection criterion.
-
-Normalizing by all evaluation episodes also prevents truncated games
-from artificially improving the score.
-
-Persisting the score inside `best.pt` allows model selection to continue
-correctly after restarting the program.
+### Motivation
+Model selection should use chess results, not shaped training reward or loss.
 
 ### Alternatives considered
-
-1. Use only the number of wins.
-2. Ignore truncated games when calculating the denominator.
-3. Replace `best.pt` when the new score is equal to the previous score.
-4. Keep the best score only in memory.
-5. Store the best score in a separate file.
-
-These alternatives were rejected because they either discard useful draw
-information, can reward excessive truncation, overwrite equivalent
-checkpoints unnecessarily, or make model selection less robust across
-training sessions.
+Average reward, training loss, win rate only, or always replacing the best checkpoint.
 
 ### Consequences
-
-- Evaluation results can now drive checkpoint selection.
-- `latest.pt` and `best.pt` have explicitly different purposes.
-- Evaluation quality directly affects model-selection quality.
-- The current score measures performance only against RandomAgent.
-- Future evaluation against stronger or multiple opponents may require
-  revisiting the selection criterion.
-
----
+Truncations and losses score zero; finite evaluation sets can still be noisy. RandomAgent remains a provisional benchmark rather than a final strength measure.
 
 ## D-015 — Use agent-perspective rewards with absolute board encoding
 
 ### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Keep board tensors in a fixed absolute orientation while converting White-perspective environment reward to the learner's color perspective.
 
-`ChessEnv` continues to expose canonical rewards from White's
-perspective.
-
-The training layer converts those rewards to the color controlled by the
-DQN:
-
-- White DQN: keep the environment reward.
-- Black DQN: reverse the reward sign.
-
-Positive reward therefore always means a favorable outcome for the DQN.
-
-The board representation remains absolute.
-
-White and Black pieces retain their fixed channels, and the board is not
-rotated when the DQN plays Black.
-
-Training alternates the DQN between White and Black episodes.
-
-Periodic model-selection evaluation uses equal numbers of games as each
-color.
-
-### Reason
-
-The environment should represent chess outcomes independently from which
-participant is currently considered the learning agent.
-
-Reward conversion belongs to the training layer because that layer knows
-which color the DQN controls.
-
-Keeping an absolute board representation avoids introducing an
-additional transformation while the same network learns both colors.
-
-Balanced evaluation prevents `best.pt` from being selected based on
-performance with only one color.
+### Motivation
+Support one learner playing either color without changing the established board encoding.
 
 ### Alternatives considered
-
-1. Make `ChessEnv` return rewards directly from the active agent's
-   perspective.
-2. Rotate the board and swap piece channels when the DQN plays Black.
-3. Train separate networks for White and Black.
-4. Continue training and evaluating only as White.
-
-These alternatives were rejected for the current stage because they
-either couple the environment to the training agent, introduce additional
-representation complexity, duplicate the model, or fail to prepare the
-agent for self-play.
+Agent-relative board rotation/recoloring or separate agents by color.
 
 ### Consequences
-
-- One DQN can learn from White and Black games.
-- Replay memory can contain experiences from both colors with consistent
-  reward semantics.
-- The network must learn color-dependent behavior from an absolute board
-  representation.
-- Future experiments may revisit agent-relative board normalization if
-  learning quality suggests it is beneficial.
-- Self-play can now be designed without first solving basic color support.
+The network must learn color-dependent behavior from absolute features, but training and evaluation can alternate White and Black.
 
 ## D-016 — Expand board state representation to 18 channels
 
 ### Status
-
-Accepted
+Accepted; supersedes D-002.
 
 ### Decision
+Keep the 12 piece planes and add White/Black kingside and queenside castling rights, en-passant target and side to move.
 
-Expand the board representation from 12 to 18 channels.
+### Motivation
+Piece placement alone does not uniquely determine legal chess state.
 
-The first 12 channels retain the original piece representation.
-
-Six additional channels encode:
-
-- White kingside castling rights
-- White queenside castling rights
-- Black kingside castling rights
-- Black queenside castling rights
-- En passant target square
-- Side to move
-
-The board remains encoded from an absolute perspective and is not
-rotated according to the DQN's color.
-
-### Reason
-
-Piece placement alone does not uniquely describe a chess position.
-
-Positions with identical pieces can have different legal moves depending
-on castling rights, en passant state, and whose turn it is.
-
-These properties must therefore be visible to the DQN.
+### Alternatives considered
+Keep 12 channels or introduce a larger history-based representation immediately.
 
 ### Consequences
+The model input is 18 × 8 × 8. Older 12-channel model/replay data is architecture-incompatible. Repetition history and move counters remain absent.
 
-- The CNN input changes from 12 to 18 channels.
-- Positions with different castling, en passant, or turn state can now
-  receive different representations.
-- Checkpoints and replay buffers created with the previous 12-channel
-  representation are incompatible with the new architecture.
-
-  ## D-017 — Expand action space to represent promotions explicitly
+## D-017 — Expand action space to represent promotions explicitly
 
 ### Status
-
-Accepted
+Accepted; supersedes D-003 and D-004.
 
 ### Decision
+Preserve actions 0–4095 for non-promotions and add 176 explicit promotion actions, producing `ACTION_SIZE = 4272`.
 
-Expand the fixed action space from 4096 to 4272 actions.
+### Motivation
+The original action representation could not distinguish promotion piece type and therefore could not learn underpromotion.
 
-Actions 0–4095 retain the original origin/destination encoding for
-non-promotion moves.
-
-Actions 4096–4271 encode the 176 possible promotion actions explicitly.
-
-Queen, rook, bishop, and knight promotions receive distinct action
-indices.
-
-### Reason
-
-The original 4096-action representation could not distinguish moves
-with the same origin and destination but different promotion pieces.
-
-Automatically choosing queen promotion prevented the DQN from learning
-underpromotions.
+### Alternatives considered
+Keep automatic queen promotion or redesign the entire action representation.
 
 ### Consequences
-
-- The DQN can represent all four standard promotion choices.
-- The CNN output changes from 4096 to 4272 Q-values.
-- Existing legal-action masking continues to operate on encoded legal
-  actions.
-- Previous checkpoints are incompatible with the new output layer.
-- The provisional queen-promotion fallback is no longer required.
+All four standard promotion choices are representable. The original DQNCNN output layer changed to 4272 values and older 4096-output checkpoints are incompatible.
 
 ## D-018 — Use a periodically updated frozen policy for self-play
 
 ### Status
-
-Accepted
+Accepted for the original DQNCNN workflow.
 
 ### Decision
+Create an independent frozen copy of the learner's policy network as the opponent, select its moves greedily, and refresh it periodically on a schedule independent of target-network synchronization.
 
-Self-play uses an independent frozen copy of the learning agent's
-`policy_net` as the opponent.
-
-The frozen opponent selects moves greedily and is updated periodically
-from the current policy.
-
-Its update frequency is independent from target-network synchronization.
-
-### Reason
-
-Training directly against the continuously changing learning policy would
-make the opponent change after every optimization step.
-
-Using a frozen opponent provides a more stable experience-generation
-environment while still allowing opponent strength to improve over time.
-
-The target network and frozen opponent solve different problems:
-
-- `target_net` stabilizes Bellman targets.
-- the frozen opponent stabilizes the adversary.
+### Motivation
+A frozen adversary changes more slowly than the live learner and serves a different purpose from the Bellman target network.
 
 ### Alternatives considered
-
-1. Play against the live `policy_net`.
-2. Use the DQN `target_net` as the opponent.
-3. Create an entirely separate trainable DQN agent.
-
-These were rejected for the initial implementation because they either
-couple unrelated responsibilities or introduce unnecessary additional
-training state.
+Play against the live policy, reuse the target network as opponent, or maintain a second trainable agent.
 
 ### Consequences
-
-- Self-play opponent strength changes in discrete steps.
-- Opponent and target synchronization frequencies can be tuned
-  independently.
-- The frozen opponent has no optimizer or exploration schedule.
-- Future self-play can extend this design with historical opponent pools
-  or stronger model-selection policies.
+Opponent and target update frequencies can be tuned independently. Historical pools and champion/challenger promotion remain possible future extensions.
 
 ## D-019 — Keep current chess draw termination semantics after truncation diagnosis
 
 ### Status
-
-Accepted
-
-### Decision
-
-Keep the current `python-chess` game-over semantics instead of treating
-claimable threefold repetition or the fifty-move rule as automatically
-terminal.
-
-Record claimable-draw state separately when an episode reaches the training
-step limit.
-
-Also retain a greedy PGN diagnostic game for qualitative inspection of the
-current policy.
-
-### Reason
-
-Real training runs produced a high number of truncated episodes.
-
-Additional diagnostics showed that only a small minority of those
-truncations occurred in positions where a draw could be claimed.
-
-Therefore, changing draw-claim semantics would not address the main source
-of long unfinished games.
-
-A greedy evaluation game also demonstrated that the learned policy can enter
-long non-progressing move sequences even when epsilon is zero.
-
-The current problem is therefore treated primarily as a learning-quality
-problem rather than an environment termination problem.
-
-### Alternatives considered
-
-1. Automatically terminate games when threefold repetition can be claimed.
-2. Automatically terminate games when the fifty-move rule can be claimed.
-3. Increase the episode step limit.
-4. Treat all truncations as equivalent without collecting diagnostic data.
-
-These options were rejected as solutions to the observed truncation problem
-because the diagnostics show that most truncated games do not satisfy either
-claimable-draw condition.
-
-### Consequences
-
-- Standard current environment termination behaviour is preserved.
-- Claimable draws remain observable in training diagnostics.
-- Genuine non-progressing truncations can be distinguished from draw-related
-  truncations.
-- Diagnostic PGN inspection can be used to study policy behaviour.
-- The next design question moves from termination rules to learning signal
-  quality.
-- Truncation penalties and intermediate reward shaping remain separate
-  learning-signal decisions.
-
-  ## D-020 — Penalize artificial training truncation in replay
-
-### Status
-
-Accepted
+Accepted.
 
 ### Decision
+Do not automatically end games merely because threefold repetition or the fifty-move rule is claimable. Record those claimable states when the artificial training horizon is reached and retain greedy PGN diagnostics.
 
-When a training episode reaches `max_agent_steps` without the chess
-environment reaching a terminal state, apply:
-
-`TRUNCATION_PENALTY = -0.1`
-
-to the final learner transition.
-
-The chess environment remains non-terminal and the episode remains classified
-as truncated.
-
-For replay and Bellman-target purposes only, the final transition is stored
-with:
-
-- `done=True`
-- `next_legal_actions=[]`
-
-The penalty remains fixed during a training run.
-
-No material-based reward shaping or per-move living penalty is introduced at
-this stage.
-
-### Reason
-
-Previous diagnostics showed that most truncated games were not caused by
-claimable draw rules.
-
-Greedy PGN inspection also showed long non-progressing move sequences even
-with exploration disabled.
-
-Under the previous reward model, reaching the artificial training horizon
-provided no negative learning signal. The final transition had reward `0`
-and could still bootstrap from the next state.
-
-A small negative truncation reward explicitly makes unresolved artificial
-termination undesirable while preserving the primary importance of real
-wins and losses.
-
-Treating the final replay transition as terminal prevents the DQN from
-bootstrapping beyond a horizon where no further experience is generated.
+### Motivation
+Repository-recorded diagnostics found that claimable draws explained only a minority of truncations; non-progressing policy behavior remained the larger issue.
 
 ### Alternatives considered
-
-1. Keep truncation reward at `0`.
-2. Add a negative reward on every non-terminal move.
-3. Add material-based intermediate reward shaping.
-4. Increase the episode step limit.
-5. Increase the truncation penalty automatically during a training run.
-
-These alternatives were rejected for the current experiment because they
-either leave the observed problem unchanged, modify the learning objective
-more broadly, hide truncation by extending the horizon, or mix different
-reward semantics inside the same replay buffer.
+Automatically claim draws, increase the horizon, or treat all truncations as equivalent.
 
 ### Consequences
+Environment semantics stay close to the existing `python-chess` game-over behavior, while training diagnostics distinguish draw-related from other truncations.
 
-- Artificial truncation now produces an explicit negative learning signal.
-- Real chess termination remains controlled by `ChessEnv`.
-- Episode reporting can still distinguish losses from truncations.
-- The final truncated replay transition is terminal for Bellman learning.
-- `-0.1` is an experimental starting value rather than a tuned optimum.
-- Future controlled runs may compare stronger fixed truncation penalties.
-- Material-based shaping and per-move penalties remain separate future
-  experiments.
-
-  ## D-021 — Add small material-based reward shaping
+## D-020 — Penalize artificial training truncation in replay
 
 ### Status
-
 Accepted experimentally.
 
 ### Decision
+When `max_agent_steps` is reached before real chess termination, add `TRUNCATION_PENALTY = -0.1` to the final learner transition and store that replay transition as terminal with no legal next actions.
 
-Keep the canonical chess terminal reward unchanged and add a small
-material-based shaping signal in the training layer.
+### Motivation
+Previously, artificial horizon termination supplied no direct negative signal and still allowed Bellman bootstrapping beyond the generated trajectory.
 
-Material values are:
-
-- pawn: 1
-- knight: 3
-- bishop: 3
-- rook: 5
-- queen: 9
-
-The shaping reward is:
-
-`0.01 * net material-balance change`
-
-measured across the complete DQN transition.
-
-Artificial truncation continues to add a `-0.1` penalty.
-
-### Reason
-
-Real self-play experiments showed that the terminal reward plus the
-artificial-truncation penalty provided an insufficient learning signal.
-
-The greedy policy continued to produce long non-progressing move cycles,
-and most evaluation games still reached the artificial training horizon.
-
-Material shaping provides a local chess-relevant learning signal while
-remaining small relative to the `+1 / -1` terminal result.
+### Alternatives considered
+Zero truncation reward, a per-move penalty, material shaping, or simply increasing the horizon.
 
 ### Consequences
+Chess environment termination remains unchanged, reporting still distinguishes truncation from loss, and the `-0.1` value remains experimental.
 
-- Training reward no longer directly represents chess outcome.
-- `total_reward` must not be used to classify wins, draws, or losses.
-- Chess outcomes are determined independently from the actual game result
-  and the DQN's color.
-- Existing replay memory generated under earlier reward semantics should
-  not be mixed with the new experiment.
-- Further reward components should be evaluated separately rather than
-  added simultaneously.
+## D-021 — Add small material-based reward shaping
+
+### Status
+Accepted experimentally.
+
+### Decision
+Add `0.01 *` the learner-perspective change in conventional material balance across a complete learner transition, while preserving canonical terminal reward and the separate truncation penalty.
+
+### Motivation
+The repository-recorded truncation-penalty experiment did not provide enough learning signal to establish reliable play.
+
+### Alternatives considered
+Stronger terminal/truncation rewards, other dense chess heuristics, or no shaping.
+
+### Consequences
+Training reward no longer equals chess outcome. Outcome classification must use the actual game result. Replay generated under different reward semantics should not be mixed casually.
 
 ## D-022 — Use Prioritized Experience Replay
 
 ### Status
+Accepted experimentally and implemented.
 
+### Decision
+Use PER in the main replay-training path with `alpha=0.6`, `beta=0.4` and priority epsilon `1e-6`. Sample with replacement, apply normalized importance-sampling weights and update priorities from absolute TD error.
+
+### Motivation
+Repository diagnostics found rare experiences with substantially larger TD errors, while a diagnostic standard-DQN vs Double-DQN target comparison did not show a practical difference in the analysed sample.
+
+### Alternatives considered
+Keep uniform replay, implement Double DQN next, enlarge the network, or change several mechanisms at once.
+
+### Consequences
+Replay persistence includes priorities and agents expose TD errors for updates. The documented initial PER experiment did not establish a clear greedy RandomAgent improvement, so PER is retained without claiming it solved policy quality.
+
+## D-023 — Preserve the original DQN while developing an explicit State-Action DQN
+
+### Status
 Accepted experimentally.
 
 ### Decision
+Add `StateActionDQN` and `StateActionDQNAgent` alongside, not instead of, the original `DQNCNN`/`DQNAgent`.
 
-Use Prioritized Experience Replay for DQN training.
+Represent each action through from-square, to-square and promotion type, reuse the existing external action IDs, and evaluate `Q(s, a)` through a shared head. Encode each state once when scoring multiple candidate actions and batch state/action evaluation where possible. Terminal next states receive future value zero and are excluded from legal-next-action max evaluation.
 
-The current configuration uses:
+Keep PER compatibility and the existing checkpoint state interface. Validate integration first with a short CPU end-to-end RandomAgent training smoke test.
 
-- `alpha = 0.6`
-- `beta = 0.4`
-- priority epsilon `1e-6`
-
-New transitions initially receive the maximum current replay priority.
-
-Sampling is performed with replacement.
-
-The DQN computes per-transition losses and applies normalized
-importance-sampling weights before averaging the loss.
-
-After each training update, sampled replay priorities are updated from the
-absolute TD errors.
-
-### Reason
-
-Replay diagnostics showed that terminal and other difficult transitions were
-rare while some of them had substantially larger TD errors than typical
-replay experiences.
-
-Uniform replay gave every stored transition the same sampling probability,
-so important high-error experiences could be underrepresented in training.
-
-A separate DQN-vs-Double-DQN diagnostic showed no measurable difference in
-the analysed replay, so Double DQN was not selected as the next modification.
+### Motivation
+Original-DQN diagnostics suggested that the fixed 4272-output formulation might not discriminate useful legal actions well enough. An explicit state-action function is a controlled architectural alternative while preserving a known baseline and the rest of the training infrastructure.
 
 ### Alternatives considered
-
-1. Keep uniform replay.
-2. Implement Double DQN.
-3. Increase network capacity immediately.
-4. Change several learning mechanisms simultaneously.
-
-PER was selected as a controlled experiment because it directly addressed
-the observed replay distribution while preserving the existing DQN
-architecture.
+Replace the original DQN immediately, keep modifying only reward/PER, enlarge the fixed-output network, or redesign the entire training stack simultaneously.
 
 ### Consequences
+Two model families now coexist. The State-Action model has pipeline-level CPU smoke-test coverage but no demonstrated long-run or comparative strength. It is not yet integrated into frozen-opponent self-play or `main()`. Any future promotion to the primary architecture requires evidence rather than assumption.
 
-- ReplayBuffer now persists priorities together with transitions.
-- Training loss supports importance-sampling weights.
-- DQN training exposes absolute TD errors for priority updates.
-- Replay sampling is no longer uniform in the main training path.
-- The first real PER experiment did not demonstrate a clear improvement in
-  greedy RandomAgent performance.
-- PER remains part of the current implementation, but further PER tuning is
-  not currently assumed to solve the policy-quality problem.
+## Current unresolved decisions
 
-## D-023 ## Preserve the original DQN while developing State-Action DQN
+The repository does not yet decide:
 
-The original `DQNCNN` and `DQNAgent` remain in the repository.
+- whether State-Action should replace or remain alongside the original DQNCNN;
+- whether/when State-Action should enter frozen-opponent self-play;
+- whether explicit device/CUDA support should precede larger experiments;
+- what stronger evaluation or champion-vs-challenger promotion criterion should eventually be used.
 
-The State-Action implementation was added in parallel rather than replacing
-the existing implementation.
-
-This allows the two approaches to coexist while the newer architecture is
-validated.
-
-## Represent actions explicitly in the State-Action model
-
-`StateActionDQN` represents an action using:
-
-- from square
-- to square
-- promotion type
-
-Existing action IDs remain the external action representation.
-
-`decode_action_components()` converts those IDs into the structured
-components used by the State-Action model.
-
-This preserves compatibility with the existing action encoder and replay
-transitions.
-
-## Use a shared Q-head for State-Action evaluation
-
-The State-Action architecture computes Q-values using a shared function of
-state and action features rather than a dedicated output neuron for every
-action index.
-
-The current feature sizes are:
-
-- state features: 256
-- action features: 36
-- combined features: 292
-- Q-head hidden size: 256
-- output: one Q-value
-
-## Reuse state encodings across candidate actions
-
-The State-Action model encodes a position once when evaluating multiple
-candidate actions.
-
-For training batches, states are encoded as batches rather than by running
-the CNN separately for each state-action pair.
-
-For next-state targets, legal actions from multiple states are flattened
-after state encoding and evaluated through the shared Q-head.
-
-## Keep terminal next states out of State-Action target evaluation
-
-Terminal transitions use a future Q-value of zero.
-
-Only non-terminal next states are passed to
-`evaluate_legal_action_maxes()`.
-
-## Preserve PER and checkpoint compatibility
-
-`StateActionDQNAgent.train_step()` accepts importance-sampling weights and
-can return absolute TD errors for replay-priority updates.
-
-`StateActionDQNAgent` also implements `state_dict()` and
-`load_state_dict()` so it can use the existing training-checkpoint
-infrastructure.
-
-## Validate integration on CPU before larger experiments
-
-The repository contains an end-to-end smoke test that runs the
-State-Action agent through the existing RandomAgent training workflow.
-
-This establishes basic training-pipeline compatibility.
-
-It does not establish comparative playing strength or long-run learning
-quality.
+These should be decided from future repository evidence, not inherited as already-set next steps.
