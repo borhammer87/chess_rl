@@ -178,7 +178,10 @@ class StateActionDQNAgent:
 
         return loss.item()
 
-    def update_target_network(self):
+    def update_target(self):
+        """
+        Sync policy network weights to the target network.
+        """
         self.target_net.load_state_dict(
             self.policy_net.state_dict()
         )
@@ -188,3 +191,66 @@ class StateActionDQNAgent:
             self.epsilon_min,
             self.epsilon * self.epsilon_decay,
         )
+
+    def save_checkpoint(
+        self,
+        path: str,
+    ) -> None:
+        """
+        Save the current agent training state.
+        """
+        torch.save(
+            self.state_dict(),
+            path,
+        )
+
+
+    def load_checkpoint(
+        self,
+        path: str,
+    ) -> None:
+        """
+        Restore a previously saved agent training state.
+        """
+        checkpoint = torch.load(
+            path,
+            weights_only=False,
+        )
+
+        self.load_state_dict(
+            checkpoint
+        )
+
+
+    def state_dict(self) -> dict:
+        """
+        Return the current State-Action DQN training state.
+        """
+        return {
+            "policy_net": self.policy_net.state_dict(),
+            "target_net": self.target_net.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "epsilon": self.epsilon,
+        }
+
+
+    def load_state_dict(
+        self,
+        state: dict,
+    ) -> None:
+        """
+        Restore a State-Action DQN training state.
+        """
+        self.policy_net.load_state_dict(
+            state["policy_net"]
+        )
+
+        self.target_net.load_state_dict(
+            state["target_net"]
+        )
+
+        self.optimizer.load_state_dict(
+            state["optimizer"]
+        )
+
+        self.epsilon = state["epsilon"]

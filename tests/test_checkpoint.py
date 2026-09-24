@@ -8,6 +8,9 @@ from chess_rl.training.checkpoint import (
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
+from chess_rl.agents.state_action_dqn_agent import (
+    StateActionDQNAgent,
+)
 
 def test_training_checkpoint_restores_agent_and_replay_buffer(
     tmp_path,
@@ -103,3 +106,49 @@ def test_checkpoint_without_metadata_returns_empty_dict(
     )
 
     assert metadata == {}
+
+def test_training_checkpoint_supports_state_action_agent(
+    tmp_path,
+):
+    agent = StateActionDQNAgent(
+        epsilon=0.4
+    )
+
+    replay_buffer = ReplayBuffer(
+        capacity=10
+    )
+
+    checkpoint_path = (
+        tmp_path / "state_action_checkpoint.pt"
+    )
+
+    save_training_checkpoint(
+        path=str(checkpoint_path),
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    restored_agent = StateActionDQNAgent(
+        epsilon=0.9
+    )
+
+    restored_buffer = ReplayBuffer(
+        capacity=1
+    )
+
+    load_training_checkpoint(
+        path=str(checkpoint_path),
+        agent=restored_agent,
+        replay_buffer=restored_buffer,
+    )
+
+    assert restored_agent.epsilon == 0.4
+
+    for original, restored in zip(
+        agent.policy_net.parameters(),
+        restored_agent.policy_net.parameters(),
+    ):
+        assert torch.equal(
+            original,
+            restored,
+        )

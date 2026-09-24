@@ -93,7 +93,7 @@ def test_state_action_agent_target_network_syncs_policy_weights():
         target_parameter,
     )
 
-    agent.update_target_network()
+    agent.update_target()
 
     assert torch.equal(
         policy_parameter,
@@ -331,3 +331,44 @@ def test_state_action_train_step_batches_policy_and_target_state_encoding(
 
     assert policy_batch_sizes == [8]
     assert target_batch_sizes == [5]
+
+def test_state_action_agent_state_dict_restores_training_state():
+    agent = StateActionDQNAgent(
+        epsilon=0.4
+    )
+
+    with torch.no_grad():
+        parameter = next(
+            agent.policy_net.parameters()
+        )
+        parameter.add_(1.0)
+
+    saved_state = agent.state_dict()
+
+    restored_agent = StateActionDQNAgent(
+        epsilon=0.9
+    )
+
+    restored_agent.load_state_dict(
+        saved_state
+    )
+
+    assert restored_agent.epsilon == 0.4
+
+    for original, restored in zip(
+        agent.policy_net.parameters(),
+        restored_agent.policy_net.parameters(),
+    ):
+        assert torch.equal(
+            original,
+            restored,
+        )
+
+    for original, restored in zip(
+        agent.target_net.parameters(),
+        restored_agent.target_net.parameters(),
+    ):
+        assert torch.equal(
+            original,
+            restored,
+        )
