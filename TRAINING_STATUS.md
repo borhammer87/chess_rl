@@ -14,11 +14,79 @@ Training alternates learner color. Rewards are converted to learner perspective 
 
 ### State-Action path
 
-`StateActionDQNAgent` is compatible with the existing `train_against_random()` path, including PER, target synchronization and epsilon decay. The repository contains an end-to-end CPU smoke test that runs two short RandomAgent episodes and verifies that replay is populated and epsilon decays.
+`StateActionDQNAgent` is compatible with the existing
+`train_against_random()` path, including PER, target synchronization and
+epsilon decay.
 
-That smoke test validates plumbing only. It is not evidence of convergence, playing strength, stability over long runs or superiority to `DQNCNN`.
+The repository also contains `scripts/run_state_action_probe.py`, a dedicated
+CPU validation runner that reuses the existing training, evaluation and
+`TrainingSummary` infrastructure rather than implementing a separate training
+system.
 
-The State-Action agent is not currently connected to frozen-opponent self-play or `main()`.
+The probe:
+
+- initializes the State-Action model from a fixed seed;
+- performs a balanced greedy evaluation against `RandomAgent`;
+- trains against `RandomAgent` with alternating learner colors;
+- measures wall-clock training time;
+- performs a second balanced greedy evaluation;
+- resets the evaluation RNG to the same seed before both evaluations;
+- uses separate fixed seeds for model initialization, evaluation and training.
+
+Two consecutive 100-episode runs with the same seeds produced identical
+training and evaluation metrics on the development machine, confirming
+reproducibility for that configuration. Wall-clock time differed slightly, as
+expected.
+
+Controlled CPU probes have now gone beyond smoke-test level.
+
+For the reproducible 100-episode probe:
+
+- 40-game initial greedy evaluation:
+  `0 wins / 0 draws / 10 losses / 30 truncations`, score `0.000`;
+- training:
+  `7 wins / 11 draws / 4 losses / 78 truncations`;
+- final epsilon: `0.6274`;
+- replay reached its configured capacity of `10,000`;
+- 40-game final greedy evaluation:
+  `2 wins / 5 draws / 4 losses / 29 truncations`, score `0.113`;
+- training time was approximately 124–125 seconds in two consecutive runs.
+
+The two consecutive runs reproduced the same discrete metrics, average plies,
+average reward, average loss, epsilon and replay size.
+
+For the reproducible 500-episode probe, using the same initialization,
+evaluation and training seeds and otherwise retaining the controlled
+configuration:
+
+- 40-game initial greedy evaluation:
+  `0 wins / 0 draws / 10 losses / 30 truncations`, score `0.000`;
+- training:
+  `46 wins / 70 draws / 25 losses / 359 truncations`;
+- average plies: `274.44`;
+- average reward: `-0.0895`;
+- average loss: approximately `0.00052025`;
+- final epsilon reached the configured floor of `0.1000`;
+- replay remained at its configured capacity of `10,000`;
+- 40-game final greedy evaluation:
+  `3 wins / 3 draws / 2 losses / 32 truncations`, score `0.113`;
+- training time was approximately 870 seconds (14.5 minutes).
+
+These results provide evidence that sustained State-Action training executes
+correctly and is computationally practical on the current CPU. They also show
+some change in greedy behavior after training: among non-truncated evaluation
+games, the trained policies produced wins and draws where the initial policy
+lost all ten completed games.
+
+However, the results do **not** establish reliable learning or playing
+strength. The balanced greedy score was `0.113` after both 100 and 500
+training episodes, while truncation remained very high and increased from
+`29/40` after the 100-episode run to `32/40` after the 500-episode run.
+Therefore the 500-episode result does not support the hypothesis that simply
+training the current configuration for longer produces continuing improvement.
+
+The State-Action agent is still not connected to frozen-opponent self-play or
+`main()`.
 
 ## Learning signal
 
@@ -82,18 +150,38 @@ The repository documentation records the following sequence of learning-signal i
 
 These are qualitative repository-recorded conclusions. This HEAD does not include raw experiment logs sufficient to independently reproduce numerical historical results, so this document does not invent episode counts or scores that are not preserved.
 
-## Fresh validation status for this audit
+## Fresh validation status
 
-The repository contains 246 pytest test functions. A fresh `pytest -q` attempt in the documentation-audit sandbox failed during test collection because that interpreter lacks `python-chess` and does not have the `chess_rl` package installed/importable. Consequently there is no fresh green-suite claim from this audit.
+The automated suite was run successfully in the actual `chess-rl` development
+environment after the State-Action CPU probe runner was added:
 
-The source and tests were inspected to reconcile documentation with implementation.
+`257 passed in 11.29s`
+
+A later experimental seed-helper test was intentionally removed after exposing
+an import-design issue in the standalone `scripts/` directory; the project
+structure was not changed merely to make that test importable. The suite was
+then reported green again before the reproducible probe work continued.
+
+The controlled State-Action CPU experiments described above were executed in
+the actual project environment rather than in the documentation-audit sandbox.
 
 ## Open validation questions
 
-- Does the State-Action model improve learning quality beyond the short CPU smoke test?
-- How does it compare with the original fixed-output DQN under controlled training/evaluation conditions?
-- Does either model improve materially against a benchmark stronger or more informative than `RandomAgent`?
+- Why does greedy State-Action play still truncate roughly three quarters or
+  more of evaluation games after substantial training?
+- Why did the controlled greedy score remain `0.113` when training increased
+  from 100 to 500 episodes?
+- Is the current limitation primarily related to reward design, replay/PER
+  behavior, epsilon scheduling, state representation, Bellman targets, model
+  capacity, or another part of the learning setup?
+- How does State-Action compare with the original fixed-output DQNCNN under a
+  controlled equivalent experiment?
+- Does either model improve materially against a benchmark stronger or more
+  informative than `RandomAgent`?
 - Should State-Action eventually be integrated into frozen-opponent self-play?
-- Are the current reward/PER hyperparameters useful beyond the diagnostic experiments that introduced them?
 
-Explicit CUDA/device support is not implemented, but this audit does not select it as the next development task.
+Explicit CUDA/device support remains unimplemented, but the measured CPU cost
+does not currently justify treating CUDA as the immediate priority. The
+500-episode State-Action probe completed in approximately 14.5 minutes on the
+development machine. The more immediate problem is diagnosing the persistent
+learning/truncation behavior before scaling training further.
