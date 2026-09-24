@@ -26,7 +26,7 @@ def main() -> None:
     its wall-clock cost before deciding whether longer CPU training
     or explicit CUDA support should come next.
     """
-    training_episodes = 100
+    training_episodes = 500
     evaluation_episodes_per_color = 20
     max_agent_steps = 150
     batch_size = 32
