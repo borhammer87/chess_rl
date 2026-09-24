@@ -1,470 +1,164 @@
 # ARCHITECTURE
 
-## DQN model architectures
+This document describes the architecture implemented at the current repository HEAD.
 
-The repository currently contains two DQN model architectures.
+## Repository layout
 
-### Output-vector DQN
+- `src/chess_rl/env/` — chess environment.
+- `src/chess_rl/utils/` — board/action encoding, legal-action selection/masking and replay memory.
+- `src/chess_rl/models/` — original fixed-output CNN and experimental State-Action network.
+- `src/chess_rl/agents/` — `RandomAgent`, `DQNAgent` and `StateActionDQNAgent`.
+- `src/chess_rl/training/` — episode execution, training orchestration, self-play, summaries, checkpoints and diagnostics.
+- `scripts/` — standalone utility script(s).
+- `tests/` — automated test suite.
 
-The original DQN architecture remains available and tested.
+## Chess environment
 
-ChessEnv
-→ BoardEncoder (18 × 8 × 8)
-→ DQNCNN
-→ 4272 Q-values
-→ Legal Mask
-→ selected legal action
+`ChessEnv` owns a `python-chess` board, exposes legal moves, applies `chess.Move` objects and returns independent board copies. Environment reward is deliberately canonical and color-neutral for the training layer: White win `+1`, Black win `-1`, draw or unfinished game `0`.
 
-`DQNCNN` produces one output for every action in the fixed 4272-action
-space. Illegal actions are masked before greedy selection.
-
-This architecture remains the model used by the current frozen-opponent
-self-play workflow and `main()`.
-
-### State-Action DQN
-
-The repository also contains an experimental explicit state-action
-architecture.
-
-ChessEnv
-→ BoardEncoder (18 × 8 × 8)
-→ State encoder
-→ 256-dimensional state features
-
-Action ID
-→ decode_action_components()
-→ from-square embedding
-→ to-square embedding
-→ promotion embedding
-→ 36-dimensional action features
-
-State features + action features
-→ shared Q-head
-→ Q(s, a)
-
-The shared Q-head has the structure:
-
-292 → 256 → 1
-
-Unlike `DQNCNN`, this model does not require one dedicated output neuron
-for every action index. The same Q function is applied to every supplied
-state-action pair.
-
-## State-Action batching
-
-`StateActionDQN` avoids rerunning the state CNN once for every legal action.
-
-For one state with multiple candidate actions, the state is encoded once
-and its state features are reused for all supplied actions.
-
-For training batches, `evaluate_state_action_pairs()` encodes the complete
-state batch together and scores one action per state.
-
-For Bellman targets, `evaluate_legal_action_maxes()`:
-
-1. encodes the batch of non-terminal next states together;
-2. flattens their variable-length legal-action lists;
-3. repeats the already-computed state features to match those actions;
-4. scores the resulting state-action pairs with the shared Q-head;
-5. returns the maximum legal Q-value for each original state.
-
-Terminal next states are excluded from target-network evaluation and use a
-future value of zero.
-
-## Core interaction flow
-
-ChessEnv
-→ BoardEncoder (18 × 8 × 8)
-→ DQNCNN
-→ 4272 Q-values
-→ Legal Mask
-→ decode_legal_action
-→ ChessEnv.step
-→ reward_for_color
-→ ReplayBuffer
-→ prioritized replay sampling
-→ weighted train_step
-→ TD-error priority update
+The environment uses `board.is_game_over()` without automatically claiming threefold repetition or the fifty-move rule. Artificial training truncation is handled above the environment.
 
 ## State representation
 
-The board encoder returns a tensor with shape:
+`encode_board()` returns a float tensor of shape `(18, 8, 8)`.
 
-`(18, 8, 8)`
+- channels 0–5: White pawn, knight, bishop, rook, queen, king;
+- channels 6–11: Black pawn, knight, bishop, rook, queen, king;
+- channel 12: White kingside castling right;
+- channel 13: White queenside castling right;
+- channel 14: Black kingside castling right;
+- channel 15: Black queenside castling right;
+- channel 16: en-passant target square;
+- channel 17: side to move, all ones for White and zeros for Black.
 
-Channels:
-
-- 0–5: White pieces
-- 6–11: Black pieces
-- 12: White kingside castling right
-- 13: White queenside castling right
-- 14: Black kingside castling right
-- 15: Black queenside castling right
-- 16: En passant target square
-- 17: Side to move
-
-The representation remains absolute: the board is not rotated when the
-DQN plays Black.
+The representation is absolute. It is not rotated or recolored when the learner plays Black.
 
 ## Action representation
 
-The DQN uses a fixed action space of 4272 actions.
+The external action space contains 4272 integer actions.
 
-- Actions 0–4095 preserve the original `from_square * 64 + to_square`
-  encoding for non-promotion moves.
-- Actions 4096–4271 represent explicit promotion actions.
-- Queen, rook, bishop, and knight promotions have distinct action indices.
+- 0–4095: `from_square * 64 + to_square` for non-promotion moves.
+- 4096–4271: explicit promotion actions for every legal promotion origin/destination geometry and each of queen, rook, bishop and knight.
 
-The agent can therefore learn underpromotions rather than implicitly
-defaulting every promotion to a queen.
+`decode_action_components()` maps an action ID to `(from_square, to_square, promotion_type)` for the State-Action model. Existing replay transitions therefore use the same action IDs for both model families.
 
-## Training package
+## Original fixed-output DQN
 
-Training responsibilities are separated by concern.
+`DQNCNN` implements:
 
-### `results.py`
+`18×8×8 state → Conv(32) → Conv(64) → Flatten → Linear(512) → 4272 Q-values`
 
-Defines the data structures returned by training and evaluation:
+The final layer has no bias. `DQNAgent` owns independent policy and target networks, an Adam optimizer and epsilon-greedy exploration state.
 
-- `StepResult`
-- `EpisodeResult`
-- `VsRandomEpisodeResult`
-- `TrainingSummary`
-- `EvaluationSummary`
+Greedy selection computes the full action vector and restricts the choice to legal encoded actions. Exploration samples only legal moves.
 
-### `episodes.py`
+This is the model family used by the current `main()` frozen-opponent self-play workflow.
 
-Contains lower-level interaction and learning operations:
+## Experimental State-Action DQN
 
-- `reward_for_color()`
-- `run_single_step()`
-- `run_and_store_step()`
-- `train_from_replay()`
-- `run_episode()`
-- `run_dqn_vs_random_episode()`
-- `run_dqn_vs_opponent_episode()`
+`StateActionDQN` replaces the dedicated 4272-output head with an explicit state-action function.
 
-`run_dqn_vs_random_episode()` supports the DQN playing either White or
-Black.
+State path:
 
-When the DQN plays Black, RandomAgent performs the opening White move
-before the first DQN decision.
+`18×8×8 → Conv(32) → Conv(64) → Flatten → Linear(256)`
 
-Replay transitions store rewards from the DQN's perspective.
+Action path:
 
-Artificial training truncation is handled separately from real chess
-termination.
+- from-square embedding: 16 dimensions;
+- to-square embedding: 16 dimensions;
+- promotion embedding: 4 dimensions.
 
-When the training horizon is reached:
+The resulting 36 action features are concatenated with the 256 state features. The shared Q-head is:
 
-- the chess environment remains non-terminal,
-- the episode remains classified as truncated,
-- the final replay transition is treated as terminal for Bellman learning,
-- `TRUNCATION_PENALTY = -0.1` is added to the transition reward,
-- any material reward generated by that transition is preserved.
+`292 → 256 → 1`
 
-Therefore, the learning reward can contain several distinct components:
+The network supports:
 
-1. the chess-environment reward, converted to the DQN's perspective;
-2. the scaled net material change;
-3. a `-0.0005` step penalty on non-terminal, non-truncated transitions;
-4. the `-0.1` truncation penalty when the artificial horizon is reached.
+- scoring multiple legal actions after encoding one state once;
+- batched scoring of one selected action per state;
+- batched maximum legal-action evaluation for non-terminal next states.
 
-The step penalty and truncation penalty are mutually exclusive on the final
-transition.
+`StateActionDQNAgent` mirrors the policy/target, epsilon-greedy, optimizer, Bellman-update and serialization interfaces needed by the existing RandomAgent training path. Terminal next states receive future value zero and are excluded from next-state legal-action evaluation.
 
-`run_dqn_vs_opponent_episode()` contains the common DQN-versus-opponent
-episode logic.
+The State-Action architecture is not used by `main()` and is not integrated into the current frozen-opponent self-play helper, whose opponent type is `DQNCNN`.
 
-Opponent-specific behavior is injected through an
-`OpponentMoveSelector`, allowing RandomAgent and frozen DQN opponents to
-reuse the same episode engine.
+## Replay and learning
 
-Replay transitions also include a small material-based shaping reward.
+`ReplayBuffer` stores `Transition` objects containing state, action, reward, next state, terminal flag and legal next actions. It also stores one priority per transition.
 
-Material is valued using the conventional relative values:
+The main learning path uses Prioritized Experience Replay:
 
-- pawn: 1
-- knight: 3
-- bishop: 3
-- rook: 5
-- queen: 9
+- `alpha = 0.6`;
+- `beta = 0.4`;
+- priority epsilon `1e-6`;
+- new transitions start at the current maximum priority;
+- prioritized sampling is with replacement;
+- importance-sampling weights are normalized by their maximum;
+- priorities are updated from absolute TD errors plus the epsilon.
 
-The shaping reward is based on the net material-balance change across the
-complete DQN transition:
+Uniform `sample()` remains available but is not the main training sampler.
 
-`material_reward = 0.01 * (next_material_balance - previous_material_balance)`
+## Episode and reward semantics
 
-Because a DQN transition spans the agent move and the opponent response,
-the shaping signal reflects the net material consequence after the opponent
-has had an opportunity to respond.
+`episodes.py` separates low-level environment interaction from complete learner-vs-opponent episodes.
 
-Material shaping is additive. It does not replace the canonical chess
-terminal reward.
+A learner transition in DQN-vs-opponent play spans the learner move and, when the game continues, the opponent response. Rewards stored for learning are from the learner's color perspective.
 
-Non-terminal, non-truncated learner transitions also receive a small
-step penalty:
+Learning reward can contain:
 
-`STEP_PENALTY = -0.0005`
+1. canonical terminal chess reward converted to learner perspective;
+2. material shaping: `0.01 * change in learner-perspective material balance` across the complete learner transition;
+3. `STEP_PENALTY = -0.0005` on ordinary non-terminal, non-truncated learner transitions;
+4. `TRUNCATION_PENALTY = -0.1` on the final artificially truncated transition.
 
-The purpose of this penalty is to give prolonged non-progressing play a
-small cumulative cost without making move count comparable in importance
-to the terminal chess result.
+The step and truncation penalties are not both applied to the final truncated transition. For Bellman learning, an artificially truncated final transition is stored as terminal with no legal next actions, while the chess environment itself remains non-terminal.
 
-The step penalty is not added to real terminal transitions or to the final
-artificially truncated transition. Artificial truncation keeps its separate
-`TRUNCATION_PENALTY = -0.1`.
+Because rewards are shaped, chess outcome is never inferred from the sign of accumulated reward. Outcome summaries use the actual chess result and learner color.
 
-### `train_dqn.py`
+## Training orchestration
 
-Coordinates complete training runs.
+`train_dqn.py` provides:
 
-Its responsibilities include:
+- multi-episode training against `RandomAgent`;
+- alternating learner colors;
+- target synchronization;
+- progress callbacks;
+- checkpoint/evaluation scheduling;
+- balanced White/Black RandomAgent evaluation;
+- normalized evaluation scoring;
+- training summaries;
+- greedy diagnostic PGN generation;
+- the executable `main()` workflow.
 
-- Multi-episode training
-- Alternating DQN color
-- Progress callbacks
-- Target-network synchronization
-- Checkpoint scheduling
-- Evaluation scheduling
-- Balanced White/Black evaluation
-- Training summaries
-- Best-model selection
-- Main program execution
-- Truncation diagnostics
-- Greedy diagnostic-game generation
-- PGN diagnostic export
+`TrainingSummary` and `EvaluationSummary` live in `results.py` so aggregate metrics are represented explicitly rather than recalculated ad hoc by callers.
 
-Chess outcomes and training rewards are intentionally separate concepts.
+## Frozen-opponent self-play
 
-`get_episode_outcome()` determines win, draw, loss, or truncation from the
-actual chess result stored in `final_info["result"]`, interpreted using the
-DQN's `agent_color`.
+`self_play.py` creates an independent frozen `DQNCNN` copied from the original agent's policy network. Its parameters do not require gradients and it selects greedily.
 
-`total_reward` is a learning metric and is not used to infer the chess
-outcome. This separation is required because reward shaping means that the
-sign of accumulated training reward no longer necessarily matches the
-game result.
+The frozen opponent and Bellman target network are distinct:
 
-### `checkpoint.py`
+- target network: stabilizes Bellman targets;
+- frozen opponent: stabilizes experience generation against a changing learner.
 
-Composes and restores resumable training checkpoints.
+`train_against_frozen()` can alternate learner color and independently schedule target synchronization, frozen-opponent refresh, checkpoints and evaluation callbacks.
 
-## Color model
+## Evaluation and model selection
 
-`ChessEnv` remains color-neutral from the training architecture's point
-of view and returns canonical White-perspective rewards.
+RandomAgent remains the provisional stable benchmark. Evaluation sets epsilon to zero temporarily, does not train the agent and uses a separate temporary replay buffer.
 
-The training layer converts rewards according to the color controlled by
-the DQN.
-
-The same DQN network is used for White and Black.
-
-Board encoding remains absolute:
-
-- White piece channels remain White.
-- Black piece channels remain Black.
-- The board is not rotated when the DQN plays Black.
-
-## Terminal-state semantics
-
-The architecture distinguishes two kinds of termination.
-
-### Chess termination
-
-`ChessEnv` determines whether the chess game itself has ended.
-
-Examples include:
-
-- checkmate,
-- stalemate,
-- insufficient material,
-- and other automatic game-over conditions recognized by `python-chess`.
-
-### Training-horizon termination
-
-Training additionally limits the number of learner decisions with
-`max_agent_steps`.
-
-Reaching this limit does not change `ChessEnv.done`.
-
-Instead, the episode is classified as truncated and the final replay
-transition is treated as terminal for DQN learning.
-
-This separation preserves correct chess semantics while defining a finite
-learning horizon for the Bellman target.
-
-## Training workflow
-
-The project provides two multi-episode training workflows.
-
-### Training against RandomAgent
-
-`train_against_random()` coordinates multi-episode DQN training against
-`RandomAgent`.
-
-It supports:
-
-- fixed-color training
-- alternating-color training
-
-This workflow remains available and tested, but it is no longer the
-training workflow used by `main()`.
-
-### Frozen-opponent self-play
-
-`train_against_frozen()` coordinates multi-episode training against a
-frozen DQN opponent.
-
-The frozen opponent is an independent copy of the learner's `policy_net`.
-
-It:
-
-- starts with the learner policy weights,
-- runs in evaluation mode,
-- has gradients disabled,
-- selects legal moves greedily,
-- can be periodically refreshed from the current learner policy.
-
-The current `main()` configuration uses this frozen-opponent self-play
-workflow and alternates the learner color:
-
-White
-→ Black
-→ White
-→ Black
-→ ...
-
-The same learner and replay buffer are reused across all episodes.
-
-When resuming training, `main()` loads `latest.pt` before creating the
-frozen opponent. This ensures that the opponent is initialized from the
-restored learner policy rather than from newly initialized weights.
-
-The current `main()` configuration uses:
-
-- target-network synchronization every 10 episodes,
-- frozen-opponent refresh every 25 episodes,
-- training checkpointing every 25 episodes,
-- RandomAgent evaluation every 25 episodes.
-
-Frozen-opponent synchronization and target-network synchronization are
-independent mechanisms.
-
-`target_net` stabilizes Bellman targets during DQN learning.
-
-The frozen opponent provides a temporarily stable adversary during
-self-play.
-
-## Evaluation
-
-`evaluate_against_random()` evaluates one selected DQN color.
-
-Results are interpreted from the DQN's perspective.
-
-`evaluate_against_random_both_colors()` evaluates equally as White and
-Black and combines the results.
-
-The current periodic evaluation uses 10 games per color.
-
-RandomAgent is the current provisional stable evaluation benchmark.
-
-It is used for periodic evaluation and best-model selection, while the
-main training workflow uses the frozen DQN opponent described above.
-
-During evaluation:
-
-- epsilon is temporarily set to zero
-- training is disabled
-- the training replay buffer is not modified
-- wins, draws, losses, and truncations are collected
-- epsilon is restored afterwards
-
-After the main training run, `main()` also plays one additional greedy
-diagnostic game against RandomAgent.
-
-This game:
-
-- temporarily uses epsilon `0`,
-- does not train the agent,
-- does not modify the training replay buffer,
-- is saved as `checkpoints/evaluation_game.pgn`.
-
-The diagnostic PGN is intended for qualitative inspection of the learned
-policy and is not used for checkpoint scoring.
-
-## Persistence
-
-### DQNAgent
-
-Owns:
-
-- Policy network
-- Target network
-- Optimizer
-- Epsilon
-
-### ReplayBuffer
-
-Owns:
-
-- Capacity
-- Stored transitions
-- Per-transition replay priorities
-
-The replay buffer supports prioritized sampling with replacement.
-
-The current training configuration uses:
-
-- `PER_ALPHA = 0.6`
-- `PER_BETA = 0.4`
-- `PER_PRIORITY_EPSILON = 1e-6`
-
-Sampled transitions receive normalized importance-sampling weights.
-After the weighted DQN update, replay priorities are updated from the
-absolute TD errors.
-
-### Training checkpoints
-
-`checkpoint.py` combines both states and optional metadata.
-
-Two checkpoint roles exist:
-
-- `checkpoints/latest.pt` — latest resumable training state
-- `checkpoints/best.pt` — highest balanced evaluation score
-
-The model-selection score is:
+Balanced evaluation combines equal numbers of White and Black games. The score is:
 
 `(wins + 0.5 * draws) / episodes`
 
-Losses and truncated games contribute zero points.
+Losses and truncations contribute zero points.
 
-`best.pt` is replaced only when a new score is strictly greater than the
-stored score.
+`main()` uses this score to retain `checkpoints/best.pt` when a strictly better score is observed.
 
-The State-Action agent is currently integrated with the RandomAgent
-training path for end-to-end testing. The frozen-opponent self-play
-implementation remains tied to the original DQNCNN architecture.
+## Persistence
 
-### `self_play.py`
+Both DQN agent classes expose compatible `state_dict()` / `load_state_dict()` structures containing policy network, target network, optimizer and epsilon.
 
-Contains the frozen-opponent self-play infrastructure used by the main
-training workflow:
+`ReplayBuffer.state_dict()` stores capacity, transitions and priorities and can load older replay states without priorities by assigning default priority `1.0`.
 
-- Creation of an independent frozen copy of `policy_net`
-- Greedy legal move selection for the frozen opponent
-- Frozen-opponent selector adapter
-- DQN-versus-frozen episode wrapper
-- Multi-episode self-play
-- Alternating learner color
-- Periodic frozen-opponent synchronization
-
-The frozen opponent and the DQN target network have different roles.
-
-`target_net` stabilizes Bellman targets.
-
-The frozen opponent provides a temporarily stable adversary during
-self-play.
-
-Both are copied from `policy_net`, but their update schedules are
-independent.
+`checkpoint.py` composes agent state and replay-buffer state into a training checkpoint and optionally stores metadata. Current checkpointing does not include RNG state or a global lifetime episode counter.

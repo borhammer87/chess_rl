@@ -1,287 +1,99 @@
 # TRAINING STATUS
 
-## Objective
-
-Build and validate a robust DQN self-play training workflow before moving
-to larger experiments and more advanced opponent-selection strategies.
-
----
-
-## Current pipeline
-
-### Environment
-
-- [x] Chess environment
-- [x] Board encoder
-- [x] Action encoder
-- [x] Legal action masking
-
-### Experience generation
-
-- [x] DQN plays White
-- [x] DQN plays Black
-- [x] RandomAgent can play the opposite color
-- [x] Alternate DQN color between training episodes
-- [x] Complete episodes
-- [x] Reward generation
-- [x] Agent-perspective reward conversion
-- [x] Transition storage
-
-### Replay memory
-
-- [x] ReplayBuffer
-- [x] Prioritized Experience Replay
-- [x] Priority-based sampling with replacement
-- [x] Importance-sampling weights
-- [x] TD-error-based priority updates
-- [x] Replay-priority persistence
-- [x] Minimum replay size before training
-- [x] Replay-buffer persistence
-- [x] Experiences from White and Black games can share replay memory
-
-### Learning
-
-- [x] Policy network
-- [x] Target network
-- [x] Periodic target synchronization
-- [x] Mini-batch training
-- [x] Epsilon decay once per episode when replay training occurred
-- [x] Explicit `-0.1` truncation penalty
-- [x] Terminal Bellman treatment for truncated replay transitions
-- [x] Material-based reward shaping from net material change
-- [x] Chess-outcome classification independent of shaped reward
-- [x] Importance-sampling weighted per-transition loss
-- [x] Absolute TD-error reporting for replay-priority updates
-- [x] Small `-0.0005` step penalty on non-terminal, non-truncated transitions
-
-### Training metrics
-
-- [x] Episode reward
-- [x] Training losses
-- [x] Final epsilon
-- [x] Replay buffer size
-- [x] Training summary
-- [x] Console progress reporting
-- [x] Claimable-threefold truncation count
-- [x] Claimable-fifty-move truncation count
-- [x] Truncations without claimable draw
-
-### Evaluation
-
-- [x] Greedy policy evaluation
-- [x] White-perspective evaluation
-- [x] Black-perspective evaluation
-- [x] Balanced evaluation across both colors
-- [x] Wins / Draws / Losses
-- [x] Truncated games summary
-- [x] Periodic evaluation during training
-- [x] Normalized evaluation scoring
-- [x] Best-checkpoint selection
-- [x] Greedy diagnostic game against RandomAgent
-- [x] Diagnostic PGN export
-
-### Persistence
-
-- [x] Agent state serialization
-- [x] Replay-buffer state serialization
-- [x] Combined training checkpoints
-- [x] Optional checkpoint metadata
-- [x] Periodic `latest.pt` saves
-- [x] Automatic loading of `latest.pt`
-- [x] Persistent `best.pt` evaluation score
-- [x] Automatic replacement of `best.pt` after improvement
-
-### Self-play
-
-- [x] Frozen opponent copied from current policy
-- [x] Frozen opponent remains independent from the learner
-- [x] Frozen opponent uses greedy legal action selection
-- [x] Shared generic episode engine
-- [x] Multi-episode self-play
-- [x] Alternate learner color
-- [x] Periodic target-network synchronization
-- [x] Periodic frozen-opponent synchronization
-- [ ] Self-play evaluation
-- [x] Main-program self-play integration
+## Purpose
 
-### Code organization
+This document records what has actually been validated about training and what remains experimental. It is not a feature inventory; `CURRENT_STATE.md` and `ARCHITECTURE.md` describe the implementation itself.
 
-- [x] Checkpoint persistence separated into `checkpoint.py`
-- [x] Result data structures separated into `results.py`
-- [x] Episode operations separated into `episodes.py`
-- [x] Tests separated according to module responsibility
+## Current training paths
 
-### State-Action DQN
+### Original DQNCNN path
 
-- [x] State encoder
-- [x] Structured action representation
-- [x] Shared Q(s, a) head
-- [x] Legal-action-only greedy selection
-- [x] One state encoding for multiple candidate actions
-- [x] Batched state-action pair evaluation
-- [x] Batched legal next-action maximum evaluation
-- [x] StateActionDQNAgent
-- [x] Epsilon-greedy action selection
-- [x] Policy and target networks
-- [x] Bellman training update
-- [x] Terminal future value = 0
-- [x] PER importance-sampling weights
-- [x] TD-error reporting for priority updates
-- [x] Target-network synchronization
-- [x] Agent-state serialization
-- [x] Existing checkpoint-system compatibility
-- [x] End-to-end CPU smoke test against RandomAgent
-- [ ] Explicit CPU/CUDA device management
-- [ ] State-Action frozen-opponent self-play
-- [ ] Long State-Action training experiment
-- [ ] Comparative evaluation against the original DQNCNN
----
+The original `DQNAgent` supports training against `RandomAgent` and against a periodically refreshed frozen `DQNCNN` opponent. The executable `main()` uses frozen-opponent self-play for experience generation and keeps `RandomAgent` as the stable evaluation benchmark.
 
-## Reward perspective
+Training alternates learner color. Rewards are converted to learner perspective while the board tensor remains absolute.
 
-`ChessEnv` returns canonical White-perspective rewards.
+### State-Action path
 
-The training layer converts rewards using the DQN's current color.
+`StateActionDQNAgent` is compatible with the existing `train_against_random()` path, including PER, target synchronization and epsilon decay. The repository contains an end-to-end CPU smoke test that runs two short RandomAgent episodes and verifies that replay is populated and epsilon decays.
 
-This guarantees:
+That smoke test validates plumbing only. It is not evidence of convergence, playing strength, stability over long runs or superiority to `DQNCNN`.
 
-`positive reward = good for the DQN`
+The State-Action agent is not currently connected to frozen-opponent self-play or `main()`.
 
-regardless of whether the DQN is playing White or Black.
+## Learning signal
 
----
+The environment supplies terminal reward from White's perspective:
 
-## Board perspective
+- White win: `+1`;
+- Black win: `-1`;
+- draw/unfinished: `0`.
 
-The board representation remains absolute.
+The training layer converts this to learner perspective and adds experimental shaping:
 
-White and Black pieces always occupy their fixed encoder channels.
+- material change: `0.01 * learner-perspective net material change`;
+- ordinary non-terminal step penalty: `-0.0005`;
+- artificial truncation penalty on the final transition: `-0.1`.
 
-The board is not rotated or color-normalized for the DQN.
+For an artificial horizon termination, the environment remains non-terminal but the stored final replay transition is terminal for Bellman learning. The ordinary step penalty is not also added to that final truncated transition.
 
-This decision keeps the current representation simple while allowing the
-same network to learn policies for both colors.
+Because reward is shaped, accumulated `total_reward` is a learning diagnostic only. Win/draw/loss classification uses the real chess result plus learner color.
 
----
-## Training reward
+## Replay and optimization
 
-The learning reward now combines several signals.
+The current main learning path uses Prioritized Experience Replay.
 
-Real chess termination uses the canonical environment reward, converted
-to the DQN's perspective:
+- `PER_ALPHA = 0.6`;
+- `PER_BETA = 0.4`;
+- `PER_PRIORITY_EPSILON = 1e-6`;
+- new transitions receive current maximum priority;
+- prioritized samples are drawn with replacement;
+- normalized importance-sampling weights scale per-transition MSE;
+- sampled priorities are updated from absolute TD errors.
 
-- win: `+1`
-- draw: `0`
-- loss: `-1`
+The policy and target networks are separate. Epsilon decay occurs once after an episode in which replay training actually occurred, rather than once per individual optimizer update.
 
-Intermediate transitions receive material shaping:
+## Evaluation and checkpoint validation
 
-`material_reward = 0.01 * net material-balance change`
+Evaluation against `RandomAgent` is greedy (`epsilon=0`) and restores the original epsilon afterward. It does not intentionally train the agent or use the training replay buffer.
 
-Piece values are:
-
-- pawn: 1
-- knight: 3
-- bishop: 3
-- rook: 5
-- queen: 9
-
-The material change is measured across the full DQN transition, including
-the opponent response.
-
-Ordinary non-terminal, non-truncated learner transitions additionally receive:
-
-`STEP_PENALTY = -0.0005`
-
-This creates a small cumulative cost for prolonged play while remaining much
-smaller than the terminal chess reward.
-
-Real terminal transitions do not receive the step penalty.
-
-Artificial truncation adds:
-
-`TRUNCATION_PENALTY = -0.1`
-
-to the final transition.
-
-The final transition of a truncated episode is also stored as terminal for
-Bellman learning even though the chess environment itself has not reached
-a real terminal state.
-
-The step penalty is not added to the artificially truncated final transition;
-the separate `-0.1` truncation penalty applies there instead.
-
-The `0.01` material scale and `-0.1` truncation penalty are experimental
-values, not tuned hyperparameters.
-
-## Prioritized replay
-
-Training currently uses Prioritized Experience Replay rather than uniform
-replay sampling.
-
-Current experimental values:
-
-- `PER_ALPHA = 0.6`
-- `PER_BETA = 0.4`
-- `PER_PRIORITY_EPSILON = 1e-6`
-
-New transitions initially receive the current maximum replay priority.
-
-Sampling is performed with replacement.
-
-The DQN loss is calculated per transition, multiplied by normalized
-importance-sampling weights, and then averaged.
-
-After training, sampled priorities are updated from absolute TD error plus
-the small priority epsilon.
-
-## Model selection
-
-Periodic evaluation uses an equal number of games as White and Black. RandomAgent is currently used as the provisional stable evaluation
-benchmark, while training itself uses the frozen DQN opponent.
-
-Evaluation performance is normalized using:
+Balanced evaluation combines equal numbers of White and Black games. Model-selection score is:
 
 `(wins + 0.5 * draws) / episodes`
 
-`latest.pt` represents the most recent resumable training state.
+Truncations score zero.
 
-`best.pt` represents the highest balanced evaluation score observed so
-far.
+`latest.pt` is the resumable training checkpoint. `best.pt` is the training state associated with the highest balanced RandomAgent evaluation score observed by the executable workflow. Replay state and priorities are persisted with the agent state.
 
----
+## Diagnostic history preserved by the repository
 
-## Current limitations
+The repository documentation records the following sequence of learning-signal investigations for the original fixed-output DQN:
 
-- Board encoding does not include
-  repetition state, or move counters.
-- Checkpoints do not preserve random-number-generator state.
-- Checkpoints do not maintain a global lifetime episode counter.
-- Evaluation currently measures performance only against RandomAgent.
+1. high truncation rates were observed;
+2. diagnostics separated claimable draws from other truncations and found that claimable-draw rules did not explain most truncations;
+3. a `-0.1` artificial-truncation penalty was added and was insufficient by itself;
+4. small material-based shaping was added, while chess outcomes were separated from shaped reward;
+5. replay TD-error diagnostics motivated comparing standard DQN and Double-DQN targets; the analysed sample did not show a practical target difference;
+6. PER was added to emphasize high-error experiences;
+7. the first documented PER experiment did not show a clear greedy RandomAgent improvement;
+8. legal-action Q diagnostics showed small gaps among top actions during non-progressing play;
+9. a small `-0.0005` ordinary step penalty was added;
+10. the documented PER + step-penalty experiment still did not establish reliable greedy play;
+11. an alternative explicit State-Action DQN was then implemented in parallel and brought to CPU smoke-test level.
 
----
+These are qualitative repository-recorded conclusions. This HEAD does not include raw experiment logs sufficient to independently reproduce numerical historical results, so this document does not invent episode counts or scores that are not preserved.
 
-## Outcome classification
+## Fresh validation status for this audit
 
-Chess outcome and training reward are separate concepts.
+The repository contains 246 pytest test functions. A fresh `pytest -q` attempt in the documentation-audit sandbox failed during test collection because that interpreter lacks `python-chess` and does not have the `chess_rl` package installed/importable. Consequently there is no fresh green-suite claim from this audit.
 
-Win, draw, and loss counts are determined from the actual chess result
-stored in `final_info["result"]`, interpreted according to `agent_color`.
+The source and tests were inspected to reconcile documentation with implementation.
 
-`total_reward` is not used to determine the game outcome.
+## Open validation questions
 
-This separation is necessary because material shaping can make the sign of
-the accumulated learning reward differ from the actual chess result.
+- Does the State-Action model improve learning quality beyond the short CPU smoke test?
+- How does it compare with the original fixed-output DQN under controlled training/evaluation conditions?
+- Does either model improve materially against a benchmark stronger or more informative than `RandomAgent`?
+- Should State-Action eventually be integrated into frozen-opponent self-play?
+- Are the current reward/PER hyperparameters useful beyond the diagnostic experiments that introduced them?
 
-## Next milestone
-
-The State-Action DQN now passes unit tests and an end-to-end CPU training
-smoke test through the RandomAgent training workflow.
-
-The next development decision is whether to add explicit device/CUDA
-support before running larger State-Action training experiments.
-
-CUDA support is not currently implemented.
-
-The existing frozen-opponent self-play workflow still uses the original
-DQNCNN architecture and should not be treated as State-Action integration.
+Explicit CUDA/device support is not implemented, but this audit does not select it as the next development task.

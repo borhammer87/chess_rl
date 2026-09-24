@@ -2,100 +2,82 @@
 
 We are continuing the Chess Reinforcement Learning project.
 
-IMPORTANT:
+## Source-of-truth rule
 
-The attached ZIP repository is the only source of truth.
-
-Do not rely on previous conversations.
+The attached ZIP repository is the primary and authoritative source of truth for the current code.
 
 Before proposing any modification:
 
-1. Extract the ZIP repository.
-2. Inspect the complete repository structure.
-3. Read all project Markdown files.
-4. Read every source file relevant to the requested change.
-5. Determine the current project state from the repository itself.
+1. extract the ZIP;
+2. inspect the complete repository tree;
+3. read **all** project Markdown files;
+4. read all source files and tests relevant to the requested change;
+5. reconstruct the current state from code and tests before using prior conversation context.
 
-If the ZIP cannot be inspected, state that limitation instead of making
-assumptions.
+If repository contents contradict prior chat context, trust the repository. Use prior project context only to recover rationale or chronology that the repository itself does not preserve, never to claim that unimplemented code exists.
 
-## Repository version
+If the ZIP cannot actually be inspected, state that limitation and do not guess.
 
-The current project version is 0.9.0.
+Follow `PROJECT_RULES.md`. Prefer the smallest correct change and update tests with code.
 
-## Current implementation state
+## Repository snapshot at the documentation audit
 
-The original DQN implementation remains available.
+`pyproject.toml` reports version `0.9.0`.
 
-It uses:
+The repository contains two DQN approaches in parallel.
 
-- an 18 × 8 × 8 board representation;
-- `DQNCNN`;
-- a fixed 4272-action output vector;
-- legal-action masking;
-- prioritized replay;
-- target-network synchronization;
-- reward shaping;
-- checkpointing;
-- RandomAgent evaluation;
-- frozen-opponent self-play.
+### Original DQNCNN path
 
-A second State-Action DQN implementation now exists in parallel.
+Implemented:
 
-It includes:
+- `ChessEnv` using `python-chess`;
+- absolute 18 × 8 × 8 board representation;
+- 4272-action encoding with explicit underpromotions;
+- legal-action filtering/masking;
+- `DQNCNN` and `DQNAgent` policy/target networks;
+- replay buffer and Prioritized Experience Replay;
+- agent-perspective reward handling;
+- material shaping, ordinary step penalty and artificial-truncation penalty;
+- DQN-vs-RandomAgent training;
+- alternating White/Black training;
+- frozen-policy self-play;
+- independent target and opponent synchronization;
+- balanced RandomAgent evaluation;
+- checkpoint resume, replay persistence and best-checkpoint selection;
+- training summaries, truncation diagnostics and diagnostic PGN export.
+
+The executable `main()` uses this original DQNCNN path for frozen-opponent self-play. Its current hard-coded schedule is 100 episodes, 150 learner steps, batch size 32, minimum replay size 1000, target synchronization every 10 episodes, and checkpoint/evaluation/frozen-opponent refresh every 25 episodes. RandomAgent evaluation uses 10 games per color.
+
+### Experimental State-Action path
+
+Implemented in parallel:
 
 - `StateActionDQN`;
-- a CNN state encoder;
-- structured action decoding into from square, to square, and promotion;
-- action embeddings;
-- a shared Q(s, a) head;
-- vectorized evaluation of multiple actions for one state;
-- batched evaluation of state-action pairs;
-- batched maximum legal-action evaluation for next states;
-- `StateActionDQNAgent`;
-- epsilon-greedy action selection;
-- policy and target networks;
-- Bellman training updates;
-- terminal future-value handling;
-- PER importance-sampling weights;
-- TD-error reporting;
-- target-network synchronization;
-- state serialization;
-- compatibility with the existing checkpoint infrastructure.
+- 256-dimensional CNN state features;
+- from-square, to-square and promotion embeddings;
+- shared `Q(s, a)` head;
+- vectorized legal-action scoring without re-encoding one state per action;
+- batched selected state-action evaluation;
+- batched legal-next-action maxima;
+- `StateActionDQNAgent` with policy/target networks, epsilon-greedy selection, Bellman updates, PER weights, TD-error reporting and serialization;
+- short end-to-end CPU training smoke test through the RandomAgent training workflow.
 
-The State-Action agent has passed an end-to-end CPU smoke test through the
-existing RandomAgent training workflow.
+Do **not** infer from that smoke test that State-Action learns better chess. It is not integrated into frozen-opponent self-play or `main()` and no long-run/comparative strength result is established.
 
-This smoke test establishes pipeline compatibility only. It does not
-demonstrate that the State-Action model learns a stronger policy.
+## Important limitations
 
-## Important current limitations
+- No reliable playing strength has been demonstrated in the repository.
+- Historical repository diagnostics report high truncation and non-progressing greedy behavior for the original DQN.
+- RandomAgent is a provisional weak benchmark.
+- Board encoding omits repetition history and move counters and remains absolute.
+- Checkpoints omit RNG state and a lifetime episode counter.
+- Explicit device/CUDA management is not implemented.
+- `pyproject.toml` does not declare runtime dependencies.
 
-- Explicit CUDA/device management has not yet been implemented.
-- The State-Action agent is not yet integrated into frozen-opponent
-  self-play.
-- No long State-Action training experiment has yet been completed.
-- No comparative playing-strength result between StateActionDQN and
-  DQNCNN has yet been established.
+## Test caution
 
-## Current decision point
+At the documentation-audit session the repository contained 246 pytest test functions. A fresh test run could not be collected in that sandbox because `python-chess` was missing and `chess_rl` was not installed/importable there. Therefore do not inherit a claim that all tests passed from this prompt. Run them in the actual project environment before treating the suite as green.
 
-Determine the next smallest development step from the repository.
+## Next-step rule
 
-One open question is whether explicit device/CUDA support should be added
-before larger State-Action training experiments.
-
-Do not assume that CUDA must be the next step. Inspect the repository and
-justify the recommendation.
-
-The target machines for future training must remain practical consumer
-hardware.
-
-Follow PROJECT_RULES.md.
-
-Prefer the smallest correct modification.
-
-Update tests together with code.
-
-Do not remove the original DQN implementation merely because the
-State-Action implementation now exists.
+Do not assume CUDA, longer training, State-Action self-play, champion-vs-challenger, or any other feature is automatically next. Inspect the new ZIP and the user's current objective, then justify the smallest next step from the repository evidence.
