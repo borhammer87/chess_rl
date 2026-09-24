@@ -21,7 +21,9 @@ from chess_rl.training.train_dqn import (
     get_episode_outcome,
 )
 from chess_rl.utils.replay_buffer import ReplayBuffer
-
+from chess_rl.agents.state_action_dqn_agent import (
+    StateActionDQNAgent,
+)
 
 def test_train_against_random_returns_one_result_per_episode(
     monkeypatch,
@@ -562,7 +564,7 @@ def test_main_runs_multi_episode_training(
     ):
         saved_paths.append(path)
     monkeypatch.chdir(tmp_path)
-    
+
     monkeypatch.setattr(
         train_dqn_module,
         "save_training_checkpoint",
@@ -2034,3 +2036,34 @@ def test_summarize_training_uses_chess_outcomes_not_reward_sign():
     assert summary.average_reward == pytest.approx(
         0.0
     )
+
+def test_state_action_agent_can_train_against_random_end_to_end():
+    env = ChessEnv()
+
+    agent = StateActionDQNAgent(
+        epsilon=1.0,
+    )
+
+    opponent = RandomAgent()
+
+    replay_buffer = ReplayBuffer(
+        capacity=100,
+    )
+
+    results = train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=2,
+        max_agent_steps=8,
+        batch_size=4,
+        min_replay_size=4,
+        target_update_frequency=1,
+        alternate_colors=True,
+    )
+
+    assert len(results) == 2
+    assert len(replay_buffer) > 0
+    assert agent.epsilon < 1.0
+
