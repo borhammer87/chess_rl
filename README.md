@@ -49,6 +49,15 @@ Implemented features:
 - Terminal replay treatment at the artificial training horizon.
 - Greedy diagnostic evaluation game against RandomAgent.
 - PGN export to `checkpoints/evaluation_game.pgn`.
+- Experimental explicit state-action DQN architecture.
+- Structured action features using origin square, destination square, and
+  promotion type.
+- Shared state-action Q-value head.
+- Batched state-action evaluation without re-encoding a state for every
+  legal action.
+- State-action DQN training with Prioritized Experience Replay.
+- State-action agent checkpoint compatibility.
+- End-to-end StateActionDQNAgent CPU training smoke test against RandomAgent.
 
 ## Running training
 
@@ -82,21 +91,28 @@ Black.
 the opponent used for the main training workflow.
 - The board representation remains absolute rather than agent-relative.
 - Some chess state such as repetition state, and move counters is not encoded.
+- The experimental State-Action DQN is not yet integrated into the main
+  frozen-opponent self-play workflow.
+- Explicit CUDA/device management is not yet implemented.
+- The State-Action DQN has only been validated with a short end-to-end CPU
+  training smoke test; long-run learning quality has not yet been established.
 
 ## Next goal
 
-Real training has now tested truncation penalties, material-based reward
-shaping, Prioritized Experience Replay, and a small non-terminal step
-penalty.
+## Next goal
 
-The learned greedy policy still shows a high truncation rate and can enter
-long non-progressing move cycles.
+Diagnostics of the original fixed-output DQN motivated development of an
+alternative explicit State-Action DQN while preserving the original model.
 
-Q-value diagnostics show that legal actions are not globally assigned the
-same value, but the highest-ranked actions are often separated by small
-Q-value gaps.
+The State-Action implementation now supports batched legal-action
+evaluation, DQN training with Prioritized Experience Replay, checkpointing,
+and a short end-to-end CPU training smoke test against RandomAgent.
 
-The next goal is therefore to determine whether further progress should come
-from reward design, network architecture, or a more fundamental change to
-the current DQN learning formulation before running substantially longer
-training experiments.
+The next step is to validate this architecture beyond the smoke-test level.
+
+Before substantially longer training experiments, the project must decide
+whether explicit CUDA/device support should be added so that training can
+efficiently use available GPU hardware.
+
+The original DQN remains available while the State-Action architecture is
+evaluated.

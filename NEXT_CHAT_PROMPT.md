@@ -1,204 +1,101 @@
-We are continuing a Chess Reinforcement Learning project.
+# NEXT CHAT PROMPT
 
-IMPORTANT
+We are continuing the Chess Reinforcement Learning project.
 
-The attached ZIP repository is the ONLY source of truth.
+IMPORTANT:
 
-Do NOT rely on previous conversations.
+The attached ZIP repository is the only source of truth.
 
-------------------------------------------------------------
-FIRST TASK
-------------------------------------------------------------
+Do not rely on previous conversations.
 
 Before proposing any modification:
 
 1. Extract the ZIP repository.
-
-2. Inspect the repository structure.
-
-3. Read ALL project markdown files.
-
+2. Inspect the complete repository structure.
+3. Read all project Markdown files.
 4. Read every source file relevant to the requested change.
+5. Determine the current project state from the repository itself.
 
-5. Determine the current project status from the repository itself.
+If the ZIP cannot be inspected, state that limitation instead of making
+assumptions.
 
-Only then propose the next development step.
+## Repository version
 
-If you cannot inspect the ZIP contents, explicitly state that limitation
-instead of making assumptions.
+The current project version is 0.9.0.
 
-------------------------------------------------------------
-CURRENT PROJECT STATUS
-------------------------------------------------------------
-The project contains a complete DQN training, evaluation, checkpoint, and
-frozen-opponent self-play workflow.
+## Current implementation state
 
-Implemented:
+The original DQN implementation remains available.
 
-- Chess environment
-- Board encoder
-- Action encoder
-- Legal action masking
-- Replay Buffer
-- DQN CNN
-- DQN vs RandomAgent
-- Replay sampling
-- Multi-episode training
-- Target network synchronization
-- Epsilon decay once per episode when replay training occurred
-- Episode metrics
-- Training summary generation
-- Console progress reporting
-- Evaluation against RandomAgent
-- Periodic checkpointing
-- Automatic checkpoint loading
-- Replay-buffer persistence
-- Evaluation scoring
-- Best-checkpoint selection
-- Checkpoint metadata
-- DQN training as White and Black
-- Alternating White/Black training episodes
-- Balanced White/Black evaluation
-- Frozen-policy self-play
-- Greedy frozen-opponent action selection
-- Periodic frozen-opponent synchronization
-- Main-program self-play integration
-- Truncation diagnostics for claimable draws
-- Material-based reward shaping from net material change
-- Independent chess-outcome classification using game result and agent color
-- Greedy diagnostic evaluation game against RandomAgent
-- PGN diagnostic export
-- Explicit `-0.1` truncation penalty
-- Terminal replay treatment for artificial truncation
-- Prioritized Experience Replay
-- Importance-sampling weighted loss
-- TD-error-based replay-priority updates
-- Replay-priority persistence
-- Small `-0.0005` non-terminal step penalty
+It uses:
 
-The main executable training workflow now trains the DQN learner against
-an independent frozen copy of its `policy_net`.
+- an 18 × 8 × 8 board representation;
+- `DQNCNN`;
+- a fixed 4272-action output vector;
+- legal-action masking;
+- prioritized replay;
+- target-network synchronization;
+- reward shaping;
+- checkpointing;
+- RandomAgent evaluation;
+- frozen-opponent self-play.
 
-The learner alternates between White and Black.
+A second State-Action DQN implementation now exists in parallel.
 
-The frozen opponent plays greedily and is periodically refreshed from the
-current learner policy.
+It includes:
 
-When resuming training, `latest.pt` is loaded before the frozen opponent
-is created. This ensures that the frozen opponent starts from the restored
-learner policy rather than newly initialized weights.
+- `StateActionDQN`;
+- a CNN state encoder;
+- structured action decoding into from square, to square, and promotion;
+- action embeddings;
+- a shared Q(s, a) head;
+- vectorized evaluation of multiple actions for one state;
+- batched evaluation of state-action pairs;
+- batched maximum legal-action evaluation for next states;
+- `StateActionDQNAgent`;
+- epsilon-greedy action selection;
+- policy and target networks;
+- Bellman training updates;
+- terminal future-value handling;
+- PER importance-sampling weights;
+- TD-error reporting;
+- target-network synchronization;
+- state serialization;
+- compatibility with the existing checkpoint infrastructure.
 
-RandomAgent remains the provisional stable evaluation benchmark.
+The State-Action agent has passed an end-to-end CPU smoke test through the
+existing RandomAgent training workflow.
 
-It is used for periodic balanced White/Black evaluation and for deciding
-whether `best.pt` should be replaced. It is no longer the opponent used
-by the main training workflow.
+This smoke test establishes pipeline compatibility only. It does not
+demonstrate that the State-Action model learns a stronger policy.
 
-The current main-program configuration uses:
+## Important current limitations
 
-- 100 training episodes per execution
-- maximum 150 learner steps per episode
-- batch size 32
-- minimum replay size 1000
-- target-network synchronization every 10 episodes
-- checkpoint saving every 25 episodes
-- RandomAgent evaluation every 25 episodes
-- frozen-opponent synchronization every 25 episodes
-- 10 evaluation games per color
+- Explicit CUDA/device management has not yet been implemented.
+- The State-Action agent is not yet integrated into frozen-opponent
+  self-play.
+- No long State-Action training experiment has yet been completed.
+- No comparative playing-strength result between StateActionDQN and
+  DQNCNN has yet been established.
 
-Training checkpoints preserve:
+## Current decision point
 
-- Policy network
-- Target network
-- Optimizer
-- Epsilon
-- Replay-buffer capacity
-- Replay-buffer transitions
+Determine the next smallest development step from the repository.
 
-Rewards stored in replay memory are expressed from the learner's
-perspective.
+One open question is whether explicit device/CUDA support should be added
+before larger State-Action training experiments.
 
-The current training reward combines:
+Do not assume that CUDA must be the next step. Inspect the repository and
+justify the recommendation.
 
-The current training reward combines:
+The target machines for future training must remain practical consumer
+hardware.
 
-- canonical chess terminal reward from the DQN's perspective,
-- `0.01 * net material-balance change`,
-- `-0.0005` on ordinary non-terminal, non-truncated learner transitions,
-- an additional `-0.1` penalty on artificial truncation.
-
-The current training path uses Prioritized Experience Replay with:
-
-- `alpha = 0.6`
-- `beta = 0.4`
-- priority epsilon `1e-6`
-
-Replay sampling is performed with replacement and sampled priorities are
-updated from absolute TD error.
-
-The material change is measured across the complete DQN transition,
-including the opponent response.
-
-Artificial truncation remains distinct from real chess termination, but the
-final replay transition is stored as terminal for Bellman learning.
-
-Chess win/draw/loss classification is independent of `total_reward` and is
-derived from `final_info["result"]` together with `agent_color`.
-
-Board encoding remains absolute rather than agent-relative.
-
-The frozen opponent and the target network serve different purposes even
-though both are periodically copied from `policy_net`.
-
-The target network stabilizes Bellman targets.
-
-The frozen opponent provides a temporarily stable adversary during
-self-play.
-
-Their update schedules are independent.
-------------------------------------------------------------
-WORKFLOW
-------------------------------------------------------------
-
-Follow the development rules defined in PROJECT_RULES.md.
+Follow PROJECT_RULES.md.
 
 Prefer the smallest correct modification.
 
-Always update tests together with code.
+Update tests together with code.
 
-Do not rewrite large sections without architectural justification.
-
-------------------------------------------------------------
-NEXT OBJECTIVE
-------------------------------------------------------------
-
-Determine the next learning-direction change from the accumulated diagnostic
-evidence before modifying the implementation again.
-
-Completed experiments have shown:
-
-- truncation penalty alone was insufficient;
-- material shaping did not produce reliable greedy chess play;
-- a DQN-vs-Double-DQN diagnostic showed no target difference in the analysed
-  replay;
-- Prioritized Experience Replay did not clearly improve greedy RandomAgent
-  performance;
-- Q-value diagnostics showed small gaps between many top-ranked legal
-  actions during non-progressing play;
-- an initial `-0.0005` step-penalty experiment still produced a high
-  truncation rate.
-
-Before another training run or learning modification, decide whether the
-next experiment should address:
-
-1. reward/learning objective,
-2. model architecture/capacity,
-3. or the suitability of the current DQN formulation.
-
-Do not simply add another DQN enhancement or extend training without a
-specific hypothesis supported by the existing diagnostics.
-
-RandomAgent remains the provisional stable evaluation benchmark.
-
-Champion-vs-challenger remains future work. Do not choose promotion criteria
-yet.
+Do not remove the original DQN implementation merely because the
+State-Action implementation now exists.

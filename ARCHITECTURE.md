@@ -1,5 +1,76 @@
 # ARCHITECTURE
 
+## DQN model architectures
+
+The repository currently contains two DQN model architectures.
+
+### Output-vector DQN
+
+The original DQN architecture remains available and tested.
+
+ChessEnv
+→ BoardEncoder (18 × 8 × 8)
+→ DQNCNN
+→ 4272 Q-values
+→ Legal Mask
+→ selected legal action
+
+`DQNCNN` produces one output for every action in the fixed 4272-action
+space. Illegal actions are masked before greedy selection.
+
+This architecture remains the model used by the current frozen-opponent
+self-play workflow and `main()`.
+
+### State-Action DQN
+
+The repository also contains an experimental explicit state-action
+architecture.
+
+ChessEnv
+→ BoardEncoder (18 × 8 × 8)
+→ State encoder
+→ 256-dimensional state features
+
+Action ID
+→ decode_action_components()
+→ from-square embedding
+→ to-square embedding
+→ promotion embedding
+→ 36-dimensional action features
+
+State features + action features
+→ shared Q-head
+→ Q(s, a)
+
+The shared Q-head has the structure:
+
+292 → 256 → 1
+
+Unlike `DQNCNN`, this model does not require one dedicated output neuron
+for every action index. The same Q function is applied to every supplied
+state-action pair.
+
+## State-Action batching
+
+`StateActionDQN` avoids rerunning the state CNN once for every legal action.
+
+For one state with multiple candidate actions, the state is encoded once
+and its state features are reused for all supplied actions.
+
+For training batches, `evaluate_state_action_pairs()` encodes the complete
+state batch together and scores one action per state.
+
+For Bellman targets, `evaluate_legal_action_maxes()`:
+
+1. encodes the batch of non-terminal next states together;
+2. flattens their variable-length legal-action lists;
+3. repeats the already-computed state features to match those actions;
+4. scores the resulting state-action pairs with the shared Q-head;
+5. returns the maximum legal Q-value for each original state.
+
+Terminal next states are excluded from target-network evaluation and use a
+future value of zero.
+
 ## Core interaction flow
 
 ChessEnv
@@ -370,6 +441,10 @@ Losses and truncated games contribute zero points.
 
 `best.pt` is replaced only when a new score is strictly greater than the
 stored score.
+
+The State-Action agent is currently integrated with the RandomAgent
+training path for end-to-end testing. The frozen-opponent self-play
+implementation remains tied to the original DQNCNN architecture.
 
 ### `self_play.py`
 

@@ -111,6 +111,30 @@ to larger experiments and more advanced opponent-selection strategies.
 - [x] Episode operations separated into `episodes.py`
 - [x] Tests separated according to module responsibility
 
+### State-Action DQN
+
+- [x] State encoder
+- [x] Structured action representation
+- [x] Shared Q(s, a) head
+- [x] Legal-action-only greedy selection
+- [x] One state encoding for multiple candidate actions
+- [x] Batched state-action pair evaluation
+- [x] Batched legal next-action maximum evaluation
+- [x] StateActionDQNAgent
+- [x] Epsilon-greedy action selection
+- [x] Policy and target networks
+- [x] Bellman training update
+- [x] Terminal future value = 0
+- [x] PER importance-sampling weights
+- [x] TD-error reporting for priority updates
+- [x] Target-network synchronization
+- [x] Agent-state serialization
+- [x] Existing checkpoint-system compatibility
+- [x] End-to-end CPU smoke test against RandomAgent
+- [ ] Explicit CPU/CUDA device management
+- [ ] State-Action frozen-opponent self-play
+- [ ] Long State-Action training experiment
+- [ ] Comparative evaluation against the original DQNCNN
 ---
 
 ## Reward perspective
@@ -251,27 +275,13 @@ the accumulated learning reward differ from the actual chess result.
 
 ## Next milestone
 
-Evaluate the completed PER + step-penalty experiment before changing the
-learning system again.
+The State-Action DQN now passes unit tests and an end-to-end CPU training
+smoke test through the RandomAgent training workflow.
 
-The current experimental reward is:
+The next development decision is whether to add explicit device/CUDA
+support before running larger State-Action training experiments.
 
-- terminal win: `+1`
-- terminal draw: `0`
-- terminal loss: `-1`
-- material change: `0.01 * net material-balance change`
-- ordinary non-terminal step: additional `-0.0005`
-- artificial truncation: additional `-0.1` instead of the step penalty
+CUDA support is not currently implemented.
 
-Prioritized replay currently uses:
-
-- `alpha = 0.6`
-- `beta = 0.4`
-- priority epsilon `1e-6`
-
-The first 100-episode run with this configuration still showed a high
-truncation rate and weak greedy RandomAgent performance.
-
-Before another training modification, analyse whether the persistent problem
-is best addressed through reward design, model architecture, or a more
-fundamental change to the learning formulation.
+The existing frozen-opponent self-play workflow still uses the original
+DQNCNN architecture and should not be treated as State-Action integration.

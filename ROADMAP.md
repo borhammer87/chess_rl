@@ -81,10 +81,27 @@
 - [x] Identify small top-action Q gaps during non-progressing greedy play
 - [x] Add a small non-terminal step penalty
 - [x] Run initial PER + step-penalty experiment
-- [ ] Decide whether the next change should target reward design,
+- [x] Decide whether the next change should target reward design,
       network architecture, or the DQN formulation itself
+- [x] Implement an alternative explicit State-Action DQN architecture
+- [x] Preserve the original DQNCNN implementation in parallel
+- [x] Implement vectorized State-Action evaluation
+- [x] Implement StateActionDQNAgent
+- [x] Integrate State-Action training with PER
+- [x] Integrate State-Action agent serialization and checkpoints
+- [x] Validate State-Action training with an end-to-end CPU smoke test
 
-## Phase 7 — Future work
+## Phase 7 — State-Action validation
+
+- [ ] Add explicit device/CUDA support if selected as the next step
+- [ ] Run a larger State-Action training experiment
+- [ ] Evaluate State-Action greedy performance against RandomAgent
+- [ ] Compare State-Action behavior with the original DQNCNN
+- [ ] Decide whether State-Action should replace or remain alongside
+      the original DQNCNN
+- [ ] Integrate State-Action architecture into self-play if warranted
+
+## Phase 8 — Future work
 
 - [ ] Hyperparameter tuning
 - [ ] Long training experiments

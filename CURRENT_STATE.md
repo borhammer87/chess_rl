@@ -313,3 +313,41 @@ RandomAgent remains the provisional stable benchmark.
 
 Champion-vs-challenger remains future work and should not yet replace this
 diagnostic phase.
+
+## Current development state
+
+Version: 0.9.0
+
+The original DQN training system remains available and tested.
+
+A second State-Action DQN architecture has now been implemented in
+parallel rather than replacing the original model.
+
+The State-Action implementation currently includes:
+
+- `StateActionDQN`
+- explicit state encoding
+- structured action decoding
+- from-square, to-square, and promotion embeddings
+- shared state-action Q-head
+- vectorized scoring of multiple actions for one state
+- batched scoring of one action per state
+- batched maximum legal next-action evaluation
+- greedy legal-action selection
+- `StateActionDQNAgent`
+- epsilon-greedy exploration
+- policy and target networks
+- vectorized DQN training updates
+- terminal future-value handling
+- PER importance-sampling weights
+- TD-error reporting
+- target-network synchronization
+- agent serialization
+- compatibility with the existing training-checkpoint infrastructure
+
+- Explicit CUDA/device management has not yet been implemented.
+- The State-Action agent has not yet been integrated into frozen-opponent
+  self-play.
+- The State-Action architecture has not yet undergone a long training run.
+- No performance or playing-strength comparison between `DQNCNN` and
+  `StateActionDQN` has yet been established.

@@ -994,3 +994,80 @@ architecture.
   greedy RandomAgent performance.
 - PER remains part of the current implementation, but further PER tuning is
   not currently assumed to solve the policy-quality problem.
+
+## D-023 ## Preserve the original DQN while developing State-Action DQN
+
+The original `DQNCNN` and `DQNAgent` remain in the repository.
+
+The State-Action implementation was added in parallel rather than replacing
+the existing implementation.
+
+This allows the two approaches to coexist while the newer architecture is
+validated.
+
+## Represent actions explicitly in the State-Action model
+
+`StateActionDQN` represents an action using:
+
+- from square
+- to square
+- promotion type
+
+Existing action IDs remain the external action representation.
+
+`decode_action_components()` converts those IDs into the structured
+components used by the State-Action model.
+
+This preserves compatibility with the existing action encoder and replay
+transitions.
+
+## Use a shared Q-head for State-Action evaluation
+
+The State-Action architecture computes Q-values using a shared function of
+state and action features rather than a dedicated output neuron for every
+action index.
+
+The current feature sizes are:
+
+- state features: 256
+- action features: 36
+- combined features: 292
+- Q-head hidden size: 256
+- output: one Q-value
+
+## Reuse state encodings across candidate actions
+
+The State-Action model encodes a position once when evaluating multiple
+candidate actions.
+
+For training batches, states are encoded as batches rather than by running
+the CNN separately for each state-action pair.
+
+For next-state targets, legal actions from multiple states are flattened
+after state encoding and evaluated through the shared Q-head.
+
+## Keep terminal next states out of State-Action target evaluation
+
+Terminal transitions use a future Q-value of zero.
+
+Only non-terminal next states are passed to
+`evaluate_legal_action_maxes()`.
+
+## Preserve PER and checkpoint compatibility
+
+`StateActionDQNAgent.train_step()` accepts importance-sampling weights and
+can return absolute TD errors for replay-priority updates.
+
+`StateActionDQNAgent` also implements `state_dict()` and
+`load_state_dict()` so it can use the existing training-checkpoint
+infrastructure.
+
+## Validate integration on CPU before larger experiments
+
+The repository contains an end-to-end smoke test that runs the
+State-Action agent through the existing RandomAgent training workflow.
+
+This establishes basic training-pipeline compatibility.
+
+It does not establish comparative playing strength or long-run learning
+quality.
