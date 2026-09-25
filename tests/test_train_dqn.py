@@ -1771,6 +1771,9 @@ def test_evaluate_against_random_both_colors_combines_results(
                 draws=1,
                 losses=0,
                 truncated=0,
+                truncated_claimable_threefold=1,
+                truncated_claimable_fifty_moves=0,
+                truncated_without_claimable_draw=0,
             )
 
         return EvaluationSummary(
@@ -1778,7 +1781,10 @@ def test_evaluate_against_random_both_colors_combines_results(
             wins=0,
             draws=1,
             losses=1,
-            truncated=0,
+            truncated=2,
+            truncated_claimable_threefold=0,
+            truncated_claimable_fifty_moves=1,
+            truncated_without_claimable_draw=1,
         )
 
     monkeypatch.setattr(
@@ -1803,7 +1809,10 @@ def test_evaluate_against_random_both_colors_combines_results(
     assert summary.wins == 1
     assert summary.draws == 2
     assert summary.losses == 1
-    assert summary.truncated == 0
+    assert summary.truncated == 2
+    assert summary.truncated_claimable_threefold == 1
+    assert summary.truncated_claimable_fifty_moves == 1
+    assert summary.truncated_without_claimable_draw == 1
 
 def test_evaluate_against_random_both_colors_rejects_zero_episodes():
     env = ChessEnv()
