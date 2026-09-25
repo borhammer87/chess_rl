@@ -87,3 +87,6 @@ class EvaluationSummary:
     draws: int
     losses: int
     truncated: int
+    truncated_claimable_threefold: int = 0
+    truncated_claimable_fifty_moves: int = 0
+    truncated_without_claimable_draw: int = 0

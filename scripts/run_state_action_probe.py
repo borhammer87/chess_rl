@@ -26,7 +26,7 @@ def main() -> None:
     its wall-clock cost before deciding whether longer CPU training
     or explicit CUDA support should come next.
     """
-    training_episodes = 500
+    training_episodes = 100
     evaluation_episodes_per_color = 20
     max_agent_steps = 150
     batch_size = 32
@@ -130,6 +130,16 @@ def main() -> None:
         f"{summary.average_loss if summary.average_loss is not None else 'N/A'} "
         f"- epsilon: {summary.final_epsilon:.4f} "
         f"- replay: {summary.replay_size}"
+    )
+
+    print(
+        f"Truncation diagnostics "
+        f"- claimable threefold: "
+        f"{summary.truncated_claimable_threefold} "
+        f"- claimable fifty-move: "
+        f"{summary.truncated_claimable_fifty_moves} "
+        f"- without claimable draw: "
+        f"{summary.truncated_without_claimable_draw}"
     )
 
     print("\nFinal greedy evaluation...")

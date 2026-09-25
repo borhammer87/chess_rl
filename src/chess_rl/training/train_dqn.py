@@ -410,12 +410,40 @@ def evaluate_against_random(
         for result in results
     )
 
+    truncated_claimable_threefold = sum(
+        result.truncated
+        and result.claimable_threefold
+        for result in results
+    )
+
+    truncated_claimable_fifty_moves = sum(
+        result.truncated
+        and result.claimable_fifty_moves
+        for result in results
+    )
+
+    truncated_without_claimable_draw = sum(
+        result.truncated
+        and not result.claimable_threefold
+        and not result.claimable_fifty_moves
+        for result in results
+    )
+
     return EvaluationSummary(
         episodes=len(results),
         wins=wins,
         draws=draws,
         losses=losses,
         truncated=truncated,
+        truncated_claimable_threefold=(
+            truncated_claimable_threefold
+        ),
+        truncated_claimable_fifty_moves=(
+            truncated_claimable_fifty_moves
+        ),
+        truncated_without_claimable_draw=(
+            truncated_without_claimable_draw
+        ),
     )
 
 def evaluate_against_random_both_colors(
@@ -470,9 +498,21 @@ def evaluate_against_random_both_colors(
         ),
         truncated=(
             white_summary.truncated
-            + black_summary.truncated
-        ),
-    )
+            + black_summary.truncated),
+            truncated_claimable_threefold=(
+                white_summary.truncated_claimable_threefold
+                + black_summary.truncated_claimable_threefold
+            ),
+            truncated_claimable_fifty_moves=(
+                white_summary.truncated_claimable_fifty_moves
+                + black_summary.truncated_claimable_fifty_moves
+            ),
+            truncated_without_claimable_draw=(
+                white_summary.truncated_without_claimable_draw
+                + black_summary.truncated_without_claimable_draw
+            ),
+        )
+    
 
 def score_evaluation(
     evaluation: EvaluationSummary,

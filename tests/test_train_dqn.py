@@ -770,6 +770,71 @@ def test_evaluate_against_random_summarizes_results(
     chess.WHITE,
     ]
 
+def test_evaluate_against_random_counts_truncated_draw_claims(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    fake_results = iter(
+        [
+            VsRandomEpisodeResult(
+                agent_steps=150,
+                total_plies=300,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=0.0,
+                replay_size=0,
+                claimable_threefold=True,
+            ),
+            VsRandomEpisodeResult(
+                agent_steps=150,
+                total_plies=300,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=0.0,
+                replay_size=0,
+                claimable_fifty_moves=True,
+            ),
+            VsRandomEpisodeResult(
+                agent_steps=150,
+                total_plies=300,
+                total_reward=0.0,
+                done=False,
+                truncated=True,
+                final_info={},
+                training_losses=[],
+                final_epsilon=0.0,
+                replay_size=0,
+            ),
+        ]
+    )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        lambda **kwargs: next(fake_results),
+    )
+
+    summary = evaluate_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=3,
+    )
+
+    assert summary.truncated == 3
+    assert summary.truncated_claimable_threefold == 1
+    assert summary.truncated_claimable_fifty_moves == 1
+    assert summary.truncated_without_claimable_draw == 1
+
 def test_evaluate_against_random_rejects_zero_episodes():
     env = ChessEnv()
     agent = DQNAgent()
