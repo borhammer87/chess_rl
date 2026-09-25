@@ -85,6 +85,15 @@ def main() -> None:
         f"- score: {initial_score:.3f}"
     )
 
+    print(
+        f"Initial truncation diagnostics "
+        f"- claimable threefold: "
+        f"{initial_evaluation.truncated_claimable_threefold} "
+        f"- claimable fifty-move: "
+        f"{initial_evaluation.truncated_claimable_fifty_moves} "
+        f"- without claimable draw: "
+        f"{initial_evaluation.truncated_without_claimable_draw}"
+    )
     print("\nTraining...")
 
     set_random_seed(training_seed)
@@ -168,6 +177,15 @@ def main() -> None:
         f"- score: {final_score:.3f}"
     )
 
+    print(
+        f"Final truncation diagnostics "
+        f"- claimable threefold: "
+        f"{final_evaluation.truncated_claimable_threefold} "
+        f"- claimable fifty-move: "
+        f"{final_evaluation.truncated_claimable_fifty_moves} "
+        f"- without claimable draw: "
+        f"{final_evaluation.truncated_without_claimable_draw}"
+    )
 
 if __name__ == "__main__":
     main()
