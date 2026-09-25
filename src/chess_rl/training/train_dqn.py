@@ -279,6 +279,39 @@ def summarize_training(
         for result in results
     )
 
+    truncated_results = [
+        result
+        for result in results
+        if result.truncated
+    ]
+
+    truncated_average_total_material = (
+        sum(
+            result.final_total_material
+            for result in truncated_results
+        ) / len(truncated_results)
+        if truncated_results
+        else None
+    )
+
+    truncated_average_material_balance = (
+        sum(
+            result.final_material_balance
+            for result in truncated_results
+        ) / len(truncated_results)
+        if truncated_results
+        else None
+    )
+
+    truncated_average_absolute_material_balance = (
+        sum(
+            abs(result.final_material_balance)
+            for result in truncated_results
+        ) / len(truncated_results)
+        if truncated_results
+        else None
+    )
+
     average_plies = sum(
         result.total_plies
         for result in results
@@ -322,6 +355,15 @@ def summarize_training(
         ),
         truncated_without_claimable_draw=(
             truncated_without_claimable_draw
+        ),
+        truncated_average_total_material=(
+            truncated_average_total_material
+        ),
+        truncated_average_material_balance=(
+            truncated_average_material_balance
+        ),
+        truncated_average_absolute_material_balance=(
+            truncated_average_absolute_material_balance
         ),
     )
 

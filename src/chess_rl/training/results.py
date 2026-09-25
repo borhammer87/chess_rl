@@ -76,6 +76,9 @@ class TrainingSummary:
     truncated_claimable_threefold: int = 0
     truncated_claimable_fifty_moves: int = 0
     truncated_without_claimable_draw: int = 0
+    truncated_average_total_material: float | None = None
+    truncated_average_material_balance: float | None = None
+    truncated_average_absolute_material_balance: float | None = None
 
 
 @dataclass
@@ -92,3 +95,6 @@ class EvaluationSummary:
     truncated_claimable_threefold: int = 0
     truncated_claimable_fifty_moves: int = 0
     truncated_without_claimable_draw: int = 0
+    truncated_average_total_material: float | None = None
+    truncated_average_material_balance: float | None = None
+    truncated_average_absolute_material_balance: float | None = None

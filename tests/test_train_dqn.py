@@ -459,6 +459,12 @@ def test_summarize_training_returns_expected_metrics():
     assert summary.losses == 1
     assert summary.truncated == 0
     assert summary.average_plies == 5.0
+    assert summary.truncated_average_total_material is None
+    assert summary.truncated_average_material_balance is None
+    assert (
+        summary.truncated_average_absolute_material_balance
+        is None
+    )
 
 def test_summarize_training_returns_none_without_losses():
     results = [
@@ -1976,6 +1982,58 @@ def test_summarize_training_counts_truncated_draw_claims():
     assert summary.truncated_claimable_threefold == 1
     assert summary.truncated_claimable_fifty_moves == 1
     assert summary.truncated_without_claimable_draw == 1
+
+def test_summarize_training_reports_truncated_material_metrics():
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.9,
+            replay_size=100,
+            final_material_balance=4,
+            final_total_material=60,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.8,
+            replay_size=200,
+            final_material_balance=-2,
+            final_total_material=40,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=20,
+            total_plies=40,
+            total_reward=1.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "1-0"},
+            training_losses=[],
+            final_epsilon=0.7,
+            replay_size=300,
+            final_material_balance=10,
+            final_total_material=20,
+        ),
+    ]
+
+    summary = summarize_training(results)
+
+    assert summary.truncated_average_total_material == 50.0
+    assert summary.truncated_average_material_balance == 1.0
+    assert (
+        summary.truncated_average_absolute_material_balance
+        == 3.0
+    )
 
 def test_save_greedy_evaluation_game_writes_pgn(
     monkeypatch,
