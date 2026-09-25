@@ -90,7 +90,10 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Support PER weights and TD-error priority updates
 - [x] Support agent serialization/checkpoints
 - [x] Complete short end-to-end CPU RandomAgent training smoke test
-- [ ] Run controlled validation beyond smoke-test level
+- [x] Run controlled validation beyond smoke-test level
+- [x] Add reproducible State-Action CPU probe with controlled initialization, training and evaluation seeds
+- [x] Run controlled 100-episode and 500-episode CPU probes
+- [ ] Diagnose persistent greedy truncation and the 100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN
 - [ ] Decide whether State-Action remains parallel or becomes the primary model
 - [ ] Integrate State-Action into frozen-opponent self-play only if validation warrants it
@@ -100,7 +103,7 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [ ] Declare runtime/development dependencies in project metadata or an equivalent reproducible environment specification
 - [ ] Consider RNG-state persistence if exact resume reproducibility becomes a requirement
 - [ ] Consider a lifetime episode counter if training history requires it
-- [ ] Add explicit device/CUDA support if selected by a future development decision
+- [ ] Add explicit device/CUDA support if future training scale justifies it; current CPU probe cost does not make it an immediate priority
 
 ## Phase 9 — Longer-term work
 

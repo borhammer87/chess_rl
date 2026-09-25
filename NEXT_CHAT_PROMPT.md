@@ -85,7 +85,7 @@ The user is deliberately learning through this project, so explain important con
 
 Be technically critical. Do not agree with the user automatically. If the user's assumption, proposed implementation or interpretation is incorrect, incomplete or technically weaker than another option, say so clearly and explain why. Likewise, do not invent objections merely to be contrarian: disagreement should be based on repository evidence or sound technical reasoning.
 
-## Repository snapshot at the documentation audit
+## Current repository snapshot
 
 `pyproject.toml` reports version `0.9.0`.
 
@@ -111,7 +111,7 @@ Implemented:
 - checkpoint resume, replay persistence and best-checkpoint selection;
 - training summaries, truncation diagnostics and diagnostic PGN export.
 
-The executable `main()` uses this original DQNCNN path for frozen-opponent self-play. Its current hard-coded schedule is 100 episodes, 150 learner steps, batch size 32, minimum replay size 1000, target synchronization every 10 episodes, and checkpoint/evaluation/frozen-opponent refresh every 25 episodes. RandomAgent evaluation uses 10 games per color.
+The executable `main()` still uses this original DQNCNN path for frozen-opponent self-play. Its documented schedule is 100 episodes, 150 learner steps, batch size 32, minimum replay size 1000, target synchronization every 10 episodes, and checkpoint/evaluation/frozen-opponent refresh every 25 episodes. RandomAgent evaluation uses 10 games per color.
 
 ### Experimental State-Action path
 
@@ -125,63 +125,76 @@ Implemented in parallel:
 - batched selected state-action evaluation;
 - batched legal-next-action maxima;
 - `StateActionDQNAgent` with policy/target networks, epsilon-greedy selection, Bellman updates, PER weights, TD-error reporting and serialization;
-- short end-to-end CPU training smoke test through the RandomAgent training workflow.
+- integration with the existing RandomAgent training workflow;
+- dedicated reproducible CPU probe in `scripts/run_state_action_probe.py`;
+- controlled model-initialization, training and evaluation seeds;
+- balanced greedy evaluation before and after training;
+- controlled 100-episode and 500-episode CPU training probes.
 
-Do **not** infer from that smoke test that State-Action learns better chess. It is not integrated into frozen-opponent self-play or `main()` and no long-run/comparative strength result is established.
+State-Action is not integrated into frozen-opponent self-play or the executable `main()`.
+
+## State-Action experimental evidence
+
+The reproducible 100-episode probe produced:
+
+- initial greedy evaluation: `0W / 0D / 10L / 30 truncated`, score `0.000`;
+- final greedy evaluation: `2W / 5D / 4L / 29 truncated`, score `0.113`;
+- final epsilon `0.6274`;
+- approximately 124–125 seconds of CPU training.
+
+Two consecutive executions reproduced the same training and evaluation metrics.
+
+The reproducible 500-episode probe produced:
+
+- the same initial evaluation: `0W / 0D / 10L / 30 truncated`, score `0.000`;
+- final greedy evaluation: `3W / 3D / 2L / 32 truncated`, score `0.113`;
+- final epsilon `0.1000`;
+- approximately 870 seconds / 14.5 minutes of CPU training.
+
+Interpret these results conservatively.
+
+They establish that State-Action can perform sustained end-to-end training reproducibly at practical CPU cost. They do **not** establish reliable chess-playing strength.
+
+In particular, increasing training from 100 to 500 episodes did not improve the balanced greedy RandomAgent score beyond `0.113`, and greedy truncation remained extremely high. Do not claim that State-Action has solved the original learning problem merely because some completed games after training were wins or draws.
 
 ## Current development focus
 
-The current focus is validating the experimental State-Action DQN before deciding how far to integrate it.
+The immediate focus is diagnosing the persistent State-Action truncation and apparent learning plateau.
 
-Repository inspection established that the State-Action agent already plugs into the existing RandomAgent training workflow. Therefore a new training system should **not** be implemented.
+Do not simply extend the same experiment to 1,000+ episodes without diagnostic justification. Do not assume CUDA is next: the measured 500-episode CPU run took approximately 14.5 minutes, so CPU cost is not currently the demonstrated bottleneck.
 
-The next intended experiment is a small real CPU training probe that reuses the existing infrastructure:
+Possible areas to inspect include reward design, replay/PER behavior, epsilon scheduling, state representation, Bellman targets, model behavior and evaluation methodology. This list is not a diagnosis. Inspect the repository and use targeted evidence before deciding which hypothesis to test.
 
-1. greedy evaluation against RandomAgent before training, using both colors;
-2. short State-Action training against RandomAgent with alternating colors;
-3. existing training-summary infrastructure;
-4. wall-clock timing of the training;
-5. greedy evaluation against RandomAgent after training, again using both colors.
+Do not change several learning mechanisms simultaneously. Prefer the smallest diagnostic or controlled experiment capable of distinguishing between plausible causes.
 
-The purpose of the first probe is primarily to validate sustained training and measure its CPU cost. A change in RandomAgent score after only a handful of episodes must not be treated as evidence that the network has learned useful chess.
-
-A provisional first probe discussed was approximately:
-
-- 10 training episodes;
-- 150 maximum learner steps per episode;
-- batch size 32;
-- minimum replay size around 100 so actual updates occur during the short probe;
-- target synchronization around every 10 episodes;
-- alternating White/Black;
-- small balanced greedy evaluations before and after training.
-
-These are experimental parameters, not permanent architecture decisions. Reinspect the repository and justify them before implementation.
-
-Do not modify the stable original `main()` merely to run this experiment if a smaller isolated experimental entry point is sufficient.
-
-After measuring actual CPU training cost, decide from evidence whether a larger experiment (for example 100 episodes) is reasonable on CPU or whether explicit device/CUDA support should be implemented first.
+Do not integrate State-Action into frozen-opponent self-play merely because the training pipeline executes successfully. Integration should follow evidence that the model/training setup warrants further promotion.
 
 ## Important limitations
 
-- No reliable playing strength has been demonstrated in the repository.
-- Historical repository diagnostics report high truncation and non-progressing greedy behavior for the original DQN.
-- RandomAgent is a provisional weak benchmark.
+- Neither model has demonstrated reliable chess-playing strength.
+- State-Action greedy evaluation still has a very high truncation rate.
+- `RandomAgent` remains a weak provisional benchmark.
+- State-Action has not been compared with the original DQNCNN under a controlled equivalent experiment.
+- State-Action is not integrated into frozen-opponent self-play or `main()`.
 - Board encoding omits repetition history and move counters and remains absolute.
 - Checkpoints omit RNG state and a lifetime episode counter.
 - Explicit device/CUDA management is not implemented.
 - `pyproject.toml` does not declare runtime dependencies.
-- State-Action is not integrated into frozen-opponent self-play or the executable `main()`.
 
-## Test caution
+## Test status
 
-At the documentation-audit session the repository contained 246 pytest test functions. A fresh test run could not be collected in that sandbox because `python-chess` was missing and `chess_rl` was not installed/importable there. Therefore do not inherit a claim that all tests passed from this prompt. Run them in the actual project environment before treating the suite as green.
+The automated suite was run successfully in the actual `chess-rl` development environment after the State-Action CPU probe runner was added:
 
-A later repository version may of course contain a different number of tests. Always inspect the attached ZIP rather than assuming this count remains current.
+`257 passed in 11.29s`
+
+The suite was later reported green again after an experimental script-import test was removed. Do not invent an exact count or duration for that later run unless a newer repository or user-provided output preserves it.
+
+Always run the relevant tests after code changes and do not inherit a green status blindly into a newer repository state.
 
 ## Next-step rule
 
-Do not assume CUDA, longer training, State-Action self-play, champion-vs-challenger, or any other feature is automatically next.
+Inspect a fresh ZIP before proposing the next code modification.
 
-Inspect the new ZIP and the user's current objective, then justify the smallest next step from repository evidence.
+At the current documented milestone, the next development task should be a targeted diagnosis of the State-Action learning/truncation behavior, not automatic longer training, CUDA implementation, self-play integration or broad hyperparameter tuning.
 
-At the current documented point, the intended immediate task is the small State-Action CPU training probe described above, unless the newly attached repository shows that it has already been implemented or reveals a reason not to do it.
+Determine the smallest useful diagnostic from the actual current code and tests, explain what hypothesis it tests, have the user implement it locally, and wait for the resulting evidence before choosing the following step.

@@ -4,9 +4,9 @@
 
 Repository version: `0.9.0`.
 
-The HEAD contains a mature original DQN training/evaluation/self-play pipeline plus a second experimental State-Action DQN implementation. The original `DQNCNN` remains the model used by `main()` and frozen-opponent self-play. The State-Action model coexists with it and has reached a short CPU end-to-end training smoke test against `RandomAgent`; it has not replaced the original workflow.
+The HEAD contains a mature original DQN training/evaluation/self-play pipeline plus a second experimental State-Action DQN implementation. The original `DQNCNN` remains the model used by `main()` and frozen-opponent self-play. The State-Action model coexists with it and has progressed beyond smoke-test level to reproducible 100-episode and 500-episode CPU training probes against `RandomAgent`; it has not replaced the original workflow.
 
-No source-code change was made during the current documentation audit.
+The State-Action probes establish that sustained end-to-end training works and is computationally practical on CPU, but they do not establish reliable chess-playing strength. Greedy evaluation score remained `0.113` after both 100 and 500 training episodes, with high truncation rates.
 
 ## Implemented at HEAD
 
@@ -36,7 +36,10 @@ No source-code change was made during the current documentation audit.
 - Reuse of one state encoding across candidate actions.
 - Batched selected-action scoring and batched legal-next-action maxima.
 - `StateActionDQNAgent` with policy/target networks, Bellman updates, PER weights, TD-error reporting, epsilon scheduling and serialization.
-- End-to-end CPU smoke test through `train_against_random()`.
+- End-to-end CPU training through `train_against_random()`.
+- Dedicated reproducible CPU probe in `scripts/run_state_action_probe.py`.
+- Fixed seeds for model initialization, training and balanced pre/post evaluation.
+- Controlled 100-episode and 500-episode RandomAgent training probes.
 
 ### Replay and learning
 
@@ -90,16 +93,22 @@ This corrects older documentation that stated a 15-episode target synchronizatio
 
 ## Test status
 
-The repository contains 246 pytest test functions across 13 test modules. They cover the environment, encoders, legal action selection, both DQN model/agent families, replay/PER, episode logic, RandomAgent training, frozen-opponent self-play, checkpointing and diagnostics.
+The automated suite was run successfully in the actual `chess-rl` development environment after the State-Action CPU probe runner was added:
 
-During this documentation audit, `pytest -q` was attempted in the available sandbox but collection could not start because the execution environment does not have the project dependencies/import setup (`python-chess` is missing and `chess_rl` is not installed on that interpreter). Therefore this audit does **not** claim a fresh passing test run. The test files themselves were inspected and the documentation only claims that the tests exist, not that they passed in this sandbox.
+`257 passed in 11.29s`
+
+A later experimental test around the standalone probe script was intentionally removed rather than changing the project package structure merely to make `scripts/` importable. The suite was subsequently reported green again before the reproducible State-Action probes continued.
+
+The controlled 100-episode and 500-episode State-Action experiments were executed in the actual project environment.
 
 ## Current limitations
 
 - No current evidence in the repository establishes reliable chess-playing strength.
 - Historical diagnostics documented in the repository report many truncations and non-progressing greedy behavior for the original DQN.
 - RandomAgent is a weak provisional benchmark.
-- State-Action validation is limited to a short CPU smoke test; no long training or comparative strength experiment is recorded.
+- State-Action has reproducible 100-episode and 500-episode CPU validation, but neither experiment establishes reliable playing strength.
+- Greedy State-Action evaluation remained heavily truncated: `29/40` games after 100 training episodes and `32/40` after 500.
+- Balanced greedy RandomAgent score was `0.113` after both 100 and 500 training episodes, so simply extending the current training configuration did not show continuing improvement.
 - State-Action is not integrated into frozen-opponent self-play or `main()`.
 - Repetition history and move counters are absent from the board tensor.
 - Board encoding remains absolute.
@@ -109,10 +118,16 @@ During this documentation audit, `pytest -q` was attempted in the available sand
 
 ## Current focus
 
-The current session is a documentation reconciliation milestone. The repository had accumulated contradictory snapshots: for example, some documents still described the PER + step-penalty analysis as the next milestone even though State-Action DQN had already been implemented and smoke-tested, and one document disagreed with the code about target synchronization frequency.
+The current focus is diagnosing the State-Action learning behavior revealed by the reproducible CPU probes.
 
-The documentation is now intended to describe one consistent HEAD: original DQNCNN self-play remains the executable main workflow; State-Action exists in parallel and has pipeline-level CPU validation only.
+The alternative architecture has now demonstrated sustained end-to-end training, reproducibility under fixed seeds and practical CPU execution time. However, extending training from 100 to 500 episodes did not improve the balanced greedy RandomAgent score beyond `0.113`, and truncation remained roughly three quarters or more of evaluation games.
+
+The immediate question is therefore no longer whether State-Action can train or whether CUDA is required to run a meaningful probe. It is why the current learning setup fails to produce continuing improvement and why greedy games remain heavily truncated.
 
 ## Next milestone
 
-Do not infer the next implementation change from stale documentation. After this audit, choose the smallest next development step from the repository and fresh validation evidence. CUDA is an open future possibility, not an already selected next task.
+Diagnose the persistent State-Action truncation and apparent learning plateau before scaling training further or integrating State-Action into frozen-opponent self-play.
+
+Do not assume the cause in advance. Reward design, replay/PER behavior, epsilon scheduling, state representation, Bellman targets, model behavior and evaluation methodology are all candidates to inspect from repository evidence.
+
+Explicit CUDA support remains a future option, but measured CPU performance does not currently make it the immediate priority.

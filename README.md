@@ -2,7 +2,7 @@
 
 Educational chess reinforcement-learning project built around DQN variants and `python-chess`.
 
-The repository currently keeps two model approaches in parallel: the original fixed-output `DQNCNN`, which is the model used by the main frozen-opponent self-play workflow, and an experimental explicit `StateActionDQN`, which has been integrated far enough to complete a short CPU training smoke test against `RandomAgent` but has not replaced the original model.
+The repository currently keeps two model approaches in parallel: the original fixed-output `DQNCNN`, which is the model used by the main frozen-opponent self-play workflow, and an experimental explicit `StateActionDQN`. The State-Action path supports sustained end-to-end RandomAgent training and has completed reproducible 100-episode and 500-episode CPU probes, but it has not replaced the original model and has not demonstrated reliable playing strength.
 
 ## Current capabilities
 
@@ -12,6 +12,7 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Legal-action filtering for exploration and greedy action selection.
 - Original CNN DQN with policy and target networks.
 - Experimental explicit State-Action DQN with structured action features and a shared `Q(s, a)` head.
+- Reproducible State-Action CPU probe with balanced greedy pre/post evaluation and separate fixed seeds for initialization, training and evaluation.
 - Replay buffer with Prioritized Experience Replay (PER), importance-sampling weights and TD-error priority updates.
 - DQN-vs-RandomAgent episodes and generic DQN-vs-opponent episode execution.
 - Multi-episode training with alternating learner color.
@@ -59,7 +60,8 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 - The repository does not establish that either model has learned reliable chess-playing strength.
 - The documented diagnostic history reports a high truncation rate and non-progressing greedy play for the original DQN despite several learning-signal experiments.
 - `RandomAgent` is only a provisional stable benchmark, not a strong chess benchmark.
-- The State-Action model has only a short CPU end-to-end training smoke test; there is no long-run or comparative strength result.
+- Reproducible State-Action probes at 100 and 500 training episodes do not establish reliable playing strength.
+- The balanced greedy RandomAgent score was `0.113` after both 100 and 500 training episodes, while truncation remained very high (`29/40` and `32/40` respectively).
 - The State-Action agent is not integrated into the frozen-opponent self-play path used by `main()`.
 - Board encoding omits repetition history and move counters and remains absolute rather than agent-relative.
 - Checkpoints do not preserve random-number-generator state or a lifetime episode counter.
@@ -68,6 +70,8 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 
 ## Current objective
 
-The immediate task is documentary and validation-oriented: keep the repository description aligned with the actual HEAD and avoid treating the State-Action smoke test as evidence of learning quality.
+The immediate development objective is to diagnose the persistent truncation and apparent learning plateau observed in the reproducible State-Action CPU experiments.
 
-After this documentation audit, the next development step should be chosen from fresh repository evidence. No CUDA or other implementation change is implied by this document.
+The State-Action path is now known to train end-to-end at practical CPU cost, so explicit CUDA support is not the immediate priority. Likewise, simply extending the same training configuration is not currently justified by the evidence: increasing training from 100 to 500 episodes left the balanced greedy RandomAgent score at `0.113` and did not reduce the high truncation rate.
+
+The next development step should therefore inspect the learning setup and identify the smallest diagnostic capable of distinguishing among plausible causes before changing hyperparameters, scaling training further or integrating State-Action into frozen-opponent self-play.

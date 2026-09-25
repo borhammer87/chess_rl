@@ -147,6 +147,9 @@ The repository documentation records the following sequence of learning-signal i
 9. a small `-0.0005` ordinary step penalty was added;
 10. the documented PER + step-penalty experiment still did not establish reliable greedy play;
 11. an alternative explicit State-Action DQN was then implemented in parallel and brought to CPU smoke-test level.
+12. State-Action was subsequently validated with reproducible 100-episode and 500-episode CPU probes;
+13. the balanced greedy RandomAgent score was `0.113` after both probes, while truncation remained very high;
+14. the 500-episode result therefore shifted the immediate focus from simply scaling training to diagnosing the persistent truncation and apparent learning plateau.
 
 These are qualitative repository-recorded conclusions. This HEAD does not include raw experiment logs sufficient to independently reproduce numerical historical results, so this document does not invent episode counts or scores that are not preserved.
 

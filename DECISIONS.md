@@ -405,7 +405,29 @@ The repository does not yet decide:
 
 - whether State-Action should replace or remain alongside the original DQNCNN;
 - whether/when State-Action should enter frozen-opponent self-play;
-- whether explicit device/CUDA support should precede larger experiments;
+- which part of the current State-Action learning setup is primarily responsible for the persistent truncation and apparent plateau;
+- when training scale would justify explicit device/CUDA support;
 - what stronger evaluation or champion-vs-challenger promotion criterion should eventually be used.
 
 These should be decided from future repository evidence, not inherited as already-set next steps.
+
+## D-024 — Diagnose State-Action learning before scaling training or prioritizing CUDA
+
+### Status
+Accepted experimentally.
+
+### Decision
+After reproducible State-Action CPU probes at 100 and 500 training episodes, do not treat longer training or explicit CUDA support as the automatic next step.
+
+Keep the current State-Action architecture in parallel with the original DQNCNN and diagnose the persistent greedy truncation and apparent learning plateau before scaling the same training configuration further or integrating State-Action into frozen-opponent self-play.
+
+### Motivation
+The controlled 100-episode probe produced a balanced greedy RandomAgent score of `0.113` with `29/40` truncated evaluation games. Extending otherwise equivalent training to 500 episodes again produced a score of `0.113`, with `32/40` truncated games, even though epsilon reached its configured floor of `0.1000`.
+
+The 500-episode CPU run completed in approximately 14.5 minutes, so current evidence does not identify CPU execution time as the primary development bottleneck.
+
+### Alternatives considered
+Continue directly to 1,000 or more episodes, implement CUDA first, immediately tune several hyperparameters, or integrate State-Action into frozen-opponent self-play.
+
+### Consequences
+The next development phase is diagnostic rather than scale-oriented. CUDA remains a valid future optimization if training scale later justifies it. Longer training, reward changes, replay/PER changes, epsilon changes and self-play integration should be justified by diagnostic evidence rather than introduced together.
