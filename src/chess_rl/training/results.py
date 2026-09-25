@@ -54,6 +54,7 @@ class VsRandomEpisodeResult:
     claimable_fifty_moves: bool = False
     agent_color: chess.Color = chess.WHITE
     final_material_balance: int = 0
+    final_total_material: int = 78
 
 
 @dataclass

@@ -126,6 +126,32 @@ def material_balance(
 
     return balance
 
+def total_material(
+    board: chess.Board,
+) -> int:
+    """
+    Return the total non-king material remaining on the board.
+    """
+    total = 0
+
+    for piece_type, value in PIECE_VALUES.items():
+        total += (
+            len(
+                board.pieces(
+                    piece_type,
+                    chess.WHITE,
+                )
+            )
+            + len(
+                board.pieces(
+                    piece_type,
+                    chess.BLACK,
+                )
+            )
+        ) * value
+
+    return total
+
 def material_reward(
     previous_board: chess.Board,
     next_board: chess.Board,
@@ -581,6 +607,10 @@ def run_dqn_vs_opponent_episode(
         agent_color,
     )
 
+    final_total_material = total_material(
+        env.board,
+    )
+
     return VsRandomEpisodeResult(
         agent_steps=agent_steps,
         total_plies=total_plies,
@@ -594,7 +624,8 @@ def run_dqn_vs_opponent_episode(
         claimable_threefold=claimable_threefold,
         claimable_fifty_moves=claimable_fifty_moves,
         agent_color=agent_color,
-                final_material_balance=final_material_balance,
+        final_material_balance=final_material_balance,
+        final_total_material=final_total_material,
     )
 
 
