@@ -6,17 +6,65 @@ We are continuing the Chess Reinforcement Learning project.
 
 The attached ZIP repository is the primary and authoritative source of truth for the current code.
 
-Before proposing any modification:
+Before proposing any modification, perform a repository audit. This is a
+mandatory development step, not a quick orientation pass.
 
-1. extract the ZIP;
-2. inspect the complete repository tree;
-3. read **all** project Markdown files;
-4. read all source files and tests relevant to the requested change;
-5. reconstruct the current state from code and tests before using prior conversation context.
+1. extract the ZIP into a fresh location;
+2. inspect the complete repository tree and identify every tracked project
+   file present in the snapshot;
+3. read **every project Markdown file completely, from beginning to end**;
+4. read `pyproject.toml` and any other project/configuration files that can
+   affect the current implementation;
+5. read **every source file relevant to the requested change completely**,
+   not only matching functions or search excerpts;
+6. read **every test file relevant to those source files and the requested
+   change completely**;
+7. follow imports, callers, result/data structures, constants and shared
+   utilities far enough to understand the complete execution path affected by
+   the proposed change;
+8. inspect existing tests before proposing new tests, so that the assistant
+   does not invent test names, locations, fixtures, assertions or coverage
+   that already exists;
+9. reconstruct the current project status from the inspected code and tests;
+10. cross-check that reconstruction against the Markdown documentation and
+    explicitly notice material contradictions or stale documentation;
+11. only after completing the above may prior conversation/project context be
+    used to recover rationale, chronology or experimental results that the
+    repository itself does not preserve.
 
-If repository contents contradict prior chat context, trust the repository. Use prior project context only to recover rationale or chronology that the repository itself does not preserve, never to claim that unimplemented code exists.
+Repository inspection must be substantive. Merely listing files, searching for
+keywords, reading selected snippets, relying on extracted summaries, or
+checking only the function expected to change does **not** count as having read
+or inspected the repository as required above.
 
-If the ZIP cannot actually be inspected, state that limitation and do not guess.
+Do not claim to have read the complete repository, all source code, all tests,
+or all Markdown unless that work was actually performed in the current
+repository snapshot. Be precise about scope instead, for example: "I read all
+Markdown and the complete training/evaluation execution path plus its related
+tests."
+
+When giving an exact modification, verify the target against the current
+snapshot immediately before answering. Exact function names, existing code,
+test names, assertions, line/location descriptions and surrounding context
+must come from the inspected repository, not from memory or inference. If an
+exact location cannot be verified, say so and ask for the missing/current file
+rather than approximating it.
+
+Never write phrases such as "approximately this test", "you should have",
+"it should look like", or otherwise reconstruct existing repository content
+from expectation when the current ZIP makes verification possible. Quote or
+identify the actual current code.
+
+If a proposed change depends on a file that has not yet been read completely,
+read it before proposing the change.
+
+If repository contents contradict prior chat context, trust the repository.
+Use prior project context only to recover rationale or chronology that the
+repository itself does not preserve, never to claim that unimplemented code
+exists.
+
+If the ZIP cannot actually be extracted or inspected, state that limitation
+and do not guess or propose repository-specific code changes.
 
 Follow `PROJECT_RULES.md`. Prefer the smallest correct change and update tests with code.
 

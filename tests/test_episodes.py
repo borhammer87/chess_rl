@@ -319,6 +319,31 @@ def test_dqn_vs_random_returns_expected_result():
         VsRandomEpisodeResult,
     )
 
+def test_dqn_vs_opponent_reports_final_material_balance():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    def opponent_selector(
+        board,
+        legal_moves,
+    ):
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        agent_color=chess.WHITE,
+    )
+
+    assert result.final_material_balance == material_balance(
+        env.board,
+        chess.WHITE,
+    )
+
 def test_dqn_vs_random_stores_only_dqn_transitions():
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)

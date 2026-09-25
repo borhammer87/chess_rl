@@ -53,6 +53,7 @@ class VsRandomEpisodeResult:
     claimable_threefold: bool = False
     claimable_fifty_moves: bool = False
     agent_color: chess.Color = chess.WHITE
+    final_material_balance: int = 0
 
 
 @dataclass

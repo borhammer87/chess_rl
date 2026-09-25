@@ -576,6 +576,11 @@ def run_dqn_vs_opponent_episode(
         and env.board.can_claim_fifty_moves()
     )
 
+    final_material_balance = material_balance(
+        env.board,
+        agent_color,
+    )
+
     return VsRandomEpisodeResult(
         agent_steps=agent_steps,
         total_plies=total_plies,
@@ -589,6 +594,7 @@ def run_dqn_vs_opponent_episode(
         claimable_threefold=claimable_threefold,
         claimable_fifty_moves=claimable_fifty_moves,
         agent_color=agent_color,
+                final_material_balance=final_material_balance,
     )
 
 
