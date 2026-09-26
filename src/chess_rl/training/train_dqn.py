@@ -471,6 +471,39 @@ def evaluate_against_random(
         for result in results
     )
 
+    truncated_results = [
+        result
+        for result in results
+        if result.truncated
+    ]
+
+    truncated_average_total_material = (
+        sum(
+            result.final_total_material
+            for result in truncated_results
+        ) / len(truncated_results)
+        if truncated_results
+        else None
+    )
+
+    truncated_average_material_balance = (
+        sum(
+            result.final_material_balance
+            for result in truncated_results
+        ) / len(truncated_results)
+        if truncated_results
+        else None
+    )
+
+    truncated_average_absolute_material_balance = (
+        sum(
+            abs(result.final_material_balance)
+            for result in truncated_results
+        ) / len(truncated_results)
+        if truncated_results
+        else None
+    )
+
     return EvaluationSummary(
         episodes=len(results),
         wins=wins,
@@ -485,6 +518,15 @@ def evaluate_against_random(
         ),
         truncated_without_claimable_draw=(
             truncated_without_claimable_draw
+        ),
+        truncated_average_total_material=(
+            truncated_average_total_material
+        ),
+        truncated_average_material_balance=(
+            truncated_average_material_balance
+        ),
+        truncated_average_absolute_material_balance=(
+            truncated_average_absolute_material_balance
         ),
     )
 
@@ -520,6 +562,56 @@ def evaluate_against_random_both_colors(
         max_agent_steps=max_agent_steps,
         agent_color=chess.BLACK,
     )
+    total_truncated = (
+        white_summary.truncated
+        + black_summary.truncated
+    )
+
+    if total_truncated:
+        truncated_average_total_material = (
+            (
+                (white_summary.truncated_average_total_material or 0.0)
+                * white_summary.truncated
+            )
+            + (
+                (black_summary.truncated_average_total_material or 0.0)
+                * black_summary.truncated
+            )
+        ) / total_truncated
+
+        truncated_average_material_balance = (
+            (
+                (white_summary.truncated_average_material_balance or 0.0)
+                * white_summary.truncated
+            )
+            + (
+                (black_summary.truncated_average_material_balance or 0.0)
+                * black_summary.truncated
+            )
+        ) / total_truncated
+
+        truncated_average_absolute_material_balance = (
+            (
+                (
+                    white_summary
+                    .truncated_average_absolute_material_balance
+                    or 0.0
+                )
+                * white_summary.truncated
+            )
+            + (
+                (
+                    black_summary
+                    .truncated_average_absolute_material_balance
+                    or 0.0
+                )
+                * black_summary.truncated
+            )
+        ) / total_truncated
+    else:
+        truncated_average_total_material = None
+        truncated_average_material_balance = None
+        truncated_average_absolute_material_balance = None
 
     return EvaluationSummary(
         episodes=(
@@ -553,6 +645,16 @@ def evaluate_against_random_both_colors(
                 white_summary.truncated_without_claimable_draw
                 + black_summary.truncated_without_claimable_draw
             ),
+            truncated_average_total_material=(
+                truncated_average_total_material
+            ),
+            truncated_average_material_balance=(
+                truncated_average_material_balance
+            ),
+            truncated_average_absolute_material_balance=(
+                truncated_average_absolute_material_balance
+            ),
+
         )
     
 

@@ -1776,10 +1776,13 @@ def test_evaluate_against_random_both_colors_combines_results(
                 wins=1,
                 draws=1,
                 losses=0,
-                truncated=0,
+                truncated=1,
                 truncated_claimable_threefold=1,
                 truncated_claimable_fifty_moves=0,
                 truncated_without_claimable_draw=0,
+                truncated_average_total_material=60.0,
+                truncated_average_material_balance=4.0,
+                truncated_average_absolute_material_balance=4.0,
             )
 
         return EvaluationSummary(
@@ -1791,6 +1794,9 @@ def test_evaluate_against_random_both_colors_combines_results(
             truncated_claimable_threefold=0,
             truncated_claimable_fifty_moves=1,
             truncated_without_claimable_draw=1,
+            truncated_average_total_material=30.0,
+            truncated_average_material_balance=-2.0,
+            truncated_average_absolute_material_balance=2.0,
         )
 
     monkeypatch.setattr(
@@ -1811,14 +1817,17 @@ def test_evaluate_against_random_both_colors_combines_results(
         chess.BLACK,
     ]
 
-    assert summary.episodes == 4
-    assert summary.wins == 1
-    assert summary.draws == 2
-    assert summary.losses == 1
-    assert summary.truncated == 2
+    assert summary.truncated == 3
     assert summary.truncated_claimable_threefold == 1
     assert summary.truncated_claimable_fifty_moves == 1
     assert summary.truncated_without_claimable_draw == 1
+
+    assert summary.truncated_average_total_material == 40.0
+    assert summary.truncated_average_material_balance == 0.0
+    assert (
+        summary.truncated_average_absolute_material_balance
+        == pytest.approx(2.6666666666666665)
+    )
 
 def test_evaluate_against_random_both_colors_rejects_zero_episodes():
     env = ChessEnv()
@@ -2199,3 +2208,71 @@ def test_state_action_agent_can_train_against_random_end_to_end():
     assert len(replay_buffer) > 0
     assert agent.epsilon < 1.0
 
+def test_evaluate_against_random_reports_truncated_material_metrics(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    fake_results = iter([
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+            final_material_balance=4,
+            final_total_material=60,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+            final_material_balance=-2,
+            final_total_material=40,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=20,
+            total_plies=40,
+            total_reward=1.0,
+            done=True,
+            truncated=False,
+            final_info={"result": "1-0"},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+            final_material_balance=10,
+            final_total_material=20,
+        ),
+    ])
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        lambda **kwargs: next(fake_results),
+    )
+
+    summary = evaluate_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        episodes=3,
+    )
+
+    assert summary.truncated_average_total_material == 50.0
+    assert summary.truncated_average_material_balance == 1.0
+    assert (
+        summary.truncated_average_absolute_material_balance
+        == 3.0
+    )

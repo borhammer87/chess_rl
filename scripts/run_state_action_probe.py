@@ -151,6 +151,16 @@ def main() -> None:
         f"{summary.truncated_without_claimable_draw}"
     )
 
+    print(
+        f"Truncated material diagnostics "
+        f"- avg total material: "
+        f"{summary.truncated_average_total_material} "
+        f"- avg material balance: "
+        f"{summary.truncated_average_material_balance} "
+        f"- avg absolute material balance: "
+        f"{summary.truncated_average_absolute_material_balance}"
+    )
+
     print("\nFinal greedy evaluation...")
 
     set_random_seed(evaluation_seed)
