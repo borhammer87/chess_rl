@@ -94,6 +94,17 @@ def main() -> None:
         f"- without claimable draw: "
         f"{initial_evaluation.truncated_without_claimable_draw}"
     )
+
+    print(
+        f"Initial material diagnostics "
+        f"- avg total material: "
+        f"{initial_evaluation.truncated_average_total_material} "
+        f"- avg material balance: "
+        f"{initial_evaluation.truncated_average_material_balance} "
+        f"- avg absolute material balance: "
+        f"{initial_evaluation.truncated_average_absolute_material_balance}"
+    )
+
     print("\nTraining...")
 
     set_random_seed(training_seed)
@@ -195,6 +206,16 @@ def main() -> None:
         f"{final_evaluation.truncated_claimable_fifty_moves} "
         f"- without claimable draw: "
         f"{final_evaluation.truncated_without_claimable_draw}"
+    )
+
+    print(
+        f"Final material diagnostics "
+        f"- avg total material: "
+        f"{final_evaluation.truncated_average_total_material} "
+        f"- avg material balance: "
+        f"{final_evaluation.truncated_average_material_balance} "
+        f"- avg absolute material balance: "
+        f"{final_evaluation.truncated_average_absolute_material_balance}"
     )
 
 if __name__ == "__main__":
