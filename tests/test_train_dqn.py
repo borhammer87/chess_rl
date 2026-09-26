@@ -2,7 +2,10 @@ from pathlib import Path
 import chess
 import pytest
 import chess_rl.training.train_dqn as train_dqn_module
-from chess_rl.training.train_dqn import save_greedy_evaluation_game
+from chess_rl.training.train_dqn import (
+    save_greedy_evaluation_game,
+    save_first_truncated_greedy_evaluation_game,
+)
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.agents.random_agent import RandomAgent
 from chess_rl.env.chess_env import ChessEnv
@@ -2107,6 +2110,130 @@ def test_save_greedy_evaluation_game_writes_pgn(
     assert '[White "DQN"]' in pgn
     assert '[Black "RandomAgent"]' in pgn
     assert "1. e4 e5" in pgn
+
+def test_save_first_truncated_greedy_evaluation_game_stops_at_first_truncation(
+    monkeypatch,
+    tmp_path,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    results = [
+        VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=0.0,
+            done=True,
+            truncated=False,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+        ),
+        VsRandomEpisodeResult(
+            agent_steps=150,
+            total_plies=300,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+        ),
+    ]
+
+    calls = []
+
+    def fake_save_greedy_evaluation_game(
+        env,
+        agent,
+        opponent,
+        path,
+        max_agent_steps,
+        agent_color,
+    ):
+        calls.append(path)
+        path.write_text(
+            f"game {len(calls)}",
+            encoding="utf-8",
+        )
+        return results[len(calls) - 1]
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "save_greedy_evaluation_game",
+        fake_save_greedy_evaluation_game,
+    )
+
+    path = tmp_path / "truncated_game.pgn"
+
+    result = save_first_truncated_greedy_evaluation_game(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        path=path,
+        max_attempts=5,
+    )
+
+    assert result is results[1]
+    assert len(calls) == 2
+    assert path.read_text(
+        encoding="utf-8",
+    ) == "game 2"
+
+def test_save_first_truncated_greedy_evaluation_game_removes_non_truncated_pgn(
+    monkeypatch,
+    tmp_path,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+
+    def fake_save_greedy_evaluation_game(
+        env,
+        agent,
+        opponent,
+        path,
+        max_agent_steps,
+        agent_color,
+    ):
+        path.write_text(
+            "non-truncated game",
+            encoding="utf-8",
+        )
+
+        return VsRandomEpisodeResult(
+            agent_steps=10,
+            total_plies=20,
+            total_reward=0.0,
+            done=True,
+            truncated=False,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "save_greedy_evaluation_game",
+        fake_save_greedy_evaluation_game,
+    )
+
+    path = tmp_path / "truncated_game.pgn"
+
+    result = save_first_truncated_greedy_evaluation_game(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        path=path,
+        max_attempts=2,
+    )
+
+    assert result is None
+    assert path.exists() is False
 
 def test_episode_outcome_uses_chess_result_not_positive_reward():
     result = VsRandomEpisodeResult(

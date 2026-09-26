@@ -735,6 +735,44 @@ def save_greedy_evaluation_game(
 
     return result
 
+def save_first_truncated_greedy_evaluation_game(
+    env: ChessEnv,
+    agent: DQNAgent,
+    opponent: RandomAgent,
+    path: Path,
+    max_attempts: int = 40,
+    max_agent_steps: int = 150,
+    agent_color: chess.Color = chess.WHITE,
+) -> VsRandomEpisodeResult | None:
+    """
+    Save the first truncated greedy evaluation game found.
+
+    Return the corresponding episode result, or None if no
+    truncated game is found within max_attempts.
+    """
+    if max_attempts <= 0:
+        raise ValueError(
+            "max_attempts must be greater than zero."
+        )
+
+    for _ in range(max_attempts):
+        result = save_greedy_evaluation_game(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            path=path,
+            max_agent_steps=max_agent_steps,
+            agent_color=agent_color,
+        )
+
+        if result.truncated:
+            return result
+
+    if path.exists():
+        path.unlink()
+
+    return None
+
 def main() -> None:
     """
     Run multi-episode DQN self-play training,

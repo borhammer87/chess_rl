@@ -11,7 +11,9 @@ from chess_rl.training.train_dqn import (
     score_evaluation,
     summarize_training,
     train_against_random,
-    save_greedy_evaluation_game
+    save_greedy_evaluation_game,
+    save_first_truncated_greedy_evaluation_game,
+
 )
 from pathlib import Path
 from chess_rl.utils.replay_buffer import ReplayBuffer
@@ -227,22 +229,29 @@ def main() -> None:
     diagnostic_path = Path(
         "state_action_evaluation_game.pgn"
     )
-
-    diagnostic_result = save_greedy_evaluation_game(
-        env=env,
-        agent=agent,
-        opponent=opponent,
-        path=diagnostic_path,
-        max_agent_steps=max_agent_steps,
-        agent_color=chess.WHITE,
+    diagnostic_result = (
+        save_first_truncated_greedy_evaluation_game(
+            env=env,
+            agent=agent,
+            opponent=opponent,
+            path=diagnostic_path,
+            max_attempts=evaluation_episodes_per_color,
+            max_agent_steps=max_agent_steps,
+            agent_color=chess.WHITE,
+        )
     )
 
-    print(
-        f"Diagnostic game "
-        f"- truncated: {diagnostic_result.truncated} "
-        f"- plies: {diagnostic_result.total_plies} "
-        f"- path: {diagnostic_path}"
-    )
+    if diagnostic_result is None:
+        print(
+            "No truncated diagnostic game found "
+            f"after {evaluation_episodes_per_color} attempts."
+        )
+    else:
+        print(
+            f"Truncated diagnostic game "
+            f"- plies: {diagnostic_result.total_plies} "
+            f"- path: {diagnostic_path}"
+        )
 
 if __name__ == "__main__":
     main()
