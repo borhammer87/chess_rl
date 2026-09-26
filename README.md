@@ -25,6 +25,7 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Balanced White/Black evaluation against `RandomAgent` and evaluation-based `checkpoints/best.pt` selection.
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
 - Automated tests covering the environment, encoders, agents, replay, training, self-play, checkpointing, diagnostics and both DQN model families.
+- truncation diagnostics covering claimable draws and final material state;
 
 ## Installation
 
@@ -70,8 +71,8 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 
 ## Current objective
 
-The immediate development objective is to diagnose the persistent truncation and apparent learning plateau observed in the reproducible State-Action CPU experiments.
-
-The State-Action path is now known to train end-to-end at practical CPU cost, so explicit CUDA support is not the immediate priority. Likewise, simply extending the same training configuration is not currently justified by the evidence: increasing training from 100 to 500 episodes left the balanced greedy RandomAgent score at `0.113` and did not reduce the high truncation rate.
-
-The next development step should therefore inspect the learning setup and identify the smallest diagnostic capable of distinguishing among plausible causes before changing hyperparameters, scaling training further or integrating State-Action into frozen-opponent self-play.
+The immediate development focus is diagnosing why heavily simplified greedy
+State-Action games still reach the artificial episode horizon. The next step is
+to inspect concrete truncated greedy games, preferably by reusing the existing
+PGN diagnostic infrastructure before changing the learning algorithm or
+scaling training further.

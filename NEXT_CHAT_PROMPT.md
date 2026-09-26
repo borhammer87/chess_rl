@@ -205,17 +205,47 @@ They establish that State-Action can perform sustained end-to-end training repro
 
 In particular, increasing training from 100 to 500 episodes did not improve the balanced greedy RandomAgent score beyond `0.113`, and greedy truncation remained extremely high. Do not claim that State-Action has solved the original learning problem merely because some completed games after training were wins or draws.
 
+Targeted diagnostics on the reproducible 100-episode configuration established:
+
+- initial greedy truncations: `30/30` without a claimable threefold or
+  fifty-move draw;
+- training truncations: `78/78` without either claimable draw;
+- final greedy evaluation: `29` truncations, with `28` lacking either
+  claimable draw, `1` claimable by threefold and `1` claimable by the
+  fifty-move rule;
+- initial greedy truncated games: average final total material `20.20/78`,
+  average learner material balance `-6.27`, average absolute balance `9.13`;
+- training truncations: average final total material `10.55/78`, average
+  learner material balance `+0.45`, average absolute balance `5.81`;
+- final greedy truncated games: average final total material `10.83/78`,
+  average learner material balance `-2.62`, average absolute balance `6.28`.
+
+These results rule out claimable draws as the main explanation for truncation
+and show that truncated games are generally heavily simplified rather than
+simply reaching the artificial horizon with most material intact.
+
+Treat this as reproducible evidence of behavioral change after training, not
+as proof of reliable chess strength.
+
 ## Current development focus
 
-The immediate focus is diagnosing the persistent State-Action truncation and apparent learning plateau.
+The immediate focus is diagnosing what prevents heavily simplified greedy
+State-Action games from terminating.
 
-Do not simply extend the same experiment to 1,000+ episodes without diagnostic justification. Do not assume CUDA is next: the measured 500-episode CPU run took approximately 14.5 minutes, so CPU cost is not currently the demonstrated bottleneck.
+Do not simply extend the same experiment to 1,000+ episodes without diagnostic
+justification. Do not assume CUDA is next: the measured 500-episode CPU run
+took approximately 14.5 minutes, so CPU cost is not currently the demonstrated
+bottleneck.
 
-Possible areas to inspect include reward design, replay/PER behavior, epsilon scheduling, state representation, Bellman targets, model behavior and evaluation methodology. This list is not a diagnosis. Inspect the repository and use targeted evidence before deciding which hypothesis to test.
+The next recommended diagnostic is to inspect concrete greedy truncated-game
+behavior. The repository already contains greedy diagnostic PGN export for the
+original DQN path, so inspect that implementation and its tests before deciding
+whether it can be reused for State-Action with a small change. Do not duplicate
+PGN infrastructure unnecessarily.
 
-Do not change several learning mechanisms simultaneously. Prefer the smallest diagnostic or controlled experiment capable of distinguishing between plausible causes.
-
-Do not integrate State-Action into frozen-opponent self-play merely because the training pipeline executes successfully. Integration should follow evidence that the model/training setup warrants further promotion.
+Do not assume in advance that reward design, replay/PER behavior, epsilon
+scheduling, state representation, Bellman targets or model capacity is the
+cause. Use concrete game evidence to choose the next hypothesis.
 
 ## Important limitations
 
@@ -243,6 +273,17 @@ Always run the relevant tests after code changes and do not inherit a green stat
 
 Inspect a fresh ZIP before proposing the next code modification.
 
-At the current documented milestone, the next development task should be a targeted diagnosis of the State-Action learning/truncation behavior, not automatic longer training, CUDA implementation, self-play integration or broad hyperparameter tuning.
+At the current documented milestone, the next development task should inspect
+concrete greedy State-Action truncated-game behavior, preferably by reusing the
+existing PGN diagnostic path.
+
+Do not automatically choose longer training, CUDA implementation, self-play
+integration or broad hyperparameter tuning.
+
+After inspecting a fresh ZIP, verify the existing PGN implementation and tests
+exactly, then propose the smallest well-tested change that can preserve a
+representative greedy truncated State-Action game for inspection. The user
+implements the code locally; wait for the resulting evidence before choosing
+the following step.
 
 Determine the smallest useful diagnostic from the actual current code and tests, explain what hypothesis it tests, have the user implement it locally, and wait for the resulting evidence before choosing the following step.

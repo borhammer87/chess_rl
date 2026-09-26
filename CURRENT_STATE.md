@@ -40,6 +40,10 @@ The State-Action probes establish that sustained end-to-end training works and i
 - Dedicated reproducible CPU probe in `scripts/run_state_action_probe.py`.
 - Fixed seeds for model initialization, training and balanced pre/post evaluation.
 - Controlled 100-episode and 500-episode RandomAgent training probes.
+- Claimable-draw diagnostics for State-Action training and greedy evaluation
+  truncations.
+- Final-material diagnostics for truncated episodes, including total remaining
+  material, learner material balance and absolute material balance.
 
 ### Replay and learning
 
@@ -101,6 +105,28 @@ A later experimental test around the standalone probe script was intentionally r
 
 The controlled 100-episode and 500-episode State-Action experiments were executed in the actual project environment.
 
+
+Targeted diagnostics on the reproducible 100-episode configuration further
+showed:
+
+- initial greedy evaluation: `30/30` truncations without a claimable threefold
+  or fifty-move draw;
+- training: `78/78` truncations without either claimable draw;
+- final greedy evaluation: `29` truncations, of which `28` had neither
+  claimable draw; one was claimable by threefold and one by the fifty-move
+  rule;
+- initial greedy truncated games: average final total material `20.20/78`,
+  average learner material balance `-6.27`, average absolute balance `9.13`;
+- training truncations: average final total material `10.55/78`, average
+  learner material balance `+0.45`, average absolute balance `5.81`;
+- final greedy truncated games: average final total material `10.83/78`,
+  average learner material balance `-2.62`, average absolute balance `6.28`.
+
+These results rule out claimable draws as the main explanation for truncation
+and show that truncated games are generally heavily simplified. They do not
+establish reliable chess-playing strength.
+
+
 ## Current limitations
 
 - No current evidence in the repository establishes reliable chess-playing strength.
@@ -118,16 +144,36 @@ The controlled 100-episode and 500-episode State-Action experiments were execute
 
 ## Current focus
 
-The current focus is diagnosing the State-Action learning behavior revealed by the reproducible CPU probes.
+## Current focus
 
-The alternative architecture has now demonstrated sustained end-to-end training, reproducibility under fixed seeds and practical CPU execution time. However, extending training from 100 to 500 episodes did not improve the balanced greedy RandomAgent score beyond `0.113`, and truncation remained roughly three quarters or more of evaluation games.
+The current focus is inspecting what happens inside heavily simplified
+State-Action greedy games that still reach the artificial horizon.
 
-The immediate question is therefore no longer whether State-Action can train or whether CUDA is required to run a meaningful probe. It is why the current learning setup fails to produce continuing improvement and why greedy games remain heavily truncated.
+The alternative architecture has demonstrated sustained end-to-end training,
+reproducibility under fixed seeds and practical CPU execution time. Extending
+training from 100 to 500 episodes did not improve the balanced greedy
+RandomAgent score beyond `0.113`.
+
+Targeted diagnostics now show that claimable draws are not the main cause of
+truncation and that final truncated positions are usually heavily simplified.
+
+The immediate question is therefore no longer whether State-Action can train,
+whether CUDA is required for a meaningful probe, or whether truncations simply
+preserve most of the starting material. The next diagnostic should inspect
+concrete greedy truncated-game behavior.
 
 ## Next milestone
 
-Diagnose the persistent State-Action truncation and apparent learning plateau before scaling training further or integrating State-Action into frozen-opponent self-play.
+Inspect concrete greedy State-Action truncated games to determine why heavily
+simplified positions still fail to terminate before scaling training further
+or integrating State-Action into frozen-opponent self-play.
 
-Do not assume the cause in advance. Reward design, replay/PER behavior, epsilon scheduling, state representation, Bellman targets, model behavior and evaluation methodology are all candidates to inspect from repository evidence.
+Prefer reusing the existing greedy PGN export infrastructure if the current
+code supports doing so with a small, well-tested change.
 
-Explicit CUDA support remains a future option, but measured CPU performance does not currently make it the immediate priority.
+Do not assume in advance that reward design, replay/PER behavior, epsilon
+scheduling, state representation, Bellman targets or model capacity is the
+cause.
+
+Explicit CUDA support remains a future option, but measured CPU performance
+does not currently make it the immediate priority.

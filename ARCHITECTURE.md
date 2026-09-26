@@ -132,6 +132,12 @@ Because rewards are shaped, chess outcome is never inferred from the sign of acc
 
 `TrainingSummary` and `EvaluationSummary` live in `results.py` so aggregate metrics are represented explicitly rather than recalculated ad hoc by callers.
 
+The training and evaluation summaries also preserve truncation diagnostics.
+These include claimable-threefold and claimable-fifty-move counts, truncations
+without either claimable draw, and aggregate final-material statistics for
+truncated games: total remaining material, learner material balance and
+absolute material balance.
+
 ## Frozen-opponent self-play
 
 `self_play.py` creates an independent frozen `DQNCNN` copied from the original agent's policy network. Its parameters do not require gradients and it selects greedily.

@@ -88,6 +88,48 @@ training the current configuration for longer produces continuing improvement.
 The State-Action agent is still not connected to frozen-opponent self-play or
 `main()`.
 
+### State-Action truncation diagnostics
+
+The reproducible 100-episode State-Action probe was extended with targeted
+diagnostics to investigate the persistent truncation rate.
+
+Claimable-draw diagnostics showed:
+
+- initial greedy evaluation: all `30/30` truncations ended without a claimable
+  threefold repetition or fifty-move draw;
+- training: all `78/78` truncations ended without either claimable draw;
+- final greedy evaluation: `29` truncations, with `1` position claimable by
+  threefold repetition, `1` claimable by the fifty-move rule, and `28`
+  truncations without either claimable draw.
+
+These counters are diagnostic properties and are not required to be mutually
+exclusive. The result nevertheless shows that claimable draws do not explain
+the high truncation rate.
+
+Material diagnostics use `78` as the initial total non-king material value.
+For truncated games, the same reproducible 100-episode probe produced:
+
+| Diagnostic | Initial greedy | Training | Final greedy |
+| --- | ---: | ---: | ---: |
+| Truncated games | 30 | 78 | 29 |
+| Average final total material | 20.20 | 10.55 | 10.83 |
+| Average learner material balance | -6.27 | +0.45 | -2.62 |
+| Average absolute material balance | 9.13 | 5.81 | 6.28 |
+
+These diagnostics materially narrow the problem. The truncated games are not
+generally reaching the artificial horizon with most material still on the
+board. After training, final greedy truncated games retain only about `10.83`
+of the initial `78` non-king material points on average.
+
+The final greedy policy also ends truncated games less far behind on average
+than the initial greedy policy (`-2.62` versus `-6.27`), while the balanced
+evaluation score changes from `0.000` to `0.113`.
+
+This is reproducible evidence of a behavioral change after training, but it is
+not sufficient evidence of reliable chess strength or general improvement.
+The remaining diagnostic question is what prevents heavily simplified greedy
+games from terminating.
+
 ## Learning signal
 
 The environment supplies terminal reward from White's perspective:
@@ -170,8 +212,11 @@ the actual project environment rather than in the documentation-audit sandbox.
 
 ## Open validation questions
 
-- Why does greedy State-Action play still truncate roughly three quarters or
-  more of evaluation games after substantial training?
+- What prevents heavily simplified greedy State-Action games from terminating,
+  despite final truncated positions retaining only a small fraction of the
+  initial non-king material on average?
+- What concrete endgame or move-pattern behavior appears inside those truncated
+  greedy games?
 - Why did the controlled greedy score remain `0.113` when training increased
   from 100 to 500 episodes?
 - Is the current limitation primarily related to reward design, replay/PER

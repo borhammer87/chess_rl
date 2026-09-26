@@ -93,7 +93,14 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Run controlled validation beyond smoke-test level
 - [x] Add reproducible State-Action CPU probe with controlled initialization, training and evaluation seeds
 - [x] Run controlled 100-episode and 500-episode CPU probes
-- [ ] Diagnose persistent greedy truncation and the 100-to-500-episode learning plateau
+- [x] Diagnose whether claimable draws explain persistent greedy truncation
+- [x] Add material diagnostics for truncated training and greedy evaluation games
+- [x] Establish that truncated State-Action games are generally heavily
+  simplified rather than retaining most starting material
+- [ ] Inspect concrete greedy truncated-game behavior, preferably through the
+  existing PGN infrastructure
+- [ ] Diagnose the remaining cause of persistent greedy truncation and the
+  100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN
 - [ ] Decide whether State-Action remains parallel or becomes the primary model
 - [ ] Integrate State-Action into frozen-opponent self-play only if validation warrants it
