@@ -2,7 +2,7 @@ import random
 from time import perf_counter
 
 import torch
-
+import chess
 from chess_rl.agents.random_agent import RandomAgent
 from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 from chess_rl.env.chess_env import ChessEnv
@@ -11,7 +11,9 @@ from chess_rl.training.train_dqn import (
     score_evaluation,
     summarize_training,
     train_against_random,
+    save_greedy_evaluation_game
 )
+from pathlib import Path
 from chess_rl.utils.replay_buffer import ReplayBuffer
 def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
@@ -216,6 +218,30 @@ def main() -> None:
         f"{final_evaluation.truncated_average_material_balance} "
         f"- avg absolute material balance: "
         f"{final_evaluation.truncated_average_absolute_material_balance}"
+    )
+
+    print("\nSaving final greedy diagnostic game...")
+
+    set_random_seed(evaluation_seed)
+
+    diagnostic_path = Path(
+        "state_action_evaluation_game.pgn"
+    )
+
+    diagnostic_result = save_greedy_evaluation_game(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        path=diagnostic_path,
+        max_agent_steps=max_agent_steps,
+        agent_color=chess.WHITE,
+    )
+
+    print(
+        f"Diagnostic game "
+        f"- truncated: {diagnostic_result.truncated} "
+        f"- plies: {diagnostic_result.total_plies} "
+        f"- path: {diagnostic_path}"
     )
 
 if __name__ == "__main__":
