@@ -69,3 +69,62 @@ def select_state_action_greedy_action(
     return legal_action_ids[
         best_local_index
     ]
+
+def evaluate_state_action_greedy_choice(
+    network: StateActionDQN,
+    state: torch.Tensor,
+    legal_moves: list[chess.Move],
+) -> tuple[int, float, float | None]:
+    """
+    Return the greedy legal action and its Q-value diagnostics.
+
+    The returned tuple contains:
+    - selected encoded action;
+    - highest legal Q-value;
+    - gap between the highest and second-highest legal Q-values,
+      or None when only one legal action exists.
+    """
+    if not legal_moves:
+        raise ValueError(
+            "Cannot evaluate a greedy choice without legal moves."
+        )
+
+    legal_action_ids = [
+        encode_move(move)
+        for move in legal_moves
+    ]
+
+    with torch.no_grad():
+        q_values = network.evaluate_action_ids(
+            state,
+            legal_action_ids,
+        )
+
+    best_local_index = int(
+        torch.argmax(q_values).item()
+    )
+
+    best_q = float(
+        q_values[best_local_index].item()
+    )
+
+    if len(legal_action_ids) == 1:
+        q_gap = None
+    else:
+        top_q_values = torch.topk(
+            q_values,
+            k=2,
+        ).values
+
+        q_gap = float(
+            (
+                top_q_values[0]
+                - top_q_values[1]
+            ).item()
+        )
+
+    return (
+        legal_action_ids[best_local_index],
+        best_q,
+        q_gap,
+    )
