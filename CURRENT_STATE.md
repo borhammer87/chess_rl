@@ -144,10 +144,8 @@ establish reliable chess-playing strength.
 
 ## Current focus
 
-## Current focus
-
-The current focus is inspecting concrete State-Action greedy games that reach
-the artificial horizon despite substantial material reduction.
+The current focus is diagnosing why the experimental State-Action policy still
+produces heavily truncated greedy games despite substantial material reduction.
 
 The alternative architecture has demonstrated sustained end-to-end training,
 reproducibility under fixed seeds and practical CPU execution time. Extending
@@ -157,30 +155,41 @@ RandomAgent score beyond `0.113`.
 Targeted diagnostics show that claimable draws are not the main cause of
 truncation and that final truncated positions are usually heavily simplified.
 
-The State-Action probe can now search for and save the first truncated greedy
-evaluation game within a bounded number of attempts. A reproducible truncated
-White-vs-RandomAgent diagnostic game has been captured at the full
-`150` learner-step / `300`-ply artificial horizon.
+The State-Action probe can search for and save a truncated greedy
+White-vs-RandomAgent game and analyze every learner decision against the final
+policy network while that exact policy is still in memory.
 
-A diagnostic helper for inspecting State-Action greedy Q-value separation has
-also been added and tested, but it is not yet connected to the saved PGN.
+In the reproducible 100-episode diagnostic run, all `150` recorded learner
+moves in the `300`-ply truncated game matched the reconstructed greedy action.
+This validates the saved trajectory for Q-value analysis.
 
-The immediate question is whether the actions selected throughout a concrete
-truncated game are strong Q-value preferences or near-ties among legal actions.
-No learning mechanism should be changed until that diagnostic evidence is
-collected.
+The legal-action Q-value distributions do not support a simple global
+Q-value-collapse explanation. The network often assigns meaningfully different
+values across the complete legal action set, while the best and second-best
+actions are nevertheless frequently separated by very small gaps.
+
+Some decisions are clearly distinguished. In particular, queen promotions
+showed large top-two gaps (`0.063167` and `0.034973`). Other ordinary decisions
+were effectively near-ties, including gaps as small as `0.000002` and
+`0.000039`.
+
+The current evidence therefore suggests that the State-Action network has
+learned some action preferences but often lacks strong separation among its
+top candidate actions. This is evidence about policy behavior, not yet an
+explanation of its cause.
 
 ## Next milestone
 
-Analyze the saved truncated State-Action PGN against the final policy network.
+Investigate the learning signal that produces the observed State-Action
+Q-value preferences before changing reward design, state representation,
+network architecture or training hyperparameters.
 
-For each learner position in the saved game, reconstruct the state and compare
-the played action with the policy's reconstructed greedy action, recording the
-best legal Q-value and its gap to the second-best legal Q-value.
+The next diagnostic should determine whether Bellman targets and TD errors used
+during State-Action training are themselves weakly differentiated or whether
+the training signal contains stronger distinctions that the learned policy is
+failing to represent.
 
-Keep this instrumentation in the diagnostic probe rather than expanding the
-production agent or training APIs unless later evidence justifies a reusable
-production abstraction.
-
-Do not change reward design, board encoding, network architecture, CUDA/device
-handling or self-play integration before interpreting this diagnostic.
+Prefer diagnostic instrumentation over changes to the learning algorithm.
+Use the existing training and State-Action abstractions where possible and do
+not generalize temporary diagnostics into production APIs without a concrete
+architectural reason.

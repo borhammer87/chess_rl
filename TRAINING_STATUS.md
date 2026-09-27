@@ -142,15 +142,39 @@ trajectory for inspecting policy behavior rather than relying only on aggregate
 truncation statistics.
 
 The repository also now contains a tested
+`evaluate_state_action_greedy_choice()` utility. The repository also contains a tested
 `evaluate_state_action_greedy_choice()` utility. Given a State-Action network,
 encoded state and legal moves, it returns the selected greedy action, the
 highest legal Q-value and the gap between the highest and second-highest legal
 Q-values.
 
-The utility has not yet been connected to the saved PGN. The next diagnostic
-is to reconstruct the learner positions from that PGN and verify that the
-reconstructed greedy action matches the recorded action before interpreting
-the corresponding Q-value gaps.
+The probe now reconstructs every learner position in the captured truncated
+PGN and evaluates it using the exact final policy that generated the game.
+All `150` recorded learner moves matched the reconstructed greedy actions, so
+the Q-value diagnostics correspond to the actual recorded trajectory.
+
+The diagnostic also measures the complete legal-action Q-value distribution
+for each learner position: legal-action count, best Q-value, top-two gap, mean,
+minimum, standard deviation and full range.
+
+The results rule out the strongest version of the Q-value-collapse hypothesis.
+The network does not simply assign the same value to every legal action.
+Full legal-action ranges are commonly on the order of hundredths and can be
+substantially larger.
+
+However, many positions still show extremely small separation between the two
+highest-valued actions. Examples include top-two gaps of `0.000069`,
+`0.000106`, `0.000039` and a minimum observed gap of `0.000002`.
+
+The behavior is not uniform. Queen promotions were strongly preferred in the
+captured trajectory, with top-two gaps of `0.063167` and `0.034973`. This
+provides concrete evidence that the network can learn strong action
+preferences in at least some positions.
+
+The current interpretation is therefore narrower than global Q-value collapse:
+the State-Action policy has learned some differentiation across legal actions,
+but frequently produces near-ties among its highest-valued ordinary choices.
+The cause of that behavior is not yet established.
 
 ## Learning signal
 
@@ -237,11 +261,9 @@ the actual project environment rather than in the documentation-audit sandbox.
 - What prevents heavily simplified greedy State-Action games from terminating,
   despite final truncated positions retaining only a small fraction of the
   initial non-king material on average?
-- In a concrete truncated greedy game, do reconstructed policy decisions match
-  the actions recorded in the PGN?
-- Are the selected actions separated clearly from the second-best legal action
-  by Q-value, or are many decisions effectively near-ties?
-- What concrete move-pattern behavior accompanies those Q-value preferences?
+- Are the Bellman targets and TD errors used during State-Action training
+  similarly weakly differentiated, or does the training signal contain
+  stronger distinctions than the learned policy ultimately represents?
 - Why did the controlled greedy score remain `0.113` when training increased
   from 100 to 500 episodes?
 - Is the current limitation primarily related to reward design, replay/PER

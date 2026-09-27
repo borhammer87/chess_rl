@@ -233,39 +233,56 @@ truncated game within a bounded number of attempts rather than assuming that an
 arbitrary diagnostic game will truncate. The captured game reached the full
 configured artificial horizon of `150` learner steps / `300` plies.
 
-A tested `evaluate_state_action_greedy_choice()` utility also exists. It
-returns the encoded greedy legal action, its Q-value and the Q-value gap to the
-second-best legal action. It is not yet connected to PGN analysis.
+A tested `evaluate_state_action_greedy_choice()` utility exists and is now
+connected to the diagnostic PGN analysis.
+
+The reproducible 100-episode probe reconstructs every learner position from the
+captured truncated game while the exact final policy remains in memory. All
+`150` recorded learner moves matched the reconstructed greedy action.
+
+For each learner position the probe reports the legal-action count, best
+Q-value, top-two Q-value gap, mean Q-value, minimum Q-value, standard deviation
+and full legal-action Q-value range.
+
+The resulting evidence does not support simple global Q-value collapse. The
+network often separates the complete legal action set by meaningful amounts,
+while nevertheless assigning extremely similar values to its two highest
+candidates in many ordinary positions.
+
+Observed top-two gaps reached as low as `0.000002` and `0.000039`. Conversely,
+queen promotions were strongly distinguished, with gaps of `0.063167` and
+`0.034973`.
+
+The current interpretation is that State-Action has learned some real action
+preferences but frequently lacks strong separation among its highest-valued
+ordinary choices. This does not yet identify the cause.
 
 ## Current development focus
 
-The immediate focus is analyzing the concrete truncated State-Action greedy
-game already captured by the probe.
+The immediate focus is now the learning signal behind those Q-value
+distributions.
 
-The next diagnostic should remain outside the production agent/training API
-unless there is a demonstrated reason to generalize it. Prefer a small helper
-inside `scripts/run_state_action_probe.py` that:
+Before changing reward design, state representation, network architecture,
+hyperparameters, CUDA/device handling or self-play integration, determine
+whether the Bellman targets and TD errors encountered during State-Action
+training are themselves weakly differentiated.
 
-1. reads the saved truncated PGN;
-2. reconstructs each position before a learner move;
-3. encodes that position with the existing board encoder;
-4. evaluates the legal actions with the final State-Action policy;
-5. verifies that the reconstructed greedy action equals the move recorded in
-   the PGN;
-6. reports the best legal Q-value and the gap to the second-best legal Q-value.
+The next diagnostic should help distinguish between two broad possibilities:
 
-If reconstructed greedy actions do not match the PGN moves, stop and diagnose
-that mismatch before interpreting Q-values.
+1. the learning targets themselves provide little differentiation, which could
+   naturally produce similar learned Q-values; or
+2. the learning targets contain stronger distinctions that the network or
+   training process is failing to preserve in the learned policy.
 
-Do not add diagnostic-only methods or callbacks to production agents or
-training loops merely for convenience. Do not change reward design, board
-encoding, network architecture, CUDA/device handling, hyperparameters or
-self-play integration before interpreting this evidence.
+Prefer the smallest diagnostic capable of answering that question. Reuse
+existing training results, TD-error data structures and State-Action
+abstractions where possible. Do not add diagnostic-only production APIs unless
+inspection demonstrates a concrete architectural need.
 
 The board encoder currently represents pieces, castling rights, en-passant
-state and side to move, but not repetition history or move counters. This is a
-real representational limitation, but do not assume it is the cause of the
-observed truncation without evidence.
+state and side to move, but not repetition history or move counters. This
+remains a real representational limitation, but current evidence does not
+establish it as the cause of truncation or small top-action Q-value gaps.
 
 ## Important limitations
 
@@ -294,13 +311,16 @@ Always run the relevant tests after code changes and do not inherit a green stat
 Before proposing any new code modification, inspect the fresh ZIP completely
 according to the source-of-truth and inspection rules above.
 
-At the current documented milestone, the next code change should be a small
-diagnostic addition to `scripts/run_state_action_probe.py` that analyzes the
-already-saved truncated PGN against the final State-Action policy.
+At the current documented milestone, the truncated-PGN Q-value diagnostic is
+complete.
 
-Do not expand the production `StateActionDQNAgent`, episode runner or training
-API for this temporary diagnostic unless inspection of the fresh repository
-shows a concrete architectural need.
+The next investigation should examine the Bellman targets and TD errors used
+during State-Action training to determine whether the weak top-action
+separation originates in the learning signal or emerges later in learning.
+
+Do not change the learning algorithm merely to collect this diagnostic. Inspect
+the existing State-Action training path and tests first and prefer existing
+outputs or the smallest temporary instrumentation necessary.
 
 The user implements all code changes locally. Give exact file names, exact
 placement and complete replacement/addition blocks. Do not claim a modification
