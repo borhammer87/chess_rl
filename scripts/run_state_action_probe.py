@@ -3,6 +3,7 @@ from time import perf_counter
 
 import torch
 import chess
+import chess.pgn
 from chess_rl.agents.random_agent import RandomAgent
 from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 from chess_rl.env.chess_env import ChessEnv

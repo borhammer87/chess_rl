@@ -97,8 +97,13 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Add material diagnostics for truncated training and greedy evaluation games
 - [x] Establish that truncated State-Action games are generally heavily
   simplified rather than retaining most starting material
-- [ ] Inspect concrete greedy truncated-game behavior, preferably through the
-  existing PGN infrastructure
+- [x] Reuse the existing PGN infrastructure to save the first truncated greedy
+  State-Action evaluation game within a bounded number of attempts
+- [x] Add and test a diagnostic utility that reports the greedy legal action,
+  best Q-value and best-vs-second-best Q-value gap
+- [ ] Reconstruct the saved truncated PGN against the final policy and verify
+  that recorded learner moves match reconstructed greedy choices
+- [ ] Inspect Q-value gaps and move patterns throughout the truncated game
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN

@@ -130,6 +130,28 @@ not sufficient evidence of reliable chess strength or general improvement.
 The remaining diagnostic question is what prevents heavily simplified greedy
 games from terminating.
 
+### Concrete truncated-game diagnostic
+
+The State-Action probe was extended to search for the first truncated greedy
+White-vs-RandomAgent evaluation game within a bounded number of attempts,
+reusing the existing PGN export path.
+
+A truncated game was successfully captured at the configured artificial
+horizon of `150` learner steps / `300` total plies. This provides a concrete
+trajectory for inspecting policy behavior rather than relying only on aggregate
+truncation statistics.
+
+The repository also now contains a tested
+`evaluate_state_action_greedy_choice()` utility. Given a State-Action network,
+encoded state and legal moves, it returns the selected greedy action, the
+highest legal Q-value and the gap between the highest and second-highest legal
+Q-values.
+
+The utility has not yet been connected to the saved PGN. The next diagnostic
+is to reconstruct the learner positions from that PGN and verify that the
+reconstructed greedy action matches the recorded action before interpreting
+the corresponding Q-value gaps.
+
 ## Learning signal
 
 The environment supplies terminal reward from White's perspective:
@@ -215,8 +237,11 @@ the actual project environment rather than in the documentation-audit sandbox.
 - What prevents heavily simplified greedy State-Action games from terminating,
   despite final truncated positions retaining only a small fraction of the
   initial non-king material on average?
-- What concrete endgame or move-pattern behavior appears inside those truncated
-  greedy games?
+- In a concrete truncated greedy game, do reconstructed policy decisions match
+  the actions recorded in the PGN?
+- Are the selected actions separated clearly from the second-best legal action
+  by Q-value, or are many decisions effectively near-ties?
+- What concrete move-pattern behavior accompanies those Q-value preferences?
 - Why did the controlled greedy score remain `0.113` when training increased
   from 100 to 500 episodes?
 - Is the current limitation primarily related to reward design, replay/PER

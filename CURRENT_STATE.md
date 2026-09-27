@@ -146,34 +146,41 @@ establish reliable chess-playing strength.
 
 ## Current focus
 
-The current focus is inspecting what happens inside heavily simplified
-State-Action greedy games that still reach the artificial horizon.
+The current focus is inspecting concrete State-Action greedy games that reach
+the artificial horizon despite substantial material reduction.
 
 The alternative architecture has demonstrated sustained end-to-end training,
 reproducibility under fixed seeds and practical CPU execution time. Extending
 training from 100 to 500 episodes did not improve the balanced greedy
 RandomAgent score beyond `0.113`.
 
-Targeted diagnostics now show that claimable draws are not the main cause of
+Targeted diagnostics show that claimable draws are not the main cause of
 truncation and that final truncated positions are usually heavily simplified.
 
-The immediate question is therefore no longer whether State-Action can train,
-whether CUDA is required for a meaningful probe, or whether truncations simply
-preserve most of the starting material. The next diagnostic should inspect
-concrete greedy truncated-game behavior.
+The State-Action probe can now search for and save the first truncated greedy
+evaluation game within a bounded number of attempts. A reproducible truncated
+White-vs-RandomAgent diagnostic game has been captured at the full
+`150` learner-step / `300`-ply artificial horizon.
+
+A diagnostic helper for inspecting State-Action greedy Q-value separation has
+also been added and tested, but it is not yet connected to the saved PGN.
+
+The immediate question is whether the actions selected throughout a concrete
+truncated game are strong Q-value preferences or near-ties among legal actions.
+No learning mechanism should be changed until that diagnostic evidence is
+collected.
 
 ## Next milestone
 
-Inspect concrete greedy State-Action truncated games to determine why heavily
-simplified positions still fail to terminate before scaling training further
-or integrating State-Action into frozen-opponent self-play.
+Analyze the saved truncated State-Action PGN against the final policy network.
 
-Prefer reusing the existing greedy PGN export infrastructure if the current
-code supports doing so with a small, well-tested change.
+For each learner position in the saved game, reconstruct the state and compare
+the played action with the policy's reconstructed greedy action, recording the
+best legal Q-value and its gap to the second-best legal Q-value.
 
-Do not assume in advance that reward design, replay/PER behavior, epsilon
-scheduling, state representation, Bellman targets or model capacity is the
-cause.
+Keep this instrumentation in the diagnostic probe rather than expanding the
+production agent or training APIs unless later evidence justifies a reusable
+production abstraction.
 
-Explicit CUDA support remains a future option, but measured CPU performance
-does not currently make it the immediate priority.
+Do not change reward design, board encoding, network architecture, CUDA/device
+handling or self-play integration before interpreting this diagnostic.

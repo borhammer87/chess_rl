@@ -26,6 +26,10 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
 - Automated tests covering the environment, encoders, agents, replay, training, self-play, checkpointing, diagnostics and both DQN model families.
 - truncation diagnostics covering claimable draws and final material state;
+- bounded search and PGN capture of a concrete truncated State-Action greedy
+  evaluation game;
+- diagnostic State-Action greedy-choice inspection with best-Q and
+  best-vs-second-best Q-value gap reporting;
 
 ## Installation
 
@@ -71,8 +75,9 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 
 ## Current objective
 
-The immediate development focus is diagnosing why heavily simplified greedy
-State-Action games still reach the artificial episode horizon. The next step is
-to inspect concrete truncated greedy games, preferably by reusing the existing
-PGN diagnostic infrastructure before changing the learning algorithm or
-scaling training further.
+The immediate development focus is analyzing a concrete truncated State-Action
+greedy evaluation game. The next diagnostic reconstructs the learner positions
+from the saved PGN, verifies that the recorded moves match the final policy's
+greedy choices, and inspects the Q-value gap between the best and second-best
+legal actions. Learning mechanisms should not be changed until this evidence is
+available.

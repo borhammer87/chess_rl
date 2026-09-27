@@ -227,25 +227,45 @@ simply reaching the artificial horizon with most material intact.
 Treat this as reproducible evidence of behavioral change after training, not
 as proof of reliable chess strength.
 
+A concrete truncated greedy White-vs-RandomAgent game has now been captured
+through the existing PGN infrastructure. The probe searches for the first
+truncated game within a bounded number of attempts rather than assuming that an
+arbitrary diagnostic game will truncate. The captured game reached the full
+configured artificial horizon of `150` learner steps / `300` plies.
+
+A tested `evaluate_state_action_greedy_choice()` utility also exists. It
+returns the encoded greedy legal action, its Q-value and the Q-value gap to the
+second-best legal action. It is not yet connected to PGN analysis.
+
 ## Current development focus
 
-The immediate focus is diagnosing what prevents heavily simplified greedy
-State-Action games from terminating.
+The immediate focus is analyzing the concrete truncated State-Action greedy
+game already captured by the probe.
 
-Do not simply extend the same experiment to 1,000+ episodes without diagnostic
-justification. Do not assume CUDA is next: the measured 500-episode CPU run
-took approximately 14.5 minutes, so CPU cost is not currently the demonstrated
-bottleneck.
+The next diagnostic should remain outside the production agent/training API
+unless there is a demonstrated reason to generalize it. Prefer a small helper
+inside `scripts/run_state_action_probe.py` that:
 
-The next recommended diagnostic is to inspect concrete greedy truncated-game
-behavior. The repository already contains greedy diagnostic PGN export for the
-original DQN path, so inspect that implementation and its tests before deciding
-whether it can be reused for State-Action with a small change. Do not duplicate
-PGN infrastructure unnecessarily.
+1. reads the saved truncated PGN;
+2. reconstructs each position before a learner move;
+3. encodes that position with the existing board encoder;
+4. evaluates the legal actions with the final State-Action policy;
+5. verifies that the reconstructed greedy action equals the move recorded in
+   the PGN;
+6. reports the best legal Q-value and the gap to the second-best legal Q-value.
 
-Do not assume in advance that reward design, replay/PER behavior, epsilon
-scheduling, state representation, Bellman targets or model capacity is the
-cause. Use concrete game evidence to choose the next hypothesis.
+If reconstructed greedy actions do not match the PGN moves, stop and diagnose
+that mismatch before interpreting Q-values.
+
+Do not add diagnostic-only methods or callbacks to production agents or
+training loops merely for convenience. Do not change reward design, board
+encoding, network architecture, CUDA/device handling, hyperparameters or
+self-play integration before interpreting this evidence.
+
+The board encoder currently represents pieces, castling rights, en-passant
+state and side to move, but not repetition history or move counters. This is a
+real representational limitation, but do not assume it is the cause of the
+observed truncation without evidence.
 
 ## Important limitations
 
@@ -271,19 +291,21 @@ Always run the relevant tests after code changes and do not inherit a green stat
 
 ## Next-step rule
 
-Inspect a fresh ZIP before proposing the next code modification.
+Before proposing any new code modification, inspect the fresh ZIP completely
+according to the source-of-truth and inspection rules above.
 
-At the current documented milestone, the next development task should inspect
-concrete greedy State-Action truncated-game behavior, preferably by reusing the
-existing PGN diagnostic path.
+At the current documented milestone, the next code change should be a small
+diagnostic addition to `scripts/run_state_action_probe.py` that analyzes the
+already-saved truncated PGN against the final State-Action policy.
 
-Do not automatically choose longer training, CUDA implementation, self-play
-integration or broad hyperparameter tuning.
+Do not expand the production `StateActionDQNAgent`, episode runner or training
+API for this temporary diagnostic unless inspection of the fresh repository
+shows a concrete architectural need.
 
-After inspecting a fresh ZIP, verify the existing PGN implementation and tests
-exactly, then propose the smallest well-tested change that can preserve a
-representative greedy truncated State-Action game for inspection. The user
-implements the code locally; wait for the resulting evidence before choosing
-the following step.
+The user implements all code changes locally. Give exact file names, exact
+placement and complete replacement/addition blocks. Do not claim a modification
+has been implemented merely because it was proposed in chat.
 
-Determine the smallest useful diagnostic from the actual current code and tests, explain what hypothesis it tests, have the user implement it locally, and wait for the resulting evidence before choosing the following step.
+After the diagnostic output is obtained, use that evidence to choose the next
+hypothesis. Do not automatically proceed to longer training, CUDA, reward
+changes, encoder changes or self-play integration.
