@@ -331,5 +331,15 @@ def main() -> None:
             f"- path: {diagnostic_path}"
         )
 
+        print(
+            "\nAnalyzing reconstructed greedy choices..."
+        )
+
+        analyze_greedy_pgn(
+            path=diagnostic_path,
+            agent=agent,
+            agent_color=chess.WHITE,
+        )
+
 if __name__ == "__main__":
     main()
