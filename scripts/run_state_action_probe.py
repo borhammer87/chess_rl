@@ -13,7 +13,6 @@ from chess_rl.training.train_dqn import (
     summarize_training,
     train_against_random,
     save_greedy_evaluation_game,
-    save_first_truncated_greedy_evaluation_game,
 
 )
 from pathlib import Path
@@ -557,17 +556,32 @@ def main() -> None:
     diagnostic_path = Path(
         "state_action_evaluation_game.pgn"
     )
-    diagnostic_result = (
-        save_first_truncated_greedy_evaluation_game(
+    diagnostic_result = None
+    diagnostic_buffer = None
+
+    for _ in range(evaluation_episodes_per_color):
+        attempt_buffer = ReplayBuffer(
+            capacity=max_agent_steps,
+        )
+
+        attempt_result = save_greedy_evaluation_game(
             env=env,
             agent=agent,
             opponent=opponent,
             path=diagnostic_path,
-            max_attempts=evaluation_episodes_per_color,
             max_agent_steps=max_agent_steps,
             agent_color=chess.WHITE,
+            replay_buffer=attempt_buffer,
         )
-    )
+
+        if attempt_result.truncated:
+            diagnostic_result = attempt_result
+            diagnostic_buffer = attempt_buffer
+            break
+
+    if diagnostic_result is None:
+        if diagnostic_path.exists():
+            diagnostic_path.unlink()
 
     if diagnostic_result is None:
         print(
@@ -579,6 +593,19 @@ def main() -> None:
             f"Truncated diagnostic game "
             f"- plies: {diagnostic_result.total_plies} "
             f"- path: {diagnostic_path}"
+        )
+        if diagnostic_buffer is None:
+            raise RuntimeError(
+                "Truncated diagnostic game has no replay buffer."
+            )
+
+        print(
+            "\nFinal-policy diagnostic-game learning signal..."
+        )
+
+        analyze_replay_learning_signal(
+            agent=agent,
+            replay_buffer=diagnostic_buffer,
         )
 
         print(
