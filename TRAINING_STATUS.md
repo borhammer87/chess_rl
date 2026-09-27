@@ -141,8 +141,7 @@ horizon of `150` learner steps / `300` total plies. This provides a concrete
 trajectory for inspecting policy behavior rather than relying only on aggregate
 truncation statistics.
 
-The repository also now contains a tested
-`evaluate_state_action_greedy_choice()` utility. The repository also contains a tested
+The repository also contains a tested
 `evaluate_state_action_greedy_choice()` utility. Given a State-Action network,
 encoded state and legal moves, it returns the selected greedy action, the
 highest legal Q-value and the gap between the highest and second-highest legal

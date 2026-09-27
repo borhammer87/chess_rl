@@ -128,6 +128,218 @@ def analyze_greedy_pgn(
             move
         )
 
+def analyze_replay_learning_signal(
+    agent: StateActionDQNAgent,
+    replay_buffer: ReplayBuffer,
+    batch_size: int = 256,
+) -> None:
+    """Summarize Bellman targets and TD errors in the final replay."""
+    transitions = list(
+        replay_buffer.buffer
+    )
+
+    if not transitions:
+        raise ValueError(
+            "Cannot analyze an empty replay buffer."
+        )
+
+    all_rewards = []
+    all_targets = []
+    all_q_values = []
+    all_abs_td_errors = []
+    all_done = []
+
+    with torch.no_grad():
+        for start in range(
+            0,
+            len(transitions),
+            batch_size,
+        ):
+            batch = transitions[
+                start:start + batch_size
+            ]
+
+            states = torch.stack([
+                transition.state
+                for transition in batch
+            ])
+
+            actions = [
+                transition.action
+                for transition in batch
+            ]
+
+            rewards = torch.tensor(
+                [
+                    transition.reward
+                    for transition in batch
+                ],
+                dtype=torch.float32,
+            )
+
+            q_values = (
+                agent.policy_net.evaluate_state_action_pairs(
+                    states,
+                    actions,
+                )
+            )
+
+            next_q_values = torch.zeros(
+                len(batch),
+                dtype=torch.float32,
+            )
+
+            non_terminal_indices = [
+                index
+                for index, transition in enumerate(batch)
+                if not transition.done
+            ]
+
+            for index in non_terminal_indices:
+                if not batch[index].next_legal_actions:
+                    raise ValueError(
+                        "Non-terminal transition must have "
+                        "legal next actions."
+                    )
+
+            if non_terminal_indices:
+                next_states = torch.stack([
+                    batch[index].next_state
+                    for index in non_terminal_indices
+                ])
+
+                next_legal_actions = [
+                    batch[index].next_legal_actions
+                    for index in non_terminal_indices
+                ]
+
+                next_q_values[
+                    non_terminal_indices
+                ] = (
+                    agent.target_net.evaluate_legal_action_maxes(
+                        next_states,
+                        next_legal_actions,
+                    )
+                )
+
+            targets = (
+                rewards
+                + agent.gamma * next_q_values
+            )
+
+            abs_td_errors = (
+                targets - q_values
+            ).abs()
+
+            all_rewards.append(
+                rewards.cpu()
+            )
+            all_targets.append(
+                targets.cpu()
+            )
+            all_q_values.append(
+                q_values.cpu()
+            )
+            all_abs_td_errors.append(
+                abs_td_errors.cpu()
+            )
+            all_done.extend(
+                transition.done
+                for transition in batch
+            )
+
+    rewards = torch.cat(
+        all_rewards
+    )
+    targets = torch.cat(
+        all_targets
+    )
+    q_values = torch.cat(
+        all_q_values
+    )
+    abs_td_errors = torch.cat(
+        all_abs_td_errors
+    )
+    done_mask = torch.tensor(
+        all_done,
+        dtype=torch.bool,
+    )
+
+    def print_stats(
+        label: str,
+        values: torch.Tensor,
+    ) -> None:
+        print(
+            f"{label}: "
+            f"mean={values.mean().item():.6f} "
+            f"- std={values.std(unbiased=False).item():.6f} "
+            f"- min={values.min().item():.6f} "
+            f"- max={values.max().item():.6f}"
+        )
+
+    print(
+        f"Replay transitions: {len(transitions)} "
+        f"- non-terminal: {(~done_mask).sum().item()} "
+        f"- terminal: {done_mask.sum().item()}"
+    )
+
+    print_stats(
+        "Reward",
+        rewards,
+    )
+    print_stats(
+        "Bellman target",
+        targets,
+    )
+    print_stats(
+        "Q(s,a)",
+        q_values,
+    )
+    print_stats(
+        "|TD error|",
+        abs_td_errors,
+    )
+
+    if done_mask.any():
+        print("\nTerminal transitions:")
+        print_stats(
+            "Reward",
+            rewards[done_mask],
+        )
+        print_stats(
+            "Bellman target",
+            targets[done_mask],
+        )
+        print_stats(
+            "Q(s,a)",
+            q_values[done_mask],
+        )
+        print_stats(
+            "|TD error|",
+            abs_td_errors[done_mask],
+        )
+
+    non_terminal_mask = ~done_mask
+
+    if non_terminal_mask.any():
+        print("\nNon-terminal transitions:")
+        print_stats(
+            "Reward",
+            rewards[non_terminal_mask],
+        )
+        print_stats(
+            "Bellman target",
+            targets[non_terminal_mask],
+        )
+        print_stats(
+            "Q(s,a)",
+            q_values[non_terminal_mask],
+        )
+        print_stats(
+            "|TD error|",
+            abs_td_errors[non_terminal_mask],
+        )
+
 def main() -> None:
     """
     Run a short CPU training probe for the State-Action DQN.
@@ -282,6 +494,13 @@ def main() -> None:
         f"{summary.truncated_average_absolute_material_balance}"
     )
 
+    print("\nAnalyzing final replay learning signal...")
+
+    analyze_replay_learning_signal(
+        agent=agent,
+        replay_buffer=replay_buffer,
+    )
+    
     print("\nFinal greedy evaluation...")
 
     set_random_seed(evaluation_seed)
