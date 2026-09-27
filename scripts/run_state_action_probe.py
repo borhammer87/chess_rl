@@ -89,15 +89,12 @@ def analyze_greedy_pgn(
             ]
 
             with torch.no_grad():
-                q_values = agent.policy_net.score_actions(
-                    torch.as_tensor(
+                q_values = agent.policy_net.evaluate_action_ids(
+                    state=torch.as_tensor(
                         state,
                         dtype=torch.float32,
                     ),
-                    torch.as_tensor(
-                        legal_actions,
-                        dtype=torch.long,
-                    ),
+                    action_ids=legal_actions,
                 )
 
             q_values = q_values.detach().cpu().float()
