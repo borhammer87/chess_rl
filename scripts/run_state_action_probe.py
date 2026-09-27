@@ -18,10 +18,87 @@ from chess_rl.training.train_dqn import (
 )
 from pathlib import Path
 from chess_rl.utils.replay_buffer import ReplayBuffer
+from chess_rl.utils.board_encoder import encode_board
+from chess_rl.utils.action_encoder import encode_move
+from chess_rl.utils.action_selection import (
+    evaluate_state_action_greedy_choice,
+)
 def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
     random.seed(seed)
     torch.manual_seed(seed)
+
+def analyze_greedy_pgn(
+    path: Path,
+    agent: StateActionDQNAgent,
+    agent_color: chess.Color,
+) -> None:
+    """Compare recorded learner moves with reconstructed greedy choices."""
+    with path.open(
+        encoding="utf-8",
+    ) as pgn_file:
+        game = chess.pgn.read_game(
+            pgn_file
+        )
+
+    if game is None:
+        raise ValueError(
+            "PGN does not contain a game."
+        )
+
+    board = game.board()
+    learner_move_number = 0
+
+    for move in game.mainline_moves():
+        if board.turn == agent_color:
+            learner_move_number += 1
+
+            state = encode_board(
+                board
+            )
+            legal_moves = list(
+                board.legal_moves
+            )
+
+            (
+                greedy_action,
+                best_q,
+                q_gap,
+            ) = evaluate_state_action_greedy_choice(
+                network=agent.policy_net,
+                state=state,
+                legal_moves=legal_moves,
+            )
+
+            recorded_action = encode_move(
+                move
+            )
+
+            if greedy_action != recorded_action:
+                raise RuntimeError(
+                    "Reconstructed greedy action does not "
+                    "match recorded PGN move "
+                    f"at learner move {learner_move_number}: "
+                    f"recorded={move.uci()}, "
+                    f"greedy_action={greedy_action}."
+                )
+
+            q_gap_text = (
+                f"{q_gap:.6f}"
+                if q_gap is not None
+                else "N/A"
+            )
+
+            print(
+                f"{learner_move_number:3d}. "
+                f"{move.uci()} "
+                f"- Q: {best_q:.6f} "
+                f"- gap: {q_gap_text}"
+            )
+
+        board.push(
+            move
+        )
 
 def main() -> None:
     """
