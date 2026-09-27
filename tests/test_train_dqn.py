@@ -2403,3 +2403,58 @@ def test_evaluate_against_random_reports_truncated_material_metrics(
         summary.truncated_average_absolute_material_balance
         == 3.0
     )
+
+def test_save_greedy_evaluation_game_uses_provided_replay_buffer(
+    monkeypatch,
+    tmp_path,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    received_buffers = []
+
+    def fake_run_dqn_vs_random_episode(
+        env,
+        agent,
+        opponent,
+        replay_buffer,
+        max_agent_steps,
+        batch_size,
+        min_replay_size,
+        agent_color,
+    ):
+        received_buffers.append(replay_buffer)
+
+        env.reset()
+
+        return VsRandomEpisodeResult(
+            agent_steps=0,
+            total_plies=0,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=agent.epsilon,
+            replay_size=len(replay_buffer),
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_run_dqn_vs_random_episode,
+    )
+
+    save_greedy_evaluation_game(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        path=tmp_path / "evaluation.pgn",
+        replay_buffer=replay_buffer,
+    )
+
+    assert received_buffers == [
+        replay_buffer,
+    ]
