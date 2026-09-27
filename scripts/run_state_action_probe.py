@@ -83,6 +83,32 @@ def analyze_greedy_pgn(
                     f"greedy_action={greedy_action}."
                 )
 
+            legal_actions = [
+                encode_move(legal_move)
+                for legal_move in legal_moves
+            ]
+
+            with torch.no_grad():
+                q_values = agent.policy_net.score_actions(
+                    torch.as_tensor(
+                        state,
+                        dtype=torch.float32,
+                    ),
+                    torch.as_tensor(
+                        legal_actions,
+                        dtype=torch.long,
+                    ),
+                )
+
+            q_values = q_values.detach().cpu().float()
+
+            min_q = q_values.min().item()
+            mean_q = q_values.mean().item()
+            std_q = q_values.std(
+                unbiased=False
+            ).item()
+            q_range = best_q - min_q
+
             q_gap_text = (
                 f"{q_gap:.6f}"
                 if q_gap is not None
@@ -92,8 +118,13 @@ def analyze_greedy_pgn(
             print(
                 f"{learner_move_number:3d}. "
                 f"{move.uci()} "
-                f"- Q: {best_q:.6f} "
-                f"- gap: {q_gap_text}"
+                f"- legal: {len(legal_moves)} "
+                f"- best: {best_q:.6f} "
+                f"- gap: {q_gap_text} "
+                f"- mean: {mean_q:.6f} "
+                f"- min: {min_q:.6f} "
+                f"- std: {std_q:.6f} "
+                f"- range: {q_range:.6f}"
             )
 
         board.push(
