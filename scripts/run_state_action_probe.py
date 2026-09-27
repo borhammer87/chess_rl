@@ -23,6 +23,8 @@ from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.action_selection import (
     evaluate_state_action_greedy_choice,
 )
+from chess_rl.training.episodes import run_dqn_vs_random_episode
+
 def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
     random.seed(seed)
@@ -340,6 +342,8 @@ def analyze_replay_learning_signal(
             abs_td_errors[non_terminal_mask],
         )
 
+
+
 def main() -> None:
     """
     Run a short CPU training probe for the State-Action DQN.
@@ -500,7 +504,7 @@ def main() -> None:
         agent=agent,
         replay_buffer=replay_buffer,
     )
-    
+
     print("\nFinal greedy evaluation...")
 
     set_random_seed(evaluation_seed)
@@ -576,6 +580,44 @@ def main() -> None:
             f"Truncated diagnostic game "
             f"- plies: {diagnostic_result.total_plies} "
             f"- path: {diagnostic_path}"
+        )
+
+        set_random_seed(evaluation_seed)
+
+        diagnostic_buffer = ReplayBuffer(
+            capacity=max_agent_steps,
+        )
+
+        original_epsilon = agent.epsilon
+
+        try:
+            agent.epsilon = 0.0
+
+            replayed_result = run_dqn_vs_random_episode(
+                env=env,
+                agent=agent,
+                opponent=opponent,
+                replay_buffer=diagnostic_buffer,
+                max_agent_steps=max_agent_steps,
+                batch_size=1,
+                min_replay_size=max_agent_steps + 1,
+                agent_color=chess.WHITE,
+            )
+        finally:
+            agent.epsilon = original_epsilon
+
+        if not replayed_result.truncated:
+            raise RuntimeError(
+                "Replayed diagnostic game did not truncate."
+            )
+
+        print(
+            "\nFinal-policy diagnostic-game learning signal..."
+        )
+
+        analyze_replay_learning_signal(
+            agent=agent,
+            replay_buffer=diagnostic_buffer,
         )
 
         print(
