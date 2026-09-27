@@ -686,6 +686,7 @@ def save_greedy_evaluation_game(
     path: Path,
     max_agent_steps: int = 150,
     agent_color: chess.Color = chess.WHITE,
+    replay_buffer: ReplayBuffer | None = None,
 ) -> VsRandomEpisodeResult:
     """
     Play one greedy evaluation game against RandomAgent
@@ -696,8 +697,12 @@ def save_greedy_evaluation_game(
     """
     original_epsilon = agent.epsilon
 
-    evaluation_buffer = ReplayBuffer(
-        capacity=max_agent_steps,
+    evaluation_buffer = (
+        replay_buffer
+        if replay_buffer is not None
+        else ReplayBuffer(
+            capacity=max_agent_steps,
+        )
     )
 
     try:
