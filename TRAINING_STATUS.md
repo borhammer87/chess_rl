@@ -299,18 +299,18 @@ These are qualitative repository-recorded conclusions. This HEAD does not includ
 
 ## Fresh validation status
 
-The automated suite was run successfully in the actual `chess-rl` development
-environment after the State-Action CPU probe runner was added:
+A preserved automated-suite run from an earlier point in the State-Action
+probe work reported:
 
 `257 passed in 11.29s`
 
-A later experimental seed-helper test was intentionally removed after exposing
-an import-design issue in the standalone `scripts/` directory; the project
-structure was not changed merely to make that test importable. The suite was
-then reported green again before the reproducible probe work continued.
+The suite was subsequently reported green after later diagnostic and
+replay-buffer changes. The repository has gained additional test coverage since
+the preserved 257-test run, so that number should be treated as historical
+rather than as the exact current test count.
 
-The controlled State-Action CPU experiments described above were executed in
-the actual project environment rather than in the documentation-audit sandbox.
+The controlled State-Action CPU experiments and subsequent diagnostics
+documented above were executed in the actual project environment.
 
 ## Open validation questions
 

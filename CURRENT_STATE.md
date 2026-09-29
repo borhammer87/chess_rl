@@ -97,35 +97,24 @@ This corrects older documentation that stated a 15-episode target synchronizatio
 
 ## Test status
 
-The automated suite was run successfully in the actual `chess-rl` development environment after the State-Action CPU probe runner was added:
+The automated suite was run successfully in the actual `chess-rl` development
+environment after the State-Action CPU probe runner was introduced. One
+preserved historical run reported:
 
 `257 passed in 11.29s`
 
-A later experimental test around the standalone probe script was intentionally removed rather than changing the project package structure merely to make `scripts/` importable. The suite was subsequently reported green again before the reproducible State-Action probes continued.
+Additional tests and diagnostic changes have been added since that run,
+including coverage for supplying an external replay buffer to
+`save_greedy_evaluation_game()`.
 
-The controlled 100-episode and 500-episode State-Action experiments were executed in the actual project environment.
+The user subsequently reported the full suite green after those changes, but
+the exact current test count and duration are not preserved in this repository
+snapshot. They should therefore not be inferred from the older `257 passed`
+result.
 
-
-Targeted diagnostics on the reproducible 100-episode configuration further
-showed:
-
-- initial greedy evaluation: `30/30` truncations without a claimable threefold
-  or fifty-move draw;
-- training: `78/78` truncations without either claimable draw;
-- final greedy evaluation: `29` truncations, of which `28` had neither
-  claimable draw; one was claimable by threefold and one by the fifty-move
-  rule;
-- initial greedy truncated games: average final total material `20.20/78`,
-  average learner material balance `-6.27`, average absolute balance `9.13`;
-- training truncations: average final total material `10.55/78`, average
-  learner material balance `+0.45`, average absolute balance `5.81`;
-- final greedy truncated games: average final total material `10.83/78`,
-  average learner material balance `-2.62`, average absolute balance `6.28`.
-
-These results rule out claimable draws as the main explanation for truncation
-and show that truncated games are generally heavily simplified. They do not
-establish reliable chess-playing strength.
-
+The controlled 100-episode and 500-episode State-Action experiments and the
+subsequent Q-value/Bellman diagnostics were executed in the actual project
+environment.
 
 ## Current limitations
 

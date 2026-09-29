@@ -101,9 +101,17 @@ This roadmap distinguishes implemented milestones from validation that is still 
   State-Action evaluation game within a bounded number of attempts
 - [x] Add and test a diagnostic utility that reports the greedy legal action,
   best Q-value and best-vs-second-best Q-value gap
-- [ ] Reconstruct the saved truncated PGN against the final policy and verify
-  that recorded learner moves match reconstructed greedy choices
-- [ ] Inspect Q-value gaps and move patterns throughout the truncated game
+- [x] Reconstruct the saved truncated PGN against the final policy and verify
+  that all recorded learner moves match reconstructed greedy choices
+- [x] Inspect complete legal-action Q-value distributions throughout the
+  truncated game, including top-two gap, mean, minimum, standard deviation
+  and range
+- [x] Diagnose Bellman-target and TD-error distributions in the final training
+  replay and in the exact replay of the saved truncated greedy game
+- [x] Audit State-Action transition semantics from episode construction through
+  replay and Bellman target calculation
+- [ ] Diagnose whether replay/exploration provides sufficiently diverse
+  experience to learn useful distinctions among alternative legal actions
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN

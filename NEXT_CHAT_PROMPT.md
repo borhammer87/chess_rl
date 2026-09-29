@@ -336,8 +336,6 @@ reliable.
 Only then propose the smallest diagnostic necessary. Prefer reusing the final
 training replay already available in `scripts/run_state_action_probe.py`.
 
-Do not modify the learning algorithm merely to collect this diagnostic.
-
 Do not change the learning algorithm merely to collect this diagnostic. Inspect
 the existing State-Action training path and tests first and prefer existing
 outputs or the smallest temporary instrumentation necessary.

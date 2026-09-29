@@ -30,6 +30,9 @@ The repository currently keeps two model approaches in parallel: the original fi
   evaluation game;
 - diagnostic State-Action greedy-choice inspection with best-Q and
   best-vs-second-best Q-value gap reporting;
+- final-replay and exact diagnostic-game Bellman-target / TD-error analysis;
+- verified reconstruction of all 150 learner decisions in the saved truncated
+  greedy game against the final policy;
 
 ## Installation
 
@@ -75,9 +78,16 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 
 ## Current objective
 
-The immediate development focus is analyzing a concrete truncated State-Action
-greedy evaluation game. The next diagnostic reconstructs the learner positions
-from the saved PGN, verifies that the recorded moves match the final policy's
-greedy choices, and inspects the Q-value gap between the best and second-best
-legal actions. Learning mechanisms should not be changed until this evidence is
-available.
+The immediate development focus is diagnosing why the experimental
+State-Action policy still produces heavily truncated greedy games and weak
+separation among many top-ranked ordinary legal actions.
+
+Q-value, Bellman-target and TD-error diagnostics have not identified global
+value collapse or an implementation defect in the learner-transition Bellman
+path. The next diagnostic question is whether the experience retained in the
+final replay provides sufficiently diverse action coverage to learn stronger
+distinctions among alternative legal actions.
+
+Learning mechanisms should not be changed until the existing replay data has
+been inspected for the diversity that can be measured reliably from the stored
+transitions.
