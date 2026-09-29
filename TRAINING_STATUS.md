@@ -130,6 +130,63 @@ not sufficient evidence of reliable chess strength or general improvement.
 The remaining diagnostic question is what prevents heavily simplified greedy
 games from terminating.
 
+### Bellman-target and TD-error diagnostic
+
+The final replay learning signal has now been measured directly without
+changing the training algorithm.
+
+For the non-terminal transitions in the final 10,000-transition training
+replay:
+
+- Bellman-target standard deviation: `0.073968`
+- selected-action Q-value standard deviation: `0.063227`
+- mean absolute TD error: `0.020054`
+- absolute-TD-error standard deviation: `0.023346`
+
+The same diagnostic was then applied to the exact replay buffer belonging to
+the saved 300-ply truncated greedy game. Its 149 non-terminal learner
+transitions produced:
+
+- Bellman-target standard deviation: `0.035757`
+- selected-action Q-value standard deviation: `0.028926`
+- mean absolute TD error: `0.023659`
+- absolute-TD-error standard deviation: `0.026904`
+
+The terminalized truncation transition had reward and Bellman target
+`-0.100000`, while its selected-action Q-value remained `0.284372`, giving an
+absolute TD error of `0.384372`.
+
+These results do not support global Bellman-target collapse or vanishing TD
+error as a sufficient explanation for the weak greedy policy.
+
+### State-Action transition audit
+
+The temporal semantics of the State-Action replay transition have been checked
+against the episode runner and training implementation.
+
+A non-terminal transition represents one complete learner decision interval:
+
+1. the learner observes state `s_t`;
+2. the learner selects action `a_t`;
+3. the opponent replies if the learner move did not terminate the game;
+4. `s_(t+1)` is encoded when it is again the learner's turn.
+
+The material-shaping reward measures the material change over that same
+interval. The stored legal next actions therefore correspond to the learner's
+next decision. Terminal and truncated transitions are stored without legal
+next actions and do not bootstrap.
+
+No implementation defect has been identified in this transition construction
+or its Bellman target semantics.
+
+With `gamma = 0.99`, however, a signal occurring many learner decisions later
+is necessarily discounted substantially. This is a credit-assignment
+property, not evidence by itself that gamma should be changed.
+
+The remaining working question is whether the replay and exploration process
+provide sufficiently diverse experience to teach strong distinctions among
+alternative actions within the same position.
+
 ### Concrete truncated-game diagnostic
 
 The State-Action probe was extended to search for the first truncated greedy
@@ -260,9 +317,11 @@ the actual project environment rather than in the documentation-audit sandbox.
 - What prevents heavily simplified greedy State-Action games from terminating,
   despite final truncated positions retaining only a small fraction of the
   initial non-king material on average?
-- Are the Bellman targets and TD errors used during State-Action training
-  similarly weakly differentiated, or does the training signal contain
-  stronger distinctions than the learned policy ultimately represents?
+- How diverse is the action experience retained in the final State-Action
+  replay, and can the stored transition data reliably expose meaningful
+  concentration or repetition in that experience?
+- Does the available evidence suggest insufficient exploration/coverage before
+  considering changes to reward design, gamma, PER or network architecture?
 - Why did the controlled greedy score remain `0.113` when training increased
   from 100 to 500 episodes?
 - Is the current limitation primarily related to reward design, replay/PER

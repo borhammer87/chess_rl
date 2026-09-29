@@ -257,32 +257,53 @@ The current interpretation is that State-Action has learned some real action
 preferences but frequently lacks strong separation among its highest-valued
 ordinary choices. This does not yet identify the cause.
 
+## Current diagnostic status
+
+The Q-value, Bellman-target and TD-error investigations are now complete for
+the current milestone.
+
+The final 10,000-transition training replay does not show globally collapsed
+Bellman targets or vanishing TD errors. For non-terminal transitions,
+Bellman-target standard deviation was `0.073968`, selected-action Q-value
+standard deviation was `0.063227`, and mean absolute TD error was `0.020054`.
+
+The exact 150-transition replay belonging to the saved truncated greedy
+diagnostic game was also analyzed. Its non-terminal Bellman-target standard
+deviation was `0.035757`, selected-action Q-value standard deviation was
+`0.028926`, and mean absolute TD error was `0.023659`.
+
+The final truncation transition had target `-0.100000` against a predicted
+Q-value of `0.284372`, leaving absolute TD error `0.384372`.
+
+The State-Action Bellman transition path has been audited from episode
+construction through replay and `train_step()`. A learner transition spans the
+learner action plus the opponent reply, so its next state correctly represents
+the learner's next decision state. Reward shaping covers the same interval,
+and terminal/truncated transitions correctly disable bootstrapping.
+
+No implementation bug has been identified in this path.
+
+The strongest current behavioral finding remains that the network frequently
+assigns extremely similar values to its highest-ranked ordinary legal actions,
+despite showing meaningful differentiation across the complete legal-action
+set and strong preferences in some cases such as queen promotions.
+
 ## Current development focus
 
-The immediate focus is now the learning signal behind those Q-value
-distributions.
+Do not change reward shaping, gamma, PER, exploration, representation or
+network architecture yet.
 
-Before changing reward design, state representation, network architecture,
-hyperparameters, CUDA/device handling or self-play integration, determine
-whether the Bellman targets and TD errors encountered during State-Action
-training are themselves weakly differentiated.
+The next diagnostic question is whether the experience retained in the final
+State-Action replay is sufficiently diverse to teach distinctions among
+alternative actions.
 
-The next diagnostic should help distinguish between two broad possibilities:
+Inspect exactly what can be established from the information already stored in
+`Transition` and `ReplayBuffer`. Prefer analysis of the existing 10,000
+transitions and existing action encoders over new production instrumentation
+or another long training experiment.
 
-1. the learning targets themselves provide little differentiation, which could
-   naturally produce similar learned Q-values; or
-2. the learning targets contain stronger distinctions that the network or
-   training process is failing to preserve in the learned policy.
-
-Prefer the smallest diagnostic capable of answering that question. Reuse
-existing training results, TD-error data structures and State-Action
-abstractions where possible. Do not add diagnostic-only production APIs unless
-inspection demonstrates a concrete architectural need.
-
-The board encoder currently represents pieces, castling rights, en-passant
-state and side to move, but not repetition history or move counters. This
-remains a real representational limitation, but current evidence does not
-establish it as the cause of truncation or small top-action Q-value gaps.
+Do not reconstruct or classify chess-specific properties from replay data
+unless the stored state/action representation supports doing so reliably.
 
 ## Important limitations
 
@@ -308,15 +329,14 @@ Always run the relevant tests after code changes and do not inherit a green stat
 
 ## Next-step rule
 
-Before proposing any new code modification, inspect the fresh ZIP completely
-according to the source-of-truth and inspection rules above.
+At the current documented milestone, first inspect the existing replay and
+transition representation to determine which action-diversity measurements are
+reliable.
 
-At the current documented milestone, the truncated-PGN Q-value diagnostic is
-complete.
+Only then propose the smallest diagnostic necessary. Prefer reusing the final
+training replay already available in `scripts/run_state_action_probe.py`.
 
-The next investigation should examine the Bellman targets and TD errors used
-during State-Action training to determine whether the weak top-action
-separation originates in the learning signal or emerges later in learning.
+Do not modify the learning algorithm merely to collect this diagnostic.
 
 Do not change the learning algorithm merely to collect this diagnostic. Inspect
 the existing State-Action training path and tests first and prefer existing

@@ -178,18 +178,49 @@ learned some action preferences but often lacks strong separation among its
 top candidate actions. This is evidence about policy behavior, not yet an
 explanation of its cause.
 
+The Bellman learning signal has now also been inspected directly.
+
+Across the final 10,000-transition training replay, non-terminal Bellman targets
+had standard deviation `0.073968`, selected-action Q-values had standard
+deviation `0.063227`, and mean absolute TD error was `0.020054`.
+
+The same measurements were then made on the exact 150 learner transitions from
+the saved truncated greedy diagnostic game. For its non-terminal transitions,
+Bellman targets had standard deviation `0.035757`, selected-action Q-values had
+standard deviation `0.028926`, and mean absolute TD error was `0.023659`.
+
+The final truncated transition was especially informative: its Bellman target
+was `-0.100000`, while the policy still predicted `Q(s,a) = 0.284372`, producing
+an absolute TD error of `0.384372`.
+
+These measurements do not support the simple hypothesis that Bellman targets
+have globally collapsed or that training has already driven TD errors close to
+zero.
+
+The State-Action transition semantics have also been audited. A learner
+transition spans the learner move and, when the game continues, the opponent
+reply. The stored next state is therefore the next learner decision state.
+Material shaping covers that same interval, and terminal or truncated
+transitions correctly disable bootstrapping.
+
+No implementation error has been identified in this Bellman transition path.
+
+The current evidence instead points toward insufficient differentiation among
+alternative actions within many positions. The network can learn strong
+preferences in some cases, notably queen promotions, but many ordinary legal
+actions remain very close in predicted value.
+
 ## Next milestone
 
-Investigate the learning signal that produces the observed State-Action
-Q-value preferences before changing reward design, state representation,
-network architecture or training hyperparameters.
+Investigate whether the final replay provides sufficiently diverse experience
+for learning distinctions among alternative actions.
 
-The next diagnostic should determine whether Bellman targets and TD errors used
-during State-Action training are themselves weakly differentiated or whether
-the training signal contains stronger distinctions that the learned policy is
-failing to represent.
+Before changing reward design, gamma, prioritized replay, exploration,
+state/action representation or network architecture, inspect what action and
+state diversity can be measured reliably from the information already stored
+in the replay.
 
-Prefer diagnostic instrumentation over changes to the learning algorithm.
-Use the existing training and State-Action abstractions where possible and do
-not generalize temporary diagnostics into production APIs without a concrete
-architectural reason.
+Prefer analysis of existing replay data over additional training or production
+changes. Do not infer chess properties such as captures from stored transitions
+unless the available state/action information supports that reconstruction
+reliably.
