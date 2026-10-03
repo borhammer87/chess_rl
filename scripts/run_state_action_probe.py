@@ -15,6 +15,7 @@ from chess_rl.training.train_dqn import (
     save_greedy_evaluation_game,
 
 )
+from collections import Counter
 from pathlib import Path
 from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.utils.board_encoder import encode_board
@@ -340,7 +341,65 @@ def analyze_replay_learning_signal(
             abs_td_errors[non_terminal_mask],
         )
 
+def analyze_replay_diversity(
+    replay_buffer: ReplayBuffer,
+) -> None:
+    """Summarize observable diversity in the retained replay."""
+    transitions = list(replay_buffer.buffer)
 
+    if not transitions:
+        raise ValueError(
+            "Cannot analyze an empty replay buffer."
+        )
+
+    action_counts = Counter(
+        transition.action
+        for transition in transitions
+    )
+
+    encoded_state_counts = Counter(
+        transition.state.numpy().tobytes()
+        for transition in transitions
+    )
+
+    state_action_counts = Counter(
+        (
+            transition.state.numpy().tobytes(),
+            transition.action,
+        )
+        for transition in transitions
+    )
+
+    total = len(transitions)
+
+    def top_action_share(count: int) -> float:
+        return sum(
+            frequency
+            for _, frequency in action_counts.most_common(count)
+        ) / total
+
+    print(
+        f"Replay diversity "
+        f"- transitions: {total} "
+        f"- unique actions: {len(action_counts)} "
+        f"- unique encoded states: {len(encoded_state_counts)} "
+        f"- unique state-action pairs: {len(state_action_counts)}"
+    )
+
+    print(
+        f"Replay repetition "
+        f"- repeated encoded states: "
+        f"{total - len(encoded_state_counts)} "
+        f"- repeated state-action pairs: "
+        f"{total - len(state_action_counts)}"
+    )
+
+    print(
+        "Action concentration "
+        f"- top 10: {top_action_share(10):.3f} "
+        f"- top 25: {top_action_share(25):.3f} "
+        f"- top 50: {top_action_share(50):.3f}"
+    )
 
 def main() -> None:
     """
@@ -500,6 +559,12 @@ def main() -> None:
 
     analyze_replay_learning_signal(
         agent=agent,
+        replay_buffer=replay_buffer,
+    )
+
+    print("\nAnalyzing final replay diversity...")
+
+    analyze_replay_diversity(
         replay_buffer=replay_buffer,
     )
 

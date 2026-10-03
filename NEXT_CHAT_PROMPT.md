@@ -319,13 +319,18 @@ unless the stored state/action representation supports doing so reliably.
 
 ## Test status
 
-The automated suite was run successfully in the actual `chess-rl` development environment after the State-Action CPU probe runner was added:
+A preserved automated-suite run from an earlier point in the State-Action
+probe work reported:
 
 `257 passed in 11.29s`
 
-The suite was later reported green again after an experimental script-import test was removed. Do not invent an exact count or duration for that later run unless a newer repository or user-provided output preserves it.
+Additional tests and diagnostic changes have been added since that run. The
+suite was subsequently reported green after those changes, but the exact
+current test count and duration are not preserved in this repository snapshot.
 
-Always run the relevant tests after code changes and do not inherit a green status blindly into a newer repository state.
+Treat `257 passed` as historical evidence rather than the current test count.
+Always run the relevant tests after code changes and do not inherit a green
+status blindly into a newer repository state.
 
 ## Next-step rule
 
