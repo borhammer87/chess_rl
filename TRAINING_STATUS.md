@@ -183,9 +183,61 @@ With `gamma = 0.99`, however, a signal occurring many learner decisions later
 is necessarily discounted substantially. This is a credit-assignment
 property, not evidence by itself that gamma should be changed.
 
-The remaining working question is whether the replay and exploration process
-provide sufficiently diverse experience to teach strong distinctions among
-alternative actions within the same position.
+### Replay-diversity diagnostic
+
+Observable diversity in the final 10,000-transition State-Action training
+replay was measured without changing the training algorithm.
+
+The replay contained:
+
+- `1,685` unique action IDs;
+- `9,910` unique encoded states;
+- `9,977` unique encoded-state/action pairs;
+- `90` repeated encoded states;
+- `23` repeated state-action pairs.
+
+Action-ID concentration was:
+
+- top 10 actions: `3.6%`;
+- top 25 actions: `7.7%`;
+- top 50 actions: `13.5%`.
+
+This does not prove that the training experience provides sufficient chess
+coverage, because no objective threshold for sufficient coverage has been
+established. It does show that the retained replay is not dominated by exact
+state or state-action repetition.
+
+The same diagnostic was applied to the exact 150-transition truncated greedy
+game. It contained:
+
+- `105` unique action IDs;
+- `149` unique encoded states;
+- `149` unique encoded-state/action pairs;
+- `1` repeated encoded state;
+- `1` repeated state-action pair.
+
+Its action-ID concentration was substantially higher:
+
+- top 10 actions: `24.0%`;
+- top 25 actions: `46.0%`;
+- top 50 actions: `63.3%`.
+
+The greedy game therefore does not consist primarily of exact state cycles.
+Almost every encoded state is different, even though the policy repeatedly
+uses a narrower set of move IDs. This is compatible with the observed local
+back-and-forth move patterns because opponent moves and other board changes can
+produce a new encoded state while the learner reuses the same movement between
+squares.
+
+The comparison should not be interpreted as proof of policy collapse: a
+single 150-transition game and a 10,000-transition multi-episode
+epsilon-greedy replay have intrinsically different action-availability and
+sampling properties.
+
+Strong replay redundancy is therefore not supported as a sufficient
+explanation for the current learning plateau. Reward and credit assignment are
+reasonable next hypotheses to inspect, but they have not yet been established
+as the cause.
 
 ### Concrete truncated-game diagnostic
 
@@ -317,11 +369,12 @@ documented above were executed in the actual project environment.
 - What prevents heavily simplified greedy State-Action games from terminating,
   despite final truncated positions retaining only a small fraction of the
   initial non-king material on average?
-- How diverse is the action experience retained in the final State-Action
-  replay, and can the stored transition data reliably expose meaningful
-  concentration or repetition in that experience?
-- Does the available evidence suggest insufficient exploration/coverage before
-  considering changes to reward design, gamma, PER or network architecture?
+- Is the current material-shaping / terminal-reward signal sufficiently
+  informative to distinguish ordinary actions whose consequences may only
+  become useful many learner decisions later?
+- Can a small controlled experiment isolate reward or credit assignment without
+  simultaneously changing gamma, PER, exploration, representation or network
+  architecture?  
 - Why did the controlled greedy score remain `0.113` when training increased
   from 100 to 500 episodes?
 - Is the current limitation primarily related to reward design, replay/PER

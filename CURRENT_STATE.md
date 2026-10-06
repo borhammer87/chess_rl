@@ -194,10 +194,35 @@ transitions correctly disable bootstrapping.
 
 No implementation error has been identified in this Bellman transition path.
 
-The current evidence instead points toward insufficient differentiation among
+Replay diversity has now also been measured directly. The final
+10,000-transition training replay contained `1,685` unique action IDs, `9,910`
+unique encoded states and `9,977` unique encoded-state/action pairs. Only `90`
+encoded-state repetitions and `23` state-action repetitions were observed.
+The 10, 25 and 50 most frequent action IDs accounted for `3.6%`, `7.7%` and
+`13.5%` of the replay respectively.
+
+This does not establish that exploration or chess-state coverage is sufficient,
+but it does not support strong exact replay redundancy as a simple explanation
+for the weak greedy policy.
+
+The exact 150-transition truncated greedy diagnostic game was also analyzed
+with the same diversity metric. It contained `105` unique action IDs, `149`
+unique encoded states and `149` unique state-action pairs. Its 10, 25 and 50
+most frequent action IDs accounted for `24.0%`, `46.0%` and `63.3%` of the
+trajectory respectively.
+
+The greedy trajectory therefore visits almost entirely distinct encoded states
+while reusing a narrower set of action IDs more heavily than the much larger
+epsilon-greedy training replay. This explains how visibly repetitive local move
+patterns can coexist with almost no exact state repetition: opponent moves and
+other board changes keep producing new encoded states.
+
+The current evidence still points toward insufficient differentiation among
 alternative actions within many positions. The network can learn strong
 preferences in some cases, notably queen promotions, but many ordinary legal
-actions remain very close in predicted value.
+actions remain very close in predicted value. Reward/credit assignment is now
+a plausible next hypothesis to investigate, but it has not been established as
+the cause.
 
 ## Next milestone
 

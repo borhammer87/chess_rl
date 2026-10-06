@@ -110,8 +110,11 @@ This roadmap distinguishes implemented milestones from validation that is still 
   replay and in the exact replay of the saved truncated greedy game
 - [x] Audit State-Action transition semantics from episode construction through
   replay and Bellman target calculation
-- [ ] Diagnose whether replay/exploration provides sufficiently diverse
-  experience to learn useful distinctions among alternative legal actions
+- [x] Diagnose observable replay diversity and compare training-replay
+  concentration with the exact truncated greedy diagnostic trajectory
+- [ ] Inspect reward and credit assignment and design the smallest controlled
+  experiment that can test whether the learning signal contributes to weak
+  ordinary-action differentiation
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN

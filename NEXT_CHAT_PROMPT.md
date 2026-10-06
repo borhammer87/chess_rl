@@ -259,8 +259,8 @@ ordinary choices. This does not yet identify the cause.
 
 ## Current diagnostic status
 
-The Q-value, Bellman-target and TD-error investigations are now complete for
-the current milestone.
+The Q-value, Bellman-target, TD-error, transition-semantics and observable
+replay-diversity investigations are complete for the current milestone.
 
 The final 10,000-transition training replay does not show globally collapsed
 Bellman targets or vanishing TD errors. For non-terminal transitions,
@@ -269,8 +269,9 @@ standard deviation was `0.063227`, and mean absolute TD error was `0.020054`.
 
 The exact 150-transition replay belonging to the saved truncated greedy
 diagnostic game was also analyzed. Its non-terminal Bellman-target standard
-deviation was `0.035757`, selected-action Q-value standard deviation was
-`0.028926`, and mean absolute TD error was `0.023659`.
+deviation was approximately `0.03576`, selected-action Q-value standard
+deviation approximately `0.02893`, and mean absolute TD error approximately
+`0.02366`.
 
 The final truncation transition had target `-0.100000` against a predicted
 Q-value of `0.284372`, leaving absolute TD error `0.384372`.
@@ -279,31 +280,54 @@ The State-Action Bellman transition path has been audited from episode
 construction through replay and `train_step()`. A learner transition spans the
 learner action plus the opponent reply, so its next state correctly represents
 the learner's next decision state. Reward shaping covers the same interval,
-and terminal/truncated transitions correctly disable bootstrapping.
+and terminal/truncated transitions correctly disable bootstrapping. No
+implementation bug has been identified in this path.
 
-No implementation bug has been identified in this path.
+The final 10,000-transition training replay contained `1,685` unique action
+IDs, `9,910` unique encoded states and `9,977` unique state-action pairs. Its
+top 10, 25 and 50 action IDs accounted for `3.6%`, `7.7%` and `13.5%` of the
+replay.
 
-The strongest current behavioral finding remains that the network frequently
-assigns extremely similar values to its highest-ranked ordinary legal actions,
-despite showing meaningful differentiation across the complete legal-action
-set and strong preferences in some cases such as queen promotions.
+The exact 150-transition truncated greedy diagnostic game contained `105`
+unique action IDs, `149` unique encoded states and `149` unique state-action
+pairs. Its top 10, 25 and 50 action IDs accounted for `24.0%`, `46.0%` and
+`63.3%` of the trajectory.
+
+The retained training replay therefore does not show strong exact
+state/state-action redundancy. The greedy trajectory also visits almost
+entirely distinct encoded states, despite visibly reusing some movement
+patterns and showing substantially greater action-ID concentration.
+
+Do not interpret this as proof that exploration is sufficient or that action
+concentration causes the weak policy. The training replay and a single greedy
+game have different sampling and action-availability properties.
+
+The strongest behavioral finding remains that the network frequently assigns
+extremely similar values to its highest-ranked ordinary legal actions, despite
+meaningful differentiation across the complete legal-action set and strong
+preferences in some cases such as queen promotions.
+
+Reward and credit assignment are now plausible hypotheses to investigate, but
+they have not been established as the cause.
 
 ## Current development focus
 
-Do not change reward shaping, gamma, PER, exploration, representation or
-network architecture yet.
+The next task is to inspect the existing State-Action reward and
+credit-assignment design before changing it.
 
-The next diagnostic question is whether the experience retained in the final
-State-Action replay is sufficiently diverse to teach distinctions among
-alternative actions.
+Read the complete reward calculation, episode construction, Bellman update and
+related tests. Determine exactly what learning signal an ordinary learner
+action receives immediately and how delayed consequences propagate through the
+current transition interval and `gamma`.
 
-Inspect exactly what can be established from the information already stored in
-`Transition` and `ReplayBuffer`. Prefer analysis of the existing 10,000
-transitions and existing action encoders over new production instrumentation
-or another long training experiment.
+Do not assume in advance that reward design or gamma is wrong. Use the
+repository implementation and the accumulated diagnostic evidence to formulate
+one concrete hypothesis and identify the smallest controlled experiment capable
+of testing it.
 
-Do not reconstruct or classify chess-specific properties from replay data
-unless the stored state/action representation supports doing so reliably.
+Do not simultaneously change reward shaping, gamma, PER, exploration,
+representation or network architecture. Reuse the existing reproducible
+State-Action probe and diagnostics wherever possible.
 
 ## Important limitations
 
@@ -334,21 +358,28 @@ status blindly into a newer repository state.
 
 ## Next-step rule
 
-At the current documented milestone, first inspect the existing replay and
-transition representation to determine which action-diversity measurements are
-reliable.
+Before proposing any new code modification, inspect the fresh ZIP completely
+according to the source-of-truth and inspection rules above.
 
-Only then propose the smallest diagnostic necessary. Prefer reusing the final
-training replay already available in `scripts/run_state_action_probe.py`.
+At the current documented milestone, inspect the existing State-Action reward
+and credit-assignment path before proposing an experiment. Read the relevant
+reward calculation, episode runner, agent Bellman update and tests completely.
 
-Do not change the learning algorithm merely to collect this diagnostic. Inspect
-the existing State-Action training path and tests first and prefer existing
-outputs or the smallest temporary instrumentation necessary.
+The immediate objective is not to redesign the reward function. It is to
+identify one concrete, repository-supported hypothesis about whether the
+current learning signal can explain weak differentiation among ordinary actions
+and persistent failure to terminate heavily simplified greedy games.
+
+Then propose the smallest controlled experiment capable of testing that
+hypothesis. Change one meaningful variable at a time and reuse the existing
+reproducible State-Action probe and diagnostic infrastructure.
+
+Do not automatically change gamma, PER, exploration, board encoding, network
+architecture, CUDA/device handling or self-play integration.
 
 The user implements all code changes locally. Give exact file names, exact
 placement and complete replacement/addition blocks. Do not claim a modification
 has been implemented merely because it was proposed in chat.
 
-After the diagnostic output is obtained, use that evidence to choose the next
-hypothesis. Do not automatically proceed to longer training, CUDA, reward
-changes, encoder changes or self-play integration.
+After the user modifies the repository, require a fresh ZIP before proposing
+the next code modification.

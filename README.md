@@ -25,14 +25,16 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Balanced White/Black evaluation against `RandomAgent` and evaluation-based `checkpoints/best.pt` selection.
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
 - Automated tests covering the environment, encoders, agents, replay, training, self-play, checkpointing, diagnostics and both DQN model families.
-- truncation diagnostics covering claimable draws and final material state;
-- bounded search and PGN capture of a concrete truncated State-Action greedy
-  evaluation game;
-- diagnostic State-Action greedy-choice inspection with best-Q and
-  best-vs-second-best Q-value gap reporting;
-- final-replay and exact diagnostic-game Bellman-target / TD-error analysis;
-- verified reconstruction of all 150 learner decisions in the saved truncated
-  greedy game against the final policy;
+- Truncation diagnostics covering claimable draws and final material state.
+- Bounded search and PGN capture of a concrete truncated State-Action greedy
+  evaluation game.
+- Diagnostic State-Action greedy-choice inspection with best-Q and
+  best-vs-second-best Q-value gap reporting.
+- Final-replay and exact diagnostic-game Bellman-target / TD-error analysis.
+- Verified reconstruction of all 150 learner decisions in the saved truncated
+  greedy game against the final policy.
+- Replay-diversity diagnostics covering unique encoded states, unique actions,
+  unique state-action pairs, exact repetition and action concentration.
 
 ## Installation
 
@@ -82,12 +84,22 @@ The immediate development focus is diagnosing why the experimental
 State-Action policy still produces heavily truncated greedy games and weak
 separation among many top-ranked ordinary legal actions.
 
-Q-value, Bellman-target and TD-error diagnostics have not identified global
-value collapse or an implementation defect in the learner-transition Bellman
-path. The next diagnostic question is whether the experience retained in the
-final replay provides sufficiently diverse action coverage to learn stronger
-distinctions among alternative legal actions.
+Q-value, Bellman-target, TD-error, transition-semantics and replay-diversity
+diagnostics have not identified global value collapse, a Bellman-transition
+implementation defect or strong replay redundancy as sufficient explanations.
 
-Learning mechanisms should not be changed until the existing replay data has
-been inspected for the diversity that can be measured reliably from the stored
-transitions.
+The final 10,000-transition training replay contained 9,910 unique encoded
+states and 9,977 unique state-action pairs. The saved 150-transition greedy
+diagnostic game also contained 149 unique encoded states and 149 unique
+state-action pairs, although its action usage was substantially more
+concentrated than the training replay.
+
+The next step is to inspect the existing reward and credit-assignment design
+and determine whether a small controlled experiment can test whether the
+learning signal is insufficiently informative for distinguishing and
+eventually converting ordinary positions.
+
+This is a working hypothesis, not an established cause. Reward shaping, gamma,
+PER, exploration, representation or network architecture should not be changed
+without first identifying the smallest experiment that can isolate a useful
+hypothesis.

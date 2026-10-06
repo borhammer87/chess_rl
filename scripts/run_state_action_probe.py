@@ -674,6 +674,14 @@ def main() -> None:
         )
 
         print(
+            "\nFinal-policy diagnostic-game diversity..."
+        )
+
+        analyze_replay_diversity(
+            replay_buffer=diagnostic_buffer,
+        )
+
+        print(
             "\nAnalyzing reconstructed greedy choices..."
         )
 
