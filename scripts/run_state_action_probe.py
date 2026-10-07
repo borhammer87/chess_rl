@@ -267,55 +267,6 @@ def analyze_replay_learning_signal(
         dtype=torch.bool,
     )
 
-def analyze_replay_priorities(replay_buffer) -> None:
-    """Print PER priority diagnostics for terminal and non-terminal transitions."""
-    transitions = replay_buffer.buffer
-    priorities = replay_buffer.priorities
-
-    terminal_mask = np.array(
-        [transition.done for transition in transitions],
-        dtype=bool,
-    )
-    non_terminal_mask = ~terminal_mask
-
-    active_priorities = priorities[: len(transitions)]
-    scaled_priorities = active_priorities**PER_ALPHA
-    sampling_probabilities = scaled_priorities / scaled_priorities.sum()
-
-    terminal_count = int(terminal_mask.sum())
-    non_terminal_count = int(non_terminal_mask.sum())
-    total_count = len(transitions)
-
-    terminal_replay_share = terminal_count / total_count
-    terminal_probability_share = sampling_probabilities[terminal_mask].sum()
-
-    print("\nReplay PER diagnostics...")
-    print(
-        f"Replay groups - terminal: {terminal_count} "
-        f"({terminal_replay_share:.4f}) - "
-        f"non-terminal: {non_terminal_count} "
-        f"({non_terminal_count / total_count:.4f})"
-    )
-    print(
-        "Terminal priorities - "
-        f"mean: {active_priorities[terminal_mask].mean():.6f} - "
-        f"median: {np.median(active_priorities[terminal_mask]):.6f}"
-    )
-    print(
-        "Non-terminal priorities - "
-        f"mean: {active_priorities[non_terminal_mask].mean():.6f} - "
-        f"median: {np.median(active_priorities[non_terminal_mask]):.6f}"
-    )
-    print(
-        "PER probability share - "
-        f"terminal: {terminal_probability_share:.4f} - "
-        f"non-terminal: {sampling_probabilities[non_terminal_mask].sum():.4f}"
-    )
-    print(
-        "Terminal PER oversampling factor - "
-        f"{terminal_probability_share / terminal_replay_share:.2f}x"
-    )
-
     def print_stats(
         label: str,
         values: torch.Tensor,
@@ -389,6 +340,75 @@ def analyze_replay_priorities(replay_buffer) -> None:
         print_stats(
             "|TD error|",
             abs_td_errors[non_terminal_mask],
+        )
+
+
+def analyze_replay_priorities(
+    replay_buffer: ReplayBuffer,
+) -> None:
+    """Summarize PER weighting of terminal replay transitions."""
+    transitions = list(replay_buffer.buffer)
+    priorities = np.asarray(
+        list(replay_buffer.priorities),
+        dtype=np.float64,
+    )
+
+    if not transitions:
+        raise ValueError(
+            "Cannot analyze an empty replay buffer."
+        )
+
+    terminal_mask = np.array(
+        [transition.done for transition in transitions],
+        dtype=bool,
+    )
+    non_terminal_mask = ~terminal_mask
+
+    scaled_priorities = priorities**PER_ALPHA
+    sampling_probabilities = (
+        scaled_priorities / scaled_priorities.sum()
+    )
+
+    terminal_count = int(terminal_mask.sum())
+    non_terminal_count = int(non_terminal_mask.sum())
+    total_count = len(transitions)
+
+    terminal_replay_share = terminal_count / total_count
+    terminal_probability_share = float(
+        sampling_probabilities[terminal_mask].sum()
+    )
+
+    print(
+        f"Replay PER diagnostics - transitions: {total_count} "
+        f"- terminal: {terminal_count} "
+        f"- non-terminal: {non_terminal_count}"
+    )
+
+    if terminal_count > 0:
+        terminal_priorities = priorities[terminal_mask]
+        print(
+            "Terminal priorities - "
+            f"mean: {terminal_priorities.mean():.6f} - "
+            f"median: {np.median(terminal_priorities):.6f}"
+        )
+
+    if non_terminal_count > 0:
+        non_terminal_priorities = priorities[non_terminal_mask]
+        print(
+            "Non-terminal priorities - "
+            f"mean: {non_terminal_priorities.mean():.6f} - "
+            f"median: {np.median(non_terminal_priorities):.6f}"
+        )
+
+    if terminal_count > 0:
+        oversampling_factor = (
+            terminal_probability_share / terminal_replay_share
+        )
+        print(
+            "Terminal PER sampling - "
+            f"replay share: {terminal_replay_share:.6f} - "
+            f"probability share: {terminal_probability_share:.6f} - "
+            f"oversampling factor: {oversampling_factor:.3f}x"
         )
 
 def analyze_replay_diversity(
