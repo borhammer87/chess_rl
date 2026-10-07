@@ -197,7 +197,34 @@ Include:
 - next task
 
 ---
+DIAGNOSTICS.md
 
+Purpose:
+
+- track active learning/debugging hypotheses
+- separate measured evidence from interpretation
+- record experiments that support or weaken each hypothesis
+- identify the highest-value next diagnostic question
+
+Update when a diagnostic experiment materially changes the evidence or when the active hypothesis tree changes.
+
+Do not use it as a raw experiment log or duplicate architecture documentation.
+
+---
+
+TRAINING_STATUS.md
+
+Purpose:
+
+- preserve significant completed training experiments
+- record measured experimental results
+- retain concise training history without maintaining active hypotheses
+
+Update when a significant training or controlled diagnostic experiment is completed.
+
+Do not use it to define the current next task or active diagnostic interpretation.
+
+---
 NEXT_CHAT_PROMPT.md
 
 Purpose:
@@ -265,6 +292,10 @@ DECISIONS.md
 ROADMAP.md
 
 CURRENT_STATE.md
+
+DIAGNOSTICS.md
+
+TRAINING_STATUS.md
 
 without needing previous conversations.
 

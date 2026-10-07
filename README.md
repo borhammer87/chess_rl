@@ -94,12 +94,12 @@ diagnostic game also contained 149 unique encoded states and 149 unique
 state-action pairs, although its action usage was substantially more
 concentrated than the training replay.
 
-The next step is to inspect the existing reward and credit-assignment design
-and determine whether a small controlled experiment can test whether the
-learning signal is insufficiently informative for distinguishing and
-eventually converting ordinary positions.
+The next diagnostic step is to distinguish genuine chess terminal transitions
+from artificial episode truncations and measure their replay frequency,
+priority distribution and PER sampling-probability share separately.
 
-This is a working hypothesis, not an established cause. Reward shaping, gamma,
-PER, exploration, representation or network architecture should not be changed
-without first identifying the smallest experiment that can isolate a useful
-hypothesis.
+The current aggregate PER measurement cannot make that distinction because
+replay transitions preserve only `done`, not the reason why the episode ended.
+
+This is a diagnostic question, not an established explanation for weak greedy
+play. See `DIAGNOSTICS.md` for the active hypothesis tree and evidence.

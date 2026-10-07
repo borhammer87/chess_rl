@@ -112,9 +112,13 @@ This roadmap distinguishes implemented milestones from validation that is still 
   replay and Bellman target calculation
 - [x] Diagnose observable replay diversity and compare training-replay
   concentration with the exact truncated greedy diagnostic trajectory
-- [ ] Inspect reward and credit assignment and design the smallest controlled
-  experiment that can test whether the learning signal contributes to weak
-  ordinary-action differentiation
+- [x] Run controlled gamma and artificial-truncation-penalty experiments and
+  establish that neither tested change resolves persistent greedy truncation
+- [x] Diagnose aggregate PER treatment of `done=True` replay transitions and
+  establish that they are oversampled relative to their replay frequency
+- [ ] Distinguish genuine chess terminal transitions from artificial
+  truncations and measure their replay frequency, priority distribution and
+  PER sampling-probability share separately
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN
