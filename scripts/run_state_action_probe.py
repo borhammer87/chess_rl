@@ -1,6 +1,6 @@
 import random
 from time import perf_counter
-
+import numpy as np
 import torch
 import chess
 import chess.pgn
@@ -15,6 +15,7 @@ from chess_rl.training.train_dqn import (
     save_greedy_evaluation_game,
 
 )
+from chess_rl.training.episodes import PER_ALPHA
 from collections import Counter
 from pathlib import Path
 from chess_rl.utils.replay_buffer import ReplayBuffer
@@ -266,6 +267,55 @@ def analyze_replay_learning_signal(
         dtype=torch.bool,
     )
 
+def analyze_replay_priorities(replay_buffer) -> None:
+    """Print PER priority diagnostics for terminal and non-terminal transitions."""
+    transitions = replay_buffer.buffer
+    priorities = replay_buffer.priorities
+
+    terminal_mask = np.array(
+        [transition.done for transition in transitions],
+        dtype=bool,
+    )
+    non_terminal_mask = ~terminal_mask
+
+    active_priorities = priorities[: len(transitions)]
+    scaled_priorities = active_priorities**PER_ALPHA
+    sampling_probabilities = scaled_priorities / scaled_priorities.sum()
+
+    terminal_count = int(terminal_mask.sum())
+    non_terminal_count = int(non_terminal_mask.sum())
+    total_count = len(transitions)
+
+    terminal_replay_share = terminal_count / total_count
+    terminal_probability_share = sampling_probabilities[terminal_mask].sum()
+
+    print("\nReplay PER diagnostics...")
+    print(
+        f"Replay groups - terminal: {terminal_count} "
+        f"({terminal_replay_share:.4f}) - "
+        f"non-terminal: {non_terminal_count} "
+        f"({non_terminal_count / total_count:.4f})"
+    )
+    print(
+        "Terminal priorities - "
+        f"mean: {active_priorities[terminal_mask].mean():.6f} - "
+        f"median: {np.median(active_priorities[terminal_mask]):.6f}"
+    )
+    print(
+        "Non-terminal priorities - "
+        f"mean: {active_priorities[non_terminal_mask].mean():.6f} - "
+        f"median: {np.median(active_priorities[non_terminal_mask]):.6f}"
+    )
+    print(
+        "PER probability share - "
+        f"terminal: {terminal_probability_share:.4f} - "
+        f"non-terminal: {sampling_probabilities[non_terminal_mask].sum():.4f}"
+    )
+    print(
+        "Terminal PER oversampling factor - "
+        f"{terminal_probability_share / terminal_replay_share:.2f}x"
+    )
+
     def print_stats(
         label: str,
         values: torch.Tensor,
@@ -400,6 +450,8 @@ def analyze_replay_diversity(
         f"- top 25: {top_action_share(25):.3f} "
         f"- top 50: {top_action_share(50):.3f}"
     )
+
+
 
 def main() -> None:
     """
@@ -561,6 +613,8 @@ def main() -> None:
         agent=agent,
         replay_buffer=replay_buffer,
     )
+
+    analyze_replay_priorities(replay_buffer)
 
     print("\nAnalyzing final replay diversity...")
 
