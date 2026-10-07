@@ -13,12 +13,12 @@ from chess_rl.training.train_dqn import (
     summarize_training,
     train_against_random,
     save_greedy_evaluation_game,
-
-)
+    get_episode_outcome,
+    )
 from chess_rl.training.episodes import PER_ALPHA
 from collections import Counter
 from pathlib import Path
-from chess_rl.utils.replay_buffer import ReplayBuffer
+from chess_rl.utils.replay_buffer import ReplayBuffer, Transition
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.action_selection import (
@@ -29,6 +29,89 @@ def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
     random.seed(seed)
     torch.manual_seed(seed)
+
+class TerminalTransitionTracker:
+    """Track episode-ending transitions without modifying replay data."""
+
+    def __init__(self, replay_buffer: ReplayBuffer) -> None:
+        self.replay_buffer = replay_buffer
+        self.labels = {}
+
+    def record_episode(
+        self,
+        completed_episodes: int,
+        total_episodes: int,
+        result,
+    ) -> None:
+        outcome = get_episode_outcome(result)
+
+        if outcome == "unfinished":
+            raise ValueError(
+                "Cannot label an unfinished training episode."
+            )
+
+        if not self.replay_buffer.buffer:
+            raise ValueError(
+                "Completed episode has no replay transitions."
+            )
+
+        transition = self.replay_buffer.buffer[-1]
+
+        if not transition.done:
+            raise ValueError(
+                "Last replay transition is not terminal."
+            )
+
+        self.labels[id(transition)] = (
+            transition,
+            outcome,
+        )
+
+    def get_final_labels(self) -> dict[int, str]:
+        """Return labels for terminal transitions still in replay."""
+        labels = {}
+
+        for transition in self.replay_buffer.buffer:
+            if not transition.done:
+                continue
+
+            entry = self.labels.get(id(transition))
+
+            if entry is None or entry[0] is not transition:
+                raise ValueError(
+                    "Unlabelled terminal transition in final replay."
+                )
+
+            labels[id(transition)] = entry[1]
+
+        return labels
+
+def classify_terminal_episode(result) -> str:
+    """Classify how a training episode ended."""
+    if result.truncated:
+        return "truncated"
+
+    chess_result = result.final_info.get("result")
+
+    if chess_result == "1/2-1/2":
+        return "draw"
+
+    if result.agent_color == chess.WHITE:
+        win_result = "1-0"
+        loss_result = "0-1"
+    else:
+        win_result = "0-1"
+        loss_result = "1-0"
+
+    if chess_result == win_result:
+        return "win"
+
+    if chess_result == loss_result:
+        return "loss"
+
+    raise ValueError(
+        "Completed episode has an invalid chess result."
+    )
 
 def analyze_greedy_pgn(
     path: Path,
@@ -563,6 +646,11 @@ def main() -> None:
     print("\nTraining...")
 
     set_random_seed(training_seed)
+
+    terminal_tracker = TerminalTransitionTracker(
+        replay_buffer=replay_buffer,
+    )
+
     start_time = perf_counter()
 
     results = train_against_random(
@@ -576,6 +664,14 @@ def main() -> None:
         min_replay_size=min_replay_size,
         target_update_frequency=target_update_frequency,
         alternate_colors=True,
+        progress_callback=terminal_tracker.record_episode,
+    )
+
+    final_terminal_labels = terminal_tracker.get_final_labels()
+
+    print(
+        "Final replay terminal categories:",
+        dict(Counter(final_terminal_labels.values())),
     )
 
     elapsed_seconds = (
