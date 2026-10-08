@@ -86,33 +86,6 @@ class TerminalTransitionTracker:
 
         return labels
 
-def classify_terminal_episode(result) -> str:
-    """Classify how a training episode ended."""
-    if result.truncated:
-        return "truncated"
-
-    chess_result = result.final_info.get("result")
-
-    if chess_result == "1/2-1/2":
-        return "draw"
-
-    if result.agent_color == chess.WHITE:
-        win_result = "1-0"
-        loss_result = "0-1"
-    else:
-        win_result = "0-1"
-        loss_result = "1-0"
-
-    if chess_result == win_result:
-        return "win"
-
-    if chess_result == loss_result:
-        return "loss"
-
-    raise ValueError(
-        "Completed episode has an invalid chess result."
-    )
-
 def analyze_greedy_pgn(
     path: Path,
     agent: StateActionDQNAgent,
@@ -494,6 +467,50 @@ def analyze_replay_priorities(
             f"oversampling factor: {oversampling_factor:.3f}x"
         )
 
+def analyze_terminal_per_categories(
+    replay_buffer: ReplayBuffer,
+    terminal_labels: dict[int, str],
+) -> None:
+    """Measure retained terminal categories under PER."""
+    transitions = list(replay_buffer.buffer)
+    priorities = np.asarray(
+        list(replay_buffer.priorities),
+        dtype=np.float64,
+    )
+
+    if not transitions or len(transitions) != len(priorities):
+        raise ValueError("Invalid replay data.")
+
+    probabilities = priorities**PER_ALPHA
+    probabilities /= probabilities.sum()
+
+    print("\nTerminal PER categories:")
+
+    for category in ("truncated", "win", "loss", "draw"):
+        indices = [
+            index
+            for index, transition in enumerate(transitions)
+            if transition.done
+            and terminal_labels[id(transition)] == category
+        ]
+
+        if not indices:
+            print(f"{category}: count=0")
+            continue
+
+        category_priorities = priorities[indices]
+        replay_share = len(indices) / len(transitions)
+        probability_share = float(probabilities[indices].sum())
+
+        print(
+            f"{category}: count={len(indices)} "
+            f"- replay share={replay_share:.6f} "
+            f"- priority mean={category_priorities.mean():.6f} "
+            f"- priority median={np.median(category_priorities):.6f} "
+            f"- PER share={probability_share:.6f} "
+            f"- oversampling={probability_share / replay_share:.3f}x"
+        )
+
 def analyze_replay_diversity(
     replay_buffer: ReplayBuffer,
 ) -> None:
@@ -731,6 +748,11 @@ def main() -> None:
     )
 
     analyze_replay_priorities(replay_buffer)
+
+    analyze_terminal_per_categories(
+        replay_buffer=replay_buffer,
+        terminal_labels=final_terminal_labels,
+    )
 
     print("\nAnalyzing final replay diversity...")
 

@@ -89,3 +89,30 @@ def test_tracker_rejects_nonterminal_last_transition():
         tracker.record_episode(
             1, 1, episode_result()
         )
+
+def test_terminal_per_categories(capsys):
+    from scripts.run_state_action_probe import (
+        analyze_terminal_per_categories,
+    )
+
+    buffer = ReplayBuffer(capacity=4)
+    tracker = TerminalTransitionTracker(buffer)
+
+    add_transition(buffer)
+    tracker.record_episode(1, 2, episode_result(result="1-0"))
+
+    add_transition(buffer)
+    tracker.record_episode(2, 2, episode_result(truncated=True))
+
+    analyze_terminal_per_categories(
+        buffer,
+        tracker.get_final_labels(),
+    )
+
+    output = capsys.readouterr().out
+
+    assert "win: count=1" in output
+    assert "truncated: count=1" in output
+    assert "loss: count=0" in output
+    assert "draw: count=0" in output
+    assert "oversampling=1.000x" in output
