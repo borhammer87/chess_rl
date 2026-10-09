@@ -272,14 +272,35 @@ Priority statistics:
 - non-terminal mean priority: 0.007798;
 - non-terminal median priority: 0.004111.
 
-These measurements apply to `done=True` transitions in aggregate.
 
-The replay does not currently preserve whether each such transition represents
-a genuine chess ending or an artificial truncation.
+These aggregate measurements combine real chess endings and artificial
+truncations. The category-resolved measurement below uses external labels in
+the diagnostic probe; `Transition` itself remains unchanged.
 
-Interpretation of this limitation belongs in `DIAGNOSTICS.md`.
 
 ---
+
+
+## Baseline PER categories (100-episode diagnostic rerun)
+
+The reproducible rerun took 132.86 seconds and retained 10,000 transitions,
+including 73 with `done=True`. Episode outcomes and final greedy evaluation
+matched the baseline: training 7/11/4/78 (win/draw/loss/truncated), final
+greedy 2/5/4/29, score 0.113.
+
+| Category | Count | Replay share | Mean priority | Median priority | PER share | Factor |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Truncated | 54 | 0.005400 | 0.059052 | 0.018387 | 0.015488 | 2.868x |
+| Win | 6 | 0.000600 | 0.031964 | 0.032367 | 0.001615 | 2.691x |
+| Loss | 3 | 0.000300 | 0.042702 | 0.034406 | 0.000928 | 3.093x |
+| Draw | 10 | 0.001000 | 0.011450 | 0.002838 | 0.001152 | 1.152x |
+
+These are probabilities for the final replay, not observed counts of sampled
+training transitions. Category shares sum to the aggregate PER share within
+rounding tolerance.
+
+---
+
 
 ## Baseline replay diversity
 

@@ -147,56 +147,38 @@ See `DIAGNOSTICS.md` for the hypothesis tree, evidence and experimental history.
 
 ---
 
+
 ## Current diagnostic boundary
 
-Prioritized Experience Replay has been confirmed to oversample transitions with
-`done=True` in aggregate.
+The reproducible 100-episode probe now distinguishes real chess endings from
+artificial truncations in the final replay without changing `Transition` or
+training semantics. Among 10,000 retained transitions, 73 had `done=True`:
 
-In the reproducible 10,000-transition replay:
+- 54 artificial truncations: PER probability share 1.5488%, oversampling 2.868x;
+- 6 wins: 0.1615%, 2.691x;
+- 3 losses: 0.0928%, 3.093x;
+- 10 draws: 0.1152%, 1.152x.
 
-- `done=True` transitions represented 0.73% of retained replay;
-- they received approximately 1.9182% of total PER sampling probability;
-- aggregate terminal oversampling was approximately 2.628x.
+Together the categories account for approximately 1.9182% of PER sampling
+probability (rounding differences only). PER relatively favors wins and losses,
+but their absolute representation remains very small. These are probabilities
+at the end of training, not counts of actual training samples.
 
-However, the replay transition currently stores only `done`.
 
-It does not preserve whether a terminal transition came from:
-
-- a genuine chess terminal state; or
-- the artificial episode horizon.
-
-Therefore the current measurements do not establish how much PER attention is
-given specifically to genuine chess endings versus artificial truncations.
-
----
 
 ## Immediate next task
 
-Before changing the algorithm or another hyperparameter, distinguish artificial
-truncation transitions from genuine chess terminal transitions in the
-diagnostic experiment.
+Determine whether the existing training/replay interfaces allow the diagnostic
+probe to count **actual PER draws by outcome category during optimization**,
+without altering the sampling distribution, random-number sequence or network
+updates.
 
-Measure, separately where possible:
+Inspect source and tests before proposing instrumentation. Add a
+controlled unequal-priority unit test for the existing category-probability
+calculation.
 
-- replay count/share;
-- priority distribution;
-- PER sampling-probability share;
+Do not change hyperparameters or scale training yet.
 
-for:
-
-- artificial truncations;
-- genuine wins;
-- genuine losses;
-- genuine draws.
-
-Prefer diagnostic instrumentation over a permanent replay redesign if the
-measurement can be obtained cleanly without changing production semantics.
-
-The purpose of this experiment is to determine whether the learner receives
-meaningful replay exposure to genuine chess endings or whether the aggregate
-terminal PER result is dominated by artificial truncations.
-
----
 
 ## Development constraints
 

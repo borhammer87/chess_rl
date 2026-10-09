@@ -216,53 +216,50 @@ of approximately `2.628x`.
 This establishes that PER does not treat all `done=True` transitions as though
 they were sampled uniformly.
 
-### Important limitation
 
-The replay transition stores only `done`.
+### Category-resolved final-replay measurement
 
-It does not preserve whether `done=True` came from:
+The baseline probe now labels retained `done=True` transitions externally by
+actual episode outcome, without changing the replay representation:
 
-- a real chess terminal state, such as win/loss/draw; or
-- the artificial training horizon.
+| Outcome | Count | Replay share | PER probability share | Oversampling |
+| --- | ---: | ---: | ---: | ---: |
+| Truncation | 54 | 0.5400% | 1.5488% | 2.868x |
+| Win | 6 | 0.0600% | 0.1615% | 2.691x |
+| Loss | 3 | 0.0300% | 0.0928% | 3.093x |
+| Draw | 10 | 0.1000% | 0.1152% | 1.152x |
 
-Therefore the current PER diagnostic cannot establish whether PER is
-preferentially replaying useful real chess endings, artificial truncations, or
-both.
+All 73 terminal transitions are accounted for; category PER shares total
+approximately 1.9183% (rounding). Wins and losses are relatively oversampled,
+so the strong H1 claim that PER ignores genuine decisive endings is weakened.
 
-The aggregate `2.628x` terminal oversampling factor must not be described as
-evidence that real chess terminal positions are receiving sufficient replay
-attention.
+However, only nine decisive terminal transitions remain in the replay, and
+the combined win/loss probability mass is approximately 0.2543% per draw.
+This is not evidence that the learner sees enough decisive endings to learn.
 
-Status: aggregate terminal prioritization established; composition unresolved.
+**Measurement boundary:** these are final-buffer sampling probabilities,
+not actual sample counts accumulated over training. The current unit test
+covers equal priorities, not an unequal-priority numerical example.
+
+Status: final-replay composition resolved; actual training exposure unresolved.
+
 
 ## Active hypotheses
 
-### H1 — Real chess terminal transitions may receive insufficient learning attention
 
-Training produces substantially more artificial truncations than real chess
-terminations.
+### H1 — Genuine chess endings may receive too little absolute learning exposure
 
-Because replay currently stores both as `done=True`, the existing PER
-diagnostic cannot determine how much sampling probability belongs specifically
-to real wins, losses and draws.
+The final replay contains six wins, three losses and ten draws, versus 54
+artificial truncations.
 
-If artificial truncations dominate terminal priority mass, PER could appear to
-favor terminal transitions while still exposing the learner relatively rarely
-to genuine chess endings.
+PER relatively favors wins and losses, contradicting the simple claim that
+PER suppresses them. Their absolute probability mass remains very small,
+but the actual sampled training history has not been measured.
 
-Evidence for:
+This may limit credit assignment; causation is unproven.
 
-- real endings are less frequent than artificial truncations during the
-  controlled training probe;
-- replay currently loses the distinction between the two categories.
+Status: OPEN in its absolute-exposure form; relative-suppression version weakened.
 
-Evidence against:
-
-- none sufficient yet;
-- aggregate `done=True` transitions are oversampled by PER, but this does not
-  resolve their composition.
-
-Status: OPEN.
 
 ### H2 — Artificial horizon terminality is partially unobservable
 
@@ -355,41 +352,26 @@ They are not necessarily impossible contributors. They have merely received
 enough contrary evidence that another immediate experiment on them would have
 lower diagnostic value.
 
+
 ## Next diagnostic question
 
-The highest-value unresolved question is currently:
+The next question is:
 
-> Of the replay transitions stored with `done=True`, which are genuine chess
-> terminal transitions and which are artificial truncations, and how much PER
-> sampling probability does each category receive?
+> How often were wins, losses, draws and artificial truncations **actually
+> sampled during optimization**, rather than merely eligible for sampling in
+> the final replay?
 
-This question has priority because the existing PER result cannot distinguish
-the two categories.
+First inspect the existing replay sampler and training-update call sites for
+a minimally invasive measurement that does not consume extra RNG draws or
+change optimization.
 
-The next experiment should measure, separately where possible:
+Verify the category-probability calculation against an unequal-priority test
+before interpreting a new run.
 
-- artificial truncation transitions;
-- genuine wins;
-- genuine losses;
-- genuine draws;
-- replay count/share for each category;
-- priority distribution for each category;
-- PER sampling-probability share for each category.
+Distinguish the frequency of sampled transitions from their weighted
+contribution to optimization; the former alone cannot prove that a terminal
+reward propagates effectively.
 
-The experiment should be diagnostic first.
-
-Do not redesign `Transition` or permanently change replay semantics merely to
-obtain the measurement if the distinction can be tracked externally by the
-existing reproducible probe with a smaller change.
-
-Only after this distinction is measured should the project decide whether the
-next hypothesis to investigate is:
-
-- insufficient exposure to genuine terminal chess outcomes;
-- artificial-horizon semantics;
-- reward / delayed credit assignment;
-- exploration / experience generation;
-- or another mechanism indicated by the evidence.
 
 ## Diagnostic discipline
 
