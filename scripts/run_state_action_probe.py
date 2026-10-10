@@ -649,6 +649,7 @@ def main() -> None:
     batch_size = 32
     min_replay_size = 1_000
     target_update_frequency = 10
+    bootstrap_truncation=True,
 
 
     initialization_seed = 12345
@@ -747,6 +748,7 @@ def main() -> None:
         target_update_frequency=target_update_frequency,
         alternate_colors=True,
         progress_callback=terminal_tracker.record_episode,
+        bootstrap_truncation=bootstrap_truncation,
     )
 
     final_terminal_labels = terminal_tracker.get_final_labels()

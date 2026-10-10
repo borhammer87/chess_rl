@@ -374,7 +374,7 @@ def test_observed_samples_include_bootstrapped_truncation(capsys):
     output = capsys.readouterr().out
     assert "truncated: count=1 - share=1.000000" in output
     assert "non-terminal: count=0" in output
-    
+
 def test_observed_per_samples_without_selections(capsys):
     from scripts.run_state_action_probe import (
         PrioritizedSampleObserver,
