@@ -86,6 +86,32 @@ class TerminalTransitionTracker:
 
         return labels
 
+
+class PrioritizedSampleObserver:
+    """Record actual PER selections without changing sampling."""
+
+    def __init__(self, replay_buffer: ReplayBuffer) -> None:
+        self.original_sample = replay_buffer.sample_prioritized
+        self.sampled_transitions: list[Transition] = []
+
+    def sample_prioritized(
+        self,
+        batch_size: int,
+        alpha: float,
+        beta: float,
+    ) -> tuple[list[Transition], list[int], torch.Tensor]:
+        result = self.original_sample(
+            batch_size=batch_size,
+            alpha=alpha,
+            beta=beta,
+        )
+
+        transitions, _, _ = result
+        self.sampled_transitions.extend(transitions)
+
+        return result
+
+
 def analyze_greedy_pgn(
     path: Path,
     agent: StateActionDQNAgent,
