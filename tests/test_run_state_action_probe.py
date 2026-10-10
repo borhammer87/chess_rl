@@ -85,10 +85,30 @@ def test_tracker_rejects_nonterminal_last_transition():
 
     add_transition(buffer, done=False)
 
-    with pytest.raises(ValueError, match="not terminal"):
+    with pytest.raises(ValueError, match="neither terminal"):
         tracker.record_episode(
             1, 1, episode_result()
         )
+
+
+def test_tracker_labels_bootstrapped_truncation():
+    buffer = ReplayBuffer(capacity=3)
+    tracker = TerminalTransitionTracker(buffer)
+
+    add_transition(buffer, done=False)
+
+    tracker.record_episode(
+        1,
+        1,
+        episode_result(truncated=True),
+    )
+
+    transition = buffer.buffer[-1]
+    labels = tracker.get_final_labels()
+
+    assert transition.done is False
+    assert labels == {id(transition): "truncated"}
+
 
 def test_terminal_per_categories(capsys):
     from scripts.run_state_action_probe import (

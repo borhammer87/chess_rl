@@ -57,9 +57,10 @@ class TerminalTransitionTracker:
 
         transition = self.replay_buffer.buffer[-1]
 
-        if not transition.done:
+        if not transition.done and not result.truncated:
             raise ValueError(
-                "Last replay transition is not terminal."
+                "Last replay transition is neither terminal "
+                "nor artificially truncated."
             )
 
         self.labels[id(transition)] = (
@@ -72,7 +73,10 @@ class TerminalTransitionTracker:
         labels = {}
 
         for transition in self.replay_buffer.buffer:
-            if not transition.done:
+            if (
+                not transition.done
+                and id(transition) not in self.labels
+            ):
                 continue
 
             entry = self.labels.get(id(transition))
