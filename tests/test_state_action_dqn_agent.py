@@ -372,3 +372,44 @@ def test_state_action_agent_state_dict_restores_training_state():
             original,
             restored,
         )
+
+
+def test_state_action_train_step_bootstraps_non_terminal_transition(
+    monkeypatch,
+):
+    agent = StateActionDQNAgent(gamma=0.9)
+
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
+    action = encode_move(chess.Move.from_uci("e2e4"))
+
+    batch = [
+        Transition(
+            state=state,
+            action=action,
+            reward=-0.1,
+            next_state=state,
+            done=False,
+            next_legal_actions=[action],
+        )
+    ]
+
+    calls = []
+
+    def fake_next_q_values(states, legal_actions):
+        calls.append((states, legal_actions))
+        return torch.tensor([0.5])
+
+    monkeypatch.setattr(
+        agent.target_net,
+        "evaluate_legal_action_maxes",
+        fake_next_q_values,
+    )
+
+    _, td_errors = agent.train_step(
+        batch,
+        return_td_errors=True,
+    )
+
+    assert len(calls) == 1
+    assert calls[0][1] == [[action]]
+    assert len(td_errors) == 1

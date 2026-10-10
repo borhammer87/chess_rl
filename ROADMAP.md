@@ -120,8 +120,16 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Distinguish genuine chess terminal transitions from artificial
   truncations and measure their replay frequency, priority distribution and
   PER sampling-probability share separately
-- [ ] Verify category PER probability arithmetic with unequal-priority tests
-  and investigate actual outcome-category sampling during training
+- [x] Verify category PER probability arithmetic with unequal-priority tests
+- [x] Instrument actual PER selections during State-Action training
+  without modifying the replay sampler or training algorithm
+- [x] Measure historical outcome-category sampling in the controlled
+  100-episode baseline
+- [x] Verify that non-terminal State-Action transitions consult
+  target-network future values
+- [ ] Numerically verify the non-terminal Bellman target
+- [ ] Run a controlled experiment on artificial-truncation
+  bootstrapping semantics
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN

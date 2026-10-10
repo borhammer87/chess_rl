@@ -647,3 +647,4 @@ def test_train_step_rejects_wrong_number_of_weights():
             batch,
             weights=weights,
         )
+

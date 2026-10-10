@@ -300,7 +300,34 @@ training transitions. Category shares sum to the aggregate PER share within
 rounding tolerance.
 
 ---
+## Observed PER sampling during training
 
+A reproducible 100-episode baseline rerun recorded actual PER
+selections during optimization, including repeated selections
+and transitions subsequently evicted from replay.
+
+- Total selections: 412,416.
+- Non-terminal: 406,265 (98.5085%).
+- Artificial truncation: 4,686 (1.1362%).
+- Win: 482 (0.1169%).
+- Loss: 443 (0.1074%).
+- Draw: 540 (0.1309%).
+
+Wins and losses together accounted for 925 selections,
+approximately 0.2243% of all selections.
+
+The run retained the baseline training outcomes:
+7 wins, 11 draws, 4 losses and 78 truncations.
+
+Final greedy evaluation remained:
+2 wins, 5 draws, 4 losses and 29 truncations,
+with balanced score 0.113.
+
+The run took 189.70 seconds.
+
+These are accumulated selection counts, not unique transitions,
+distinct optimization batches or importance-weighted gradient
+contributions.
 
 ## Baseline replay diversity
 

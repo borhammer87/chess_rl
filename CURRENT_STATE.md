@@ -147,37 +147,49 @@ See `DIAGNOSTICS.md` for the hypothesis tree, evidence and experimental history.
 
 ---
 
-
 ## Current diagnostic boundary
 
-The reproducible 100-episode probe now distinguishes real chess endings from
-artificial truncations in the final replay without changing `Transition` or
-training semantics. Among 10,000 retained transitions, 73 had `done=True`:
+The PER investigation has measured both final-replay sampling
+probabilities and actual selections during optimization.
 
-- 54 artificial truncations: PER probability share 1.5488%, oversampling 2.868x;
-- 6 wins: 0.1615%, 2.691x;
-- 3 losses: 0.0928%, 3.093x;
-- 10 draws: 0.1152%, 1.152x.
+The reproducible 100-episode run recorded 412,416 selections:
 
-Together the categories account for approximately 1.9182% of PER sampling
-probability (rounding differences only). PER relatively favors wins and losses,
-but their absolute representation remains very small. These are probabilities
-at the end of training, not counts of actual training samples.
+- 406,265 non-terminal;
+- 4,686 artificial truncations;
+- 482 wins;
+- 443 losses;
+- 540 draws.
 
+Wins and losses represented approximately 0.2243% of selections.
 
+PER does not ignore decisive endings, but their absolute
+representation remains small. The measurements do not establish
+whether their rewards propagate effectively to earlier moves.
+
+The current investigation has moved to artificial truncation
+semantics.
+
+The episode implementation treats artificial truncations as
+Bellman-terminal (`done=True`), although the underlying chess
+position may remain playable.
+
+A new agent test verifies that non-terminal transitions consult
+the target network for future legal-action values. No change
+to training semantics has yet been made.
 
 ## Immediate next task
 
-Determine whether the existing training/replay interfaces allow the diagnostic
-probe to count **actual PER draws by outcome category during optimization**,
-without altering the sampling distribution, random-number sequence or network
-updates.
+Complete numerical verification of the non-terminal Bellman
+target, then inspect the construction of artificially truncated
+transitions and their next legal actions.
 
-Inspect source and tests before proposing instrumentation. Add a
-controlled unequal-priority unit test for the existing category-probability
-calculation.
+Prepare the smallest controlled experiment that distinguishes
+artificial episode interruption from genuine chess termination.
 
-Do not change hyperparameters or scale training yet.
+Do not change rewards, PER, gamma or the training horizon
+simultaneously with this experiment.
+
+Do not scale training or integrate State-Action self-play yet.
 
 
 ## Development constraints

@@ -237,28 +237,53 @@ However, only nine decisive terminal transitions remain in the replay, and
 the combined win/loss probability mass is approximately 0.2543% per draw.
 This is not evidence that the learner sees enough decisive endings to learn.
 
-**Measurement boundary:** these are final-buffer sampling probabilities,
-not actual sample counts accumulated over training. The current unit test
-covers equal priorities, not an unequal-priority numerical example.
+**Measurement boundary:** the category table describes sampling
+probabilities in the final replay, not historical sampling counts.
 
-Status: final-replay composition resolved; actual training exposure unresolved.
+### Actual PER selections during optimization
+
+The controlled 100-episode rerun recorded 412,416 PER selections.
+
+- Non-terminal: 406,265 (98.5085%).
+- Artificial truncation: 4,686 (1.1362%).
+- Win: 482 (0.1169%).
+- Loss: 443 (0.1074%).
+- Draw: 540 (0.1309%).
+
+Decisive endings accounted for 925 selections (0.2243%).
+
+This confirms that PER repeatedly samples genuine decisive endings,
+but their absolute exposure remains small.
+
+These counts do not measure distinct batches, gradient contribution
+or successful propagation of terminal rewards.
+
+Status: final-replay probabilities and historical sampling
+frequencies measured; learning impact remains unresolved.
 
 
 ## Active hypotheses
 
 
-### H1 — Genuine chess endings may receive too little absolute learning exposure
+### H1 — Genuine chess endings receive limited absolute exposure
 
-The final replay contains six wins, three losses and ten draws, versus 54
-artificial truncations.
+The final replay contains six wins and three losses, compared with
+54 artificial truncations.
 
-PER relatively favors wins and losses, contradicting the simple claim that
-PER suppresses them. Their absolute probability mass remains very small,
-but the actual sampled training history has not been measured.
+PER relatively favors decisive endings, and actual sampling records
+confirm 482 win selections and 443 loss selections during training.
 
-This may limit credit assignment; causation is unproven.
+These 925 selections represent approximately 0.2243% of all
+412,416 selections.
 
-Status: OPEN in its absolute-exposure form; relative-suppression version weakened.
+The hypothesis that PER ignores decisive endings is not supported.
+However, the limited absolute exposure may still constrain learning.
+
+Selection frequency alone cannot establish whether the terminal
+signal propagates effectively to earlier decisions.
+
+Status: sampling behavior measured; causal contribution to weak
+greedy performance remains OPEN.
 
 
 ### H2 — Artificial horizon terminality is partially unobservable
@@ -289,6 +314,23 @@ Evidence against / limitations:
 - no controlled experiment has isolated this issue;
 - the large final TD error alone does not prove that horizon observability is
   the cause of weak policy behavior.
+
+The current implementation stores artificially truncated transitions
+with `done=True`, disables future-value bootstrapping and assigns
+the truncation penalty.
+
+This matches the existing implementation and tests; no coding bug
+has been established.
+
+A new State-Action agent unit test also confirms that a
+non-terminal transition consults the target network for future
+legal-action values. This validates the existing bootstrap path,
+but does not yet numerically verify a complete Bellman target
+or establish that changing truncation semantics improves learning.
+
+The proposed next experiment is to distinguish artificial
+episode interruption from genuine chess termination while
+preserving a controlled baseline comparison.
 
 Status: OPEN, theoretically plausible but not experimentally established.
 
@@ -355,22 +397,29 @@ lower diagnostic value.
 
 ## Next diagnostic question
 
-The next question is:
+The PER sampling investigation is complete for its stated scope.
 
-> How often were wins, losses, draws and artificial truncations **actually
-> sampled during optimization**, rather than merely eligible for sampling in
-> the final replay?
+The next priority is H2: determine whether treating artificial
+truncations as Bellman-terminal transitions contributes to
+weak greedy learning.
 
-First inspect the existing replay sampler and training-update call sites for
-a minimally invasive measurement that does not consume extra RNG draws or
-change optimization.
+Before changing episode construction:
 
-Verify the category-probability calculation against an unequal-priority test
-before interpreting a new run.
+1. Verify the numerical Bellman target for a non-terminal
+   State-Action transition using a controlled unit test.
+2. Review how a truncated episode obtains its next state
+   and legal next actions.
+3. Preserve the distinction between chess outcome and
+   artificial training interruption.
+4. Define a controlled experiment changing truncation
+   bootstrapping semantics without simultaneously changing
+   gamma, PER or the training horizon.
 
-Distinguish the frequency of sampled transitions from their weighted
-contribution to optimization; the former alone cannot prove that a terminal
-reward propagates effectively.
+The existing truncation penalty must be considered explicitly:
+retaining it while enabling bootstrapping defines a different
+target from simply removing terminal treatment.
+
+No improvement has yet been demonstrated by this proposed change.
 
 
 ## Diagnostic discipline
