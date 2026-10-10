@@ -273,3 +273,38 @@ def test_observer_records_real_replay_sampling():
         transitions,
     ):
         assert recorded is sampled
+
+
+def test_observed_per_samples_include_evicted_terminals(capsys):
+    from scripts.run_state_action_probe import (
+        PrioritizedSampleObserver,
+        analyze_observed_per_samples,
+    )
+
+    buffer = ReplayBuffer(capacity=1)
+    tracker = TerminalTransitionTracker(buffer)
+    observer = PrioritizedSampleObserver(buffer)
+
+    add_transition(buffer)
+    tracker.record_episode(1, 2, episode_result(result="1-0"))
+    winning_transition = buffer.buffer[-1]
+
+    observer.sampled_transitions.extend(
+        [winning_transition, winning_transition]
+    )
+
+    add_transition(buffer, done=False)
+    observer.sampled_transitions.append(buffer.buffer[-1])
+
+    assert all(
+        transition is not winning_transition
+        for transition in buffer.buffer
+    )
+
+    analyze_observed_per_samples(observer, tracker)
+    output = capsys.readouterr().out
+
+    assert "total: 3" in output
+    assert "win: count=2 - share=0.666667" in output
+    assert "non-terminal: count=1 - share=0.333333" in output
+    assert "truncated: count=0" in output

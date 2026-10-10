@@ -112,6 +112,38 @@ class PrioritizedSampleObserver:
         return result
 
 
+def analyze_observed_per_samples(
+    observer: PrioritizedSampleObserver,
+    tracker: TerminalTransitionTracker,
+) -> None:
+    """Summarize actual PER selections during training."""
+    counts = Counter()
+
+    for transition in observer.sampled_transitions:
+        if not transition.done:
+            category = "non-terminal"
+        else:
+            entry = tracker.labels.get(id(transition))
+            if entry is None or entry[0] is not transition:
+                raise ValueError(
+                    "Sampled terminal transition has no label."
+                )
+            category = entry[1]
+
+        counts[category] += 1
+
+    total = len(observer.sampled_transitions)
+    print(f"\nObserved PER selections - total: {total}")
+
+    for category in (
+        "non-terminal", "truncated", "win", "loss", "draw"
+    ):
+        count = counts[category]
+        share = count / total if total else 0.0
+        print(f"{category}: count={count} - share={share:.6f}")
+
+
+
 def analyze_greedy_pgn(
     path: Path,
     agent: StateActionDQNAgent,
