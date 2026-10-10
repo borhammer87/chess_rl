@@ -1318,6 +1318,38 @@ def test_truncation_penalty_is_added_to_material_reward(
         expected_reward
     )
 
+
+def test_truncation_can_preserve_future_legal_actions():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    def opponent_selector(board, legal_moves):
+        return legal_moves[0]
+
+    result = run_dqn_vs_opponent_episode(
+        env=env,
+        agent=agent,
+        opponent_move_selector=opponent_selector,
+        replay_buffer=replay_buffer,
+        max_agent_steps=1,
+        bootstrap_truncation=True,
+    )
+
+    transition = replay_buffer.buffer[-1]
+
+    assert result.truncated is True
+    assert result.done is False
+    assert transition.done is False
+    assert transition.next_legal_actions == [
+        encode_move(move)
+        for move in env.legal_moves()
+    ]
+    assert transition.reward == pytest.approx(
+        TRUNCATION_PENALTY
+    )
+
+
 def test_train_from_replay_uses_prioritized_sampling(
     monkeypatch,
 ):

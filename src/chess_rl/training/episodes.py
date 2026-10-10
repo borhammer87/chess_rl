@@ -434,6 +434,7 @@ def run_dqn_vs_opponent_episode(
     batch_size: int = 32,
     min_replay_size: int = 1_000,
     agent_color: chess.Color = chess.WHITE,
+    bootstrap_truncation: bool = False,
 ) -> VsRandomEpisodeResult:
     """
     Run one training episode against an opponent move selector.
@@ -550,7 +551,10 @@ def run_dqn_vs_opponent_episode(
 
         transition_done = (
             done
-            or truncated_transition
+            or (
+                truncated_transition
+                and not bootstrap_truncation
+            )
         )
 
         if transition_done:
