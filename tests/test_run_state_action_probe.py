@@ -308,3 +308,21 @@ def test_observed_per_samples_include_evicted_terminals(capsys):
     assert "win: count=2 - share=0.666667" in output
     assert "non-terminal: count=1 - share=0.333333" in output
     assert "truncated: count=0" in output
+
+def test_observed_per_samples_without_selections(capsys):
+    from scripts.run_state_action_probe import (
+        PrioritizedSampleObserver,
+        analyze_observed_per_samples,
+    )
+
+    buffer = ReplayBuffer(capacity=2)
+    tracker = TerminalTransitionTracker(buffer)
+    observer = PrioritizedSampleObserver(buffer)
+
+    analyze_observed_per_samples(observer, tracker)
+
+    output = capsys.readouterr().out
+
+    assert "total: 0" in output
+    assert "win: count=0 - share=0.000000" in output
+    assert "non-terminal: count=0 - share=0.000000" in output

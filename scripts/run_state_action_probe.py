@@ -815,6 +815,11 @@ def main() -> None:
         terminal_labels=final_terminal_labels,
     )
 
+    analyze_observed_per_samples(
+        observer=sample_observer,
+        tracker=terminal_tracker,
+    )    
+
     print("\nAnalyzing final replay diversity...")
 
     analyze_replay_diversity(
