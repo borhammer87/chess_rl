@@ -53,6 +53,7 @@ def train_against_random(
     ] | None = None,
     agent_color: chess.Color = chess.WHITE,
     alternate_colors: bool = False,
+    bootstrap_truncation: bool = False,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -163,6 +164,7 @@ def train_against_random(
             batch_size=batch_size,
             min_replay_size=min_replay_size,
             agent_color=episode_agent_color,
+            bootstrap_truncation=bootstrap_truncation,
         )
 
         results.append(result)

@@ -57,6 +57,7 @@ def test_train_against_random_returns_one_result_per_episode(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         return fake_result
 
@@ -102,6 +103,7 @@ def test_train_against_random_reuses_same_replay_buffer(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         received_buffers.append(replay_buffer)
 
@@ -159,6 +161,7 @@ def test_train_against_random_passes_training_configuration(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         received_calls.append(
             {
@@ -204,6 +207,31 @@ def test_train_against_random_passes_training_configuration(
         assert call["batch_size"] == 8
         assert call["min_replay_size"] == 50
 
+
+def test_train_against_random_can_bootstrap_truncation():
+    env = ChessEnv()
+    agent = DQNAgent(epsilon=1.0)
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=10)
+
+    results = train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=1,
+        max_agent_steps=1,
+        min_replay_size=100,
+        bootstrap_truncation=True,
+    )
+
+    transition = replay_buffer.buffer[-1]
+
+    assert results[0].truncated is True
+    assert transition.done is False
+    assert transition.next_legal_actions
+
+
 def test_train_against_random_rejects_zero_episodes():
     env = ChessEnv()
     agent = DQNAgent()
@@ -241,6 +269,7 @@ def test_train_against_random_updates_target_at_configured_frequency(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         return VsRandomEpisodeResult(
             agent_steps=1,
@@ -302,6 +331,7 @@ def test_train_against_random_does_not_update_target_too_early(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         return VsRandomEpisodeResult(
             agent_steps=1,
@@ -389,6 +419,7 @@ def test_train_against_random_does_not_decay_epsilon_without_training(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         return VsRandomEpisodeResult(
             agent_steps=1,
@@ -745,6 +776,7 @@ def test_evaluate_against_random_summarizes_results(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         observed_colors.append(agent_color)
         observed_epsilons.append(agent.epsilon)
@@ -1579,6 +1611,7 @@ def test_train_against_random_passes_agent_color_to_episode(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         received_colors.append(agent_color)
 
@@ -1675,6 +1708,7 @@ def test_evaluate_against_random_counts_results_from_black_perspective(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         return next(fake_results)
 
@@ -1716,6 +1750,7 @@ def test_train_against_random_alternates_agent_color(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         received_colors.append(agent_color)
 
@@ -2066,6 +2101,7 @@ def test_save_greedy_evaluation_game_writes_pgn(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         received_epsilon.append(agent.epsilon)
 
@@ -2424,6 +2460,7 @@ def test_save_greedy_evaluation_game_uses_provided_replay_buffer(
         batch_size,
         min_replay_size,
         agent_color,
+        bootstrap_truncation=False,
     ):
         received_buffers.append(replay_buffer)
 

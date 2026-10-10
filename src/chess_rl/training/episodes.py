@@ -404,6 +404,7 @@ def run_dqn_vs_random_episode(
     batch_size: int = 32,
     min_replay_size: int = 1_000,
     agent_color: chess.Color = chess.WHITE,
+    bootstrap_truncation: bool = False,
 ) -> VsRandomEpisodeResult:
     """
     Run one training episode against RandomAgent.
@@ -423,6 +424,7 @@ def run_dqn_vs_random_episode(
         batch_size=batch_size,
         min_replay_size=min_replay_size,
         agent_color=agent_color,
+        bootstrap_truncation=bootstrap_truncation,
     )
 
 def run_dqn_vs_opponent_episode(
