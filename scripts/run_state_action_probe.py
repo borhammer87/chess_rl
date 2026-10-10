@@ -694,6 +694,9 @@ def main() -> None:
         replay_buffer=replay_buffer,
     )
 
+    sample_observer = PrioritizedSampleObserver(replay_buffer)
+    replay_buffer.sample_prioritized = sample_observer.sample_prioritized
+
     start_time = perf_counter()
 
     results = train_against_random(

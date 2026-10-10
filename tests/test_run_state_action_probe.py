@@ -242,3 +242,34 @@ def test_sample_observer_does_not_sample_until_called(monkeypatch):
     )
 
     assert len(calls) == 1
+
+
+
+def test_observer_records_real_replay_sampling():
+    from scripts.run_state_action_probe import (
+        PrioritizedSampleObserver,
+    )
+
+    buffer = ReplayBuffer(capacity=3)
+    add_transition(buffer, done=False)
+    add_transition(buffer, done=True)
+
+    observer = PrioritizedSampleObserver(buffer)
+    buffer.sample_prioritized = observer.sample_prioritized
+
+    transitions, indices, weights = buffer.sample_prioritized(
+        batch_size=4,
+        alpha=0.6,
+        beta=0.4,
+    )
+
+    assert len(transitions) == 4
+    assert len(indices) == 4
+    assert len(weights) == 4
+    assert len(observer.sampled_transitions) == 4
+
+    for recorded, sampled in zip(
+        observer.sampled_transitions,
+        transitions,
+    ):
+        assert recorded is sampled
