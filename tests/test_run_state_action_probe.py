@@ -137,6 +137,26 @@ def test_terminal_per_categories(capsys):
     assert "draw: count=0" in output
     assert "oversampling=1.000x" in output
 
+def test_per_categories_include_bootstrapped_truncation(capsys):
+    from scripts.run_state_action_probe import (
+        analyze_terminal_per_categories,
+    )
+
+    buffer = ReplayBuffer(capacity=2)
+    tracker = TerminalTransitionTracker(buffer)
+
+    add_transition(buffer, done=False)
+    tracker.record_episode(
+        1, 1, episode_result(truncated=True)
+    )
+
+    analyze_terminal_per_categories(
+        buffer, tracker.get_final_labels()
+    )
+
+    output = capsys.readouterr().out
+    assert "truncated: count=1" in output
+    assert "PER share=1.000000" in output
 
 def test_terminal_per_categories_with_unequal_priorities(capsys):
     from scripts.run_state_action_probe import (
@@ -329,6 +349,32 @@ def test_observed_per_samples_include_evicted_terminals(capsys):
     assert "non-terminal: count=1 - share=0.333333" in output
     assert "truncated: count=0" in output
 
+def test_observed_samples_include_bootstrapped_truncation(capsys):
+    from scripts.run_state_action_probe import (
+        PrioritizedSampleObserver,
+        analyze_observed_per_samples,
+    )
+
+    buffer = ReplayBuffer(capacity=1)
+    tracker = TerminalTransitionTracker(buffer)
+    observer = PrioritizedSampleObserver(buffer)
+
+    add_transition(buffer, done=False)
+    tracker.record_episode(
+        1, 1, episode_result(truncated=True)
+    )
+
+    truncated_transition = buffer.buffer[-1]
+    observer.sampled_transitions.append(truncated_transition)
+
+    add_transition(buffer, done=False)
+
+    analyze_observed_per_samples(observer, tracker)
+
+    output = capsys.readouterr().out
+    assert "truncated: count=1 - share=1.000000" in output
+    assert "non-terminal: count=0" in output
+    
 def test_observed_per_samples_without_selections(capsys):
     from scripts.run_state_action_probe import (
         PrioritizedSampleObserver,
@@ -346,3 +392,4 @@ def test_observed_per_samples_without_selections(capsys):
     assert "total: 0" in output
     assert "win: count=0 - share=0.000000" in output
     assert "non-terminal: count=0 - share=0.000000" in output
+

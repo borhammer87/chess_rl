@@ -124,15 +124,16 @@ def analyze_observed_per_samples(
     counts = Counter()
 
     for transition in observer.sampled_transitions:
-        if not transition.done:
-            category = "non-terminal"
-        else:
-            entry = tracker.labels.get(id(transition))
-            if entry is None or entry[0] is not transition:
-                raise ValueError(
-                    "Sampled terminal transition has no label."
-                )
+        entry = tracker.labels.get(id(transition))
+
+        if entry is not None and entry[0] is transition:
             category = entry[1]
+        elif transition.done:
+            raise ValueError(
+                "Sampled terminal transition has no label."
+            )
+        else:
+            category = "non-terminal"
 
         counts[category] += 1
 
@@ -552,8 +553,7 @@ def analyze_terminal_per_categories(
         indices = [
             index
             for index, transition in enumerate(transitions)
-            if transition.done
-            and terminal_labels[id(transition)] == category
+            if terminal_labels.get(id(transition)) == category
         ]
 
         if not indices:
