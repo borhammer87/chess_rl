@@ -379,6 +379,19 @@ def test_state_action_train_step_bootstraps_non_terminal_transition(
 ):
     agent = StateActionDQNAgent(gamma=0.9)
 
+    parameter = next(agent.policy_net.parameters())
+
+    def fake_policy_q_values(states, actions):
+        return parameter.sum() * 0 + torch.zeros(
+            len(actions),
+        )
+
+    monkeypatch.setattr(
+        agent.policy_net,
+        "evaluate_state_action_pairs",
+        fake_policy_q_values,
+    )
+
     state = torch.zeros((BOARD_CHANNELS, 8, 8))
     action = encode_move(chess.Move.from_uci("e2e4"))
 
@@ -413,3 +426,4 @@ def test_state_action_train_step_bootstraps_non_terminal_transition(
     assert len(calls) == 1
     assert calls[0][1] == [[action]]
     assert len(td_errors) == 1
+    assert td_errors[0] == pytest.approx(0.35)
