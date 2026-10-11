@@ -6,6 +6,7 @@ import torch
 from chess_rl.utils.replay_buffer import Transition
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.board_encoder import encode_board
+from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 
 def best_material_capture(
     board: chess.Board,
@@ -251,3 +252,14 @@ def build_capture_transitions(
             )
 
     return transitions
+
+def train_capture_batch(
+    agent: StateActionDQNAgent,
+    positions: list[tuple[chess.Board, chess.Move, chess.Move]],
+) -> float:
+    """Perform one training update using both captures per position."""
+    if not positions:
+        raise ValueError("Training positions cannot be empty.")
+
+    transitions = build_capture_transitions(positions)
+    return agent.train_step(transitions)
