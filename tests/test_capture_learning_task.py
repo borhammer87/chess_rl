@@ -153,3 +153,53 @@ def test_random_capture_positions_reject_negative_count():
 
     with pytest.raises(ValueError):
         generate_capture_positions(-1, 42)
+
+
+def test_capture_split_has_no_shared_positions():
+    from chess_rl.training.capture_learning_task import (
+        split_capture_positions,
+    )
+
+    train, evaluation = split_capture_positions(30, 20, seed=42)
+
+    train_fens = {board.fen() for board, _, _ in train}
+    evaluation_fens = {board.fen() for board, _, _ in evaluation}
+
+    assert len(train) == 30
+    assert len(evaluation) == 20
+    assert train_fens.isdisjoint(evaluation_fens)
+
+
+def test_capture_split_balances_correct_candidate_order():
+    from chess_rl.training.capture_learning_task import (
+        best_material_capture,
+        split_capture_positions,
+    )
+
+    train, evaluation = split_capture_positions(30, 20, seed=42)
+
+    for examples in (train, evaluation):
+        first_is_best = sum(
+            best_material_capture(board, first, second) == first
+            for board, first, second in examples
+        )
+
+        assert first_is_best == len(examples) // 2
+
+
+def test_capture_split_is_reproducible():
+    from chess_rl.training.capture_learning_task import (
+        split_capture_positions,
+    )
+
+    def signatures(examples):
+        return [
+            (board.fen(), first.uci(), second.uci())
+            for board, first, second in examples
+        ]
+
+    train_a, evaluation_a = split_capture_positions(30, 20, seed=42)
+    train_b, evaluation_b = split_capture_positions(30, 20, seed=42)
+
+    assert signatures(train_a) == signatures(train_b)
+    assert signatures(evaluation_a) == signatures(evaluation_b)

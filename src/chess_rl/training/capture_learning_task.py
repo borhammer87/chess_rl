@@ -133,3 +133,48 @@ def generate_capture_positions(
         raise ValueError("Could not generate enough distinct positions.")
 
     return positions
+
+
+def split_capture_positions(
+    train_count: int,
+    evaluation_count: int,
+    seed: int,
+) -> tuple[
+    list[tuple[chess.Board, chess.Move, chess.Move]],
+    list[tuple[chess.Board, chess.Move, chess.Move]],
+]:
+    """Create disjoint, balanced training and evaluation sets."""
+    if train_count < 0 or evaluation_count < 0:
+        raise ValueError("Dataset sizes cannot be negative.")
+
+    positions = generate_capture_positions(
+        train_count + evaluation_count,
+        seed,
+    )
+
+    rng = random.Random(seed)
+    rng.shuffle(positions)
+
+    train = positions[:train_count]
+    evaluation = positions[train_count:]
+
+    def balance_candidate_order(
+        examples: list[tuple[chess.Board, chess.Move, chess.Move]],
+    ) -> list[tuple[chess.Board, chess.Move, chess.Move]]:
+        balanced = []
+
+        for index, (board, first, second) in enumerate(examples):
+            best = best_material_capture(board, first, second)
+            should_be_first = index % 2 == 0
+
+            if (best == first) != should_be_first:
+                first, second = second, first
+
+            balanced.append((board, first, second))
+
+        return balanced
+
+    return (
+        balance_candidate_order(train),
+        balance_candidate_order(evaluation),
+    )
