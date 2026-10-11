@@ -106,3 +106,50 @@ def test_generated_capture_positions_balance_candidate_order():
     )
 
     assert first_wins == 4
+
+
+def test_random_capture_positions_are_reproducible():
+    from chess_rl.training.capture_learning_task import (
+        generate_capture_positions,
+    )
+
+    def signatures(positions):
+        return [
+            (board.fen(), first.uci(), second.uci())
+            for board, first, second in positions
+        ]
+
+    assert signatures(generate_capture_positions(30, 42)) == signatures(
+        generate_capture_positions(30, 42)
+    )
+
+
+def test_random_capture_positions_are_valid_and_distinct():
+    from chess_rl.training.capture_learning_task import (
+        best_material_capture,
+        generate_capture_positions,
+    )
+
+    positions = generate_capture_positions(40, 123)
+    assert len({board.fen() for board, _, _ in positions}) == 40
+
+    for board, first, second in positions:
+        assert board.is_valid()
+        assert first in board.legal_moves
+        assert second in board.legal_moves
+        assert board.is_capture(first)
+        assert board.is_capture(second)
+        assert best_material_capture(board, first, second) in (first, second)
+
+    assert {board.turn for board, _, _ in positions} == {
+        chess.WHITE, chess.BLACK
+    }
+
+
+def test_random_capture_positions_reject_negative_count():
+    from chess_rl.training.capture_learning_task import (
+        generate_capture_positions,
+    )
+
+    with pytest.raises(ValueError):
+        generate_capture_positions(-1, 42)

@@ -1,6 +1,6 @@
 
 import chess
-
+import random
 from chess_rl.training.episodes import material_reward
 
 
@@ -71,5 +71,65 @@ def make_capture_positions() -> list[
                 chess.Move(knight_square, left_target),
                 chess.Move(knight_square, right_target),
             ))
+
+    return positions
+
+
+def generate_capture_positions(
+    count: int,
+    seed: int,
+) -> list[tuple[chess.Board, chess.Move, chess.Move]]:
+    """Generate reproducible, distinct capture comparisons."""
+    if count < 0:
+        raise ValueError("Count cannot be negative.")
+
+    rng = random.Random(seed)
+    positions = []
+    seen = set()
+    attempts = 0
+
+    while len(positions) < count and attempts < max(1000, count * 100):
+        attempts += 1
+        color = rng.choice((chess.WHITE, chess.BLACK))
+        file = rng.randint(1, 6)
+        rank = rng.randint(1, 5) if color else rng.randint(2, 6)
+        target_rank = rank + 2 if color else rank - 2
+
+        origin = chess.square(file, rank)
+        left = chess.square(file - 1, target_rank)
+        right = chess.square(file + 1, target_rank)
+
+        board = chess.Board(None)
+        board.turn = color
+        board.set_piece_at(chess.A1, chess.Piece(chess.KING, chess.WHITE))
+        board.set_piece_at(chess.H8, chess.Piece(chess.KING, chess.BLACK))
+        board.set_piece_at(origin, chess.Piece(chess.KNIGHT, color))
+
+        targets = [chess.ROOK, chess.PAWN]
+        rng.shuffle(targets)
+        for square, piece_type in zip((left, right), targets):
+            board.set_piece_at(
+                square, chess.Piece(piece_type, not color)
+            )
+
+        first = chess.Move(origin, left)
+        second = chess.Move(origin, right)
+        if rng.choice((True, False)):
+            first, second = second, first
+
+        if not board.is_valid():
+            continue
+        if first not in board.legal_moves or second not in board.legal_moves:
+            continue
+
+        key = board.fen()
+        if key in seen:
+            continue
+
+        seen.add(key)
+        positions.append((board, first, second))
+
+    if len(positions) != count:
+        raise ValueError("Could not generate enough distinct positions.")
 
     return positions
