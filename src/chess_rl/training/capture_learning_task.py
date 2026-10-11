@@ -82,7 +82,11 @@ def generate_capture_positions(
     """Generate reproducible, distinct capture comparisons."""
     if count < 0:
         raise ValueError("Count cannot be negative.")
-
+    if count > 120:
+        raise ValueError(
+            "Requested count exceeds the generator's "
+            "theoretical maximum of 120 distinct positions."
+        )
     rng = random.Random(seed)
     positions = []
     seen = set()

@@ -203,3 +203,11 @@ def test_capture_split_is_reproducible():
 
     assert signatures(train_a) == signatures(train_b)
     assert signatures(evaluation_a) == signatures(evaluation_b)
+
+def test_capture_generator_rejects_impossible_count():
+    from chess_rl.training.capture_learning_task import (
+        generate_capture_positions,
+    )
+
+    with pytest.raises(ValueError, match="theoretical maximum"):
+        generate_capture_positions(121, seed=42)
