@@ -3,7 +3,7 @@ import chess
 import random
 from chess_rl.training.episodes import material_reward
 import torch
-
+from chess_rl.utils.replay_buffer import Transition
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.board_encoder import encode_board
 
@@ -221,3 +221,33 @@ def evaluate_capture_accuracy(
         model.train(was_training)
 
     return correct / len(positions)
+
+
+def build_capture_transitions(
+    positions: list[tuple[chess.Board, chess.Move, chess.Move]],
+) -> list[Transition]:
+    """Build terminal one-step experiences for both candidate captures."""
+    transitions = []
+
+    for board, first, second in positions:
+        best_material_capture(board, first, second)
+        state = encode_board(board)
+
+        for move in (first, second):
+            next_board = board.copy()
+            next_board.push(move)
+
+            transitions.append(
+                Transition(
+                    state=state.clone(),
+                    action=encode_move(move),
+                    reward=material_reward(
+                        board, next_board, board.turn
+                    ),
+                    next_state=encode_board(next_board),
+                    done=True,
+                    next_legal_actions=[],
+                )
+            )
+
+    return transitions

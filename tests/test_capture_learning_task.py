@@ -267,3 +267,52 @@ def test_capture_accuracy_rejects_empty_dataset():
 
     with pytest.raises(ValueError, match="cannot be empty"):
         evaluate_capture_accuracy(StateActionDQN(), [])
+
+
+def test_capture_transitions_include_both_actions():
+    from chess_rl.training.capture_learning_task import (
+        build_capture_transitions,
+        make_capture_positions,
+    )
+    from chess_rl.utils.action_encoder import encode_move
+
+    board, first, second = make_capture_positions()[0]
+    transitions = build_capture_transitions(
+        [(board, first, second)]
+    )
+
+    assert len(transitions) == 2
+    assert {t.action for t in transitions} == {
+        encode_move(first),
+        encode_move(second),
+    }
+    assert all(t.done for t in transitions)
+    assert all(t.next_legal_actions == [] for t in transitions)
+
+    rewards = {t.action: t.reward for t in transitions}
+    rook_capture = next(
+        move for move in (first, second)
+        if board.piece_at(move.to_square).piece_type == chess.ROOK
+    )
+    pawn_capture = next(
+        move for move in (first, second)
+        if board.piece_at(move.to_square).piece_type == chess.PAWN
+    )
+
+    assert rewards[encode_move(rook_capture)] > rewards[
+        encode_move(pawn_capture)
+    ]
+
+
+def test_capture_transitions_do_not_modify_original_board():
+    from chess_rl.training.capture_learning_task import (
+        build_capture_transitions,
+        make_capture_positions,
+    )
+
+    board, first, second = make_capture_positions()[0]
+    original_fen = board.fen()
+
+    build_capture_transitions([(board, first, second)])
+
+    assert board.fen() == original_fen
