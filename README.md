@@ -94,12 +94,15 @@ diagnostic game also contained 149 unique encoded states and 149 unique
 state-action pairs, although its action usage was substantially more
 concentrated than the training replay.
 
-The next diagnostic step is to distinguish genuine chess terminal transitions
-from artificial episode truncations and measure their replay frequency,
-priority distribution and PER sampling-probability share separately.
+The PER investigation has distinguished genuine chess endings
+from artificial truncations and measured their sampling exposure.
 
-The current aggregate PER measurement cannot make that distinction because
-replay transitions preserve only `done`, not the reason why the episode ended.
+A controlled experiment enabling Bellman bootstrapping for artificial
+truncations did not improve the final balanced greedy RandomAgent
+score, which remained 0.113.
 
-This is a diagnostic question, not an established explanation for weak greedy
-play. See `DIAGNOSTICS.md` for the active hypothesis tree and evidence.
+The next objective is to test whether State-Action DQN can learn
+a small, controlled chess-relevant state-action preference before
+committing additional resources to full-game training.
+
+See `DIAGNOSTICS.md` for the evidence and active hypotheses.

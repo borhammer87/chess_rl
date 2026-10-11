@@ -111,46 +111,20 @@ Learning reward can contain:
 3. `STEP_PENALTY = -0.0005` on ordinary non-terminal, non-truncated learner transitions;
 4. `TRUNCATION_PENALTY = -0.1` on the final artificially truncated transition.
 
-## Current diagnostic boundary
+Artificial truncations support optional Bellman bootstrapping through
+`bootstrap_truncation`:
 
-The PER investigation measured final-replay sampling probabilities
-and actual training selections, including historical transitions
-subsequently evicted from replay.
+- `False` (default): the final transition has `done=True` and no
+  legal next actions.
+- `True`: the final transition has `done=False` and retains legal
+  next actions for the Bellman target.
 
-A controlled 100-episode experiment compared the baseline
-artificial-truncation semantics (`done=True`) with optional
-bootstrapping (`bootstrap_truncation=True`).
+Real chess endings remain terminal in both cases. The truncation
+penalty is unchanged. Greedy evaluation still reports truncations
+separately from wins, draws and losses.
 
-With bootstrapping enabled:
-
-- training outcomes: 8 wins, 13 draws, 3 losses, 76 truncated;
-- final greedy evaluation: 3 wins, 3 draws, 4 losses, 30 truncated;
-- final balanced greedy score: 0.113;
-- final replay: 10,000 transitions, including 21 Bellman-terminal
-  transitions and 54 separately labelled artificial truncations.
-
-The baseline final greedy score was also 0.113, with 29 truncated
-evaluation games. The experiment therefore did not demonstrate
-improved greedy performance.
-
-Artificial truncations can now retain legal next actions and
-bootstrap future values. The default remains
-`bootstrap_truncation=False`.
-
-The final greedy diagnostic-game recording now accepts the same
-option, independently of greedy evaluation scoring. Its corrected
-TD measurements have not yet been collected.
-
-## Immediate next task
-
-Design a small, controlled chess-learning test to determine
-whether State-Action DQN can learn a simple, measurable
-state-action preference before further full-game training.
-
-Define the task, success criterion and training budget before
-implementing it. Preserve the existing full-game baseline.
-
-Do not scale training or integrate State-Action self-play yet.
+Diagnostic-game recording accepts the same option so its TD analysis
+can follow the training semantics.
 
 ## Training orchestration
 

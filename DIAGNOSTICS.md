@@ -121,7 +121,11 @@ A State-Action learner transition spans:
 
 Reward shaping covers the same interval.
 
-Terminal and artificially truncated transitions disable bootstrapping.
+Real chess terminal transitions disable bootstrapping.
+
+Artificial truncations can either disable bootstrapping (the default)
+or retain legal next actions for bootstrapping, controlled by
+`bootstrap_truncation`.
 
 No implementation error has been identified in this transition path.
 
@@ -285,54 +289,33 @@ signal propagates effectively to earlier decisions.
 Status: sampling behavior measured; causal contribution to weak
 greedy performance remains OPEN.
 
+### H2 — Artificial horizon terminality may affect learning
 
-### H2 — Artificial horizon terminality is partially unobservable
+Status: experimentally tested; no improvement demonstrated.
 
-The board encoding does not contain the current learner-step count or remaining
-distance to the artificial horizon.
+The baseline stores artificial truncations as Bellman-terminal
+transitions. An optional implementation now permits bootstrapping
+while retaining the existing truncation penalty.
 
-Nevertheless, reaching the configured horizon changes the Bellman semantics:
-the final transition receives the truncation penalty and is stored as terminal.
+A controlled 100-episode experiment enabled
+`bootstrap_truncation=True`, preserving gamma, PER configuration,
+training horizon and truncation penalty.
 
-Two otherwise similar chess positions can therefore have different expected
-training consequences depending on an episode-time variable that is absent from
-the encoded state.
+The baseline and bootstrapping runs both achieved a final balanced
+greedy RandomAgent score of 0.113.
 
-This creates a potential mismatch between the learning problem and the
-observable state.
+Greedy truncations were 29/40 in the baseline and 30/40 with
+bootstrapping.
 
-Evidence for:
+The experiment therefore did not establish improved greedy
+performance. It also does not prove that bootstrapping is harmful
+or ineffective under other training conditions.
 
-- step/horizon information is absent from the board representation;
-- artificial truncation is treated as Bellman-terminal;
-- the exact final diagnostic transition retained a strongly positive Q estimate
-  despite its `-0.1` terminal target.
+The final diagnostic-game TD recording was subsequently updated
+to support the same semantics, but corrected TD measurements
+have not yet been collected.
 
-Evidence against / limitations:
-
-- exact encoded-state repetition is rare;
-- no controlled experiment has isolated this issue;
-- the large final TD error alone does not prove that horizon observability is
-  the cause of weak policy behavior.
-
-The current implementation stores artificially truncated transitions
-with `done=True`, disables future-value bootstrapping and assigns
-the truncation penalty.
-
-This matches the existing implementation and tests; no coding bug
-has been established.
-
-A new State-Action agent unit test also confirms that a
-non-terminal transition consults the target network for future
-legal-action values. This validates the existing bootstrap path,
-but does not yet numerically verify a complete Bellman target
-or establish that changing truncation semantics improves learning.
-
-The proposed next experiment is to distinguish artificial
-episode interruption from genuine chess termination while
-preserving a controlled baseline comparison.
-
-Status: OPEN, theoretically plausible but not experimentally established.
+This hypothesis is no longer the highest-priority next experiment.
 
 ### H3 — Ordinary-action credit assignment remains too weak or noisy
 
@@ -397,30 +380,21 @@ lower diagnostic value.
 
 ## Next diagnostic question
 
-The PER sampling investigation is complete for its stated scope.
+Can the State-Action DQN learn a simple chess-relevant
+state-action preference under controlled conditions?
 
-The next priority is H2: determine whether treating artificial
-truncations as Bellman-terminal transitions contributes to
-weak greedy learning.
+Before further full-game training, define a small task with:
 
-Before changing episode construction:
+1. a measurable correct action or action preference;
+2. controlled training and evaluation positions;
+3. a fixed training budget;
+4. a success criterion established before running the experiment.
 
-1. Verify the numerical Bellman target for a non-terminal
-   State-Action transition using a controlled unit test.
-2. Review how a truncated episode obtains its next state
-   and legal next actions.
-3. Preserve the distinction between chess outcome and
-   artificial training interruption.
-4. Define a controlled experiment changing truncation
-   bootstrapping semantics without simultaneously changing
-   gamma, PER or the training horizon.
+A positive result would demonstrate limited learning capability,
+not general chess-playing strength.
 
-The existing truncation penalty must be considered explicitly:
-retaining it while enabling bootstrapping defines a different
-target from simply removing terminal treatment.
-
-No improvement has yet been demonstrated by this proposed change.
-
+A negative result would motivate examining representation,
+optimization and reward propagation before scaling training.
 
 ## Diagnostic discipline
 

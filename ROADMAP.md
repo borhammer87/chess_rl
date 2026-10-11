@@ -127,9 +127,12 @@ This roadmap distinguishes implemented milestones from validation that is still 
   100-episode baseline
 - [x] Verify that non-terminal State-Action transitions consult
   target-network future values
-- [ ] Numerically verify the non-terminal Bellman target
-- [ ] Run a controlled experiment on artificial-truncation
-  bootstrapping semantics
+- [x] Numerically verify the non-terminal Bellman target
+- [x] Run a controlled experiment on artificial-truncation
+  bootstrapping semantics; no greedy improvement demonstrated
+- [x] Propagate truncation-bootstrapping configuration to
+  final greedy diagnostic-game recording
+- [ ] Design and run a bounded chess-relevant learning-capability test
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN
