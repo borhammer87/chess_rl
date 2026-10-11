@@ -2,7 +2,7 @@
 import chess
 import pytest
 from chess_rl.training.episodes import material_reward
-
+import torch
 
 def test_capture_reward_prefers_rook_over_pawn():
     board = chess.Board(
@@ -237,3 +237,33 @@ def test_capture_generator_supports_larger_dataset():
         assert board.is_valid()
         assert first in board.legal_moves
         assert second in board.legal_moves
+
+
+def test_capture_accuracy_for_constant_first_choice():
+    from chess_rl.training.capture_learning_task import (
+        evaluate_capture_accuracy,
+        split_capture_positions,
+    )
+
+    class AlwaysChooseFirst(torch.nn.Module):
+        def evaluate_action_ids(self, state, action_ids):
+            return torch.tensor([1.0, 0.0])
+
+    _, evaluation = split_capture_positions(30, 20, seed=42)
+
+    accuracy = evaluate_capture_accuracy(
+        AlwaysChooseFirst(),
+        evaluation,
+    )
+
+    assert accuracy == 0.5
+
+
+def test_capture_accuracy_rejects_empty_dataset():
+    from chess_rl.models.state_action_dqn import StateActionDQN
+    from chess_rl.training.capture_learning_task import (
+        evaluate_capture_accuracy,
+    )
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        evaluate_capture_accuracy(StateActionDQN(), [])

@@ -2,7 +2,10 @@
 import chess
 import random
 from chess_rl.training.episodes import material_reward
+import torch
 
+from chess_rl.utils.action_encoder import encode_move
+from chess_rl.utils.board_encoder import encode_board
 
 def best_material_capture(
     board: chess.Board,
@@ -189,3 +192,32 @@ def split_capture_positions(
         balance_candidate_order(train),
         balance_candidate_order(evaluation),
     )
+
+
+def evaluate_capture_accuracy(
+    model: torch.nn.Module,
+    positions: list[tuple[chess.Board, chess.Move, chess.Move]],
+) -> float:
+    """Measure correct capture preferences without training."""
+    if not positions:
+        raise ValueError("Evaluation positions cannot be empty.")
+
+    correct = 0
+    was_training = model.training
+    model.eval()
+
+    try:
+        with torch.no_grad():
+            for board, first, second in positions:
+                state = encode_board(board)
+                action_ids = [encode_move(first), encode_move(second)]
+                scores = model.evaluate_action_ids(state, action_ids)
+
+                predicted = first if scores[0] > scores[1] else second
+                expected = best_material_capture(board, first, second)
+
+                correct += predicted == expected
+    finally:
+        model.train(was_training)
+
+    return correct / len(positions)
