@@ -149,48 +149,44 @@ See `DIAGNOSTICS.md` for the hypothesis tree, evidence and experimental history.
 
 ## Current diagnostic boundary
 
-The PER investigation has measured both final-replay sampling
-probabilities and actual selections during optimization.
+The PER investigation measured final-replay sampling probabilities
+and actual training selections, including historical transitions
+subsequently evicted from replay.
 
-The reproducible 100-episode run recorded 412,416 selections:
+A controlled 100-episode experiment compared the baseline
+artificial-truncation semantics (`done=True`) with optional
+bootstrapping (`bootstrap_truncation=True`).
 
-- 406,265 non-terminal;
-- 4,686 artificial truncations;
-- 482 wins;
-- 443 losses;
-- 540 draws.
+With bootstrapping enabled:
 
-Wins and losses represented approximately 0.2243% of selections.
+- training outcomes: 8 wins, 13 draws, 3 losses, 76 truncated;
+- final greedy evaluation: 3 wins, 3 draws, 4 losses, 30 truncated;
+- final balanced greedy score: 0.113;
+- final replay: 10,000 transitions, including 21 Bellman-terminal
+  transitions and 54 separately labelled artificial truncations.
 
-PER does not ignore decisive endings, but their absolute
-representation remains small. The measurements do not establish
-whether their rewards propagate effectively to earlier moves.
+The baseline final greedy score was also 0.113, with 29 truncated
+evaluation games. The experiment therefore did not demonstrate
+improved greedy performance.
 
-The current investigation has moved to artificial truncation
-semantics.
+Artificial truncations can now retain legal next actions and
+bootstrap future values. The default remains
+`bootstrap_truncation=False`.
 
-The episode implementation treats artificial truncations as
-Bellman-terminal (`done=True`), although the underlying chess
-position may remain playable.
-
-A new agent test verifies that non-terminal transitions consult
-the target network for future legal-action values. No change
-to training semantics has yet been made.
+The final greedy diagnostic-game recording now accepts the same
+option, independently of greedy evaluation scoring. Its corrected
+TD measurements have not yet been collected.
 
 ## Immediate next task
 
-Complete numerical verification of the non-terminal Bellman
-target, then inspect the construction of artificially truncated
-transitions and their next legal actions.
+Design a small, controlled chess-learning test to determine
+whether State-Action DQN can learn a simple, measurable
+state-action preference before further full-game training.
 
-Prepare the smallest controlled experiment that distinguishes
-artificial episode interruption from genuine chess termination.
-
-Do not change rewards, PER, gamma or the training horizon
-simultaneously with this experiment.
+Define the task, success criterion and training budget before
+implementing it. Preserve the existing full-game baseline.
 
 Do not scale training or integrate State-Action self-play yet.
-
 
 ## Development constraints
 

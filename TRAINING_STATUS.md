@@ -382,6 +382,56 @@ Two queen-promotion decisions produced top-two gaps of approximately:
 
 ---
 
+## Controlled artificial-truncation bootstrapping experiment
+
+A controlled 100-episode State-Action CPU probe enabled
+`bootstrap_truncation=True`, preserving the baseline gamma,
+truncation penalty, training horizon and PER configuration.
+
+### Training
+
+- wins: 8;
+- draws: 13;
+- losses: 3;
+- truncated: 76;
+- average plies: 272.83;
+- average reward: -0.0927;
+- average loss: approximately 0.00028734;
+- final epsilon: approximately 0.6274;
+- final replay size: 10,000;
+- execution time: 159.45 seconds.
+
+### Final greedy evaluation
+
+Across 40 balanced games against RandomAgent:
+
+- wins: 3;
+- draws: 3;
+- losses: 4;
+- truncated: 30;
+- score: 0.113.
+
+The baseline also scored 0.113, with 29 truncated games.
+No greedy-performance improvement was demonstrated.
+
+### Replay diagnostics
+
+- Bellman-terminal transitions: 21;
+- non-terminal transitions: 9,979;
+- separately labelled artificial truncations: 54;
+- observed PER selections: 403,968;
+- observed artificial-truncation selections: 3,139.
+
+Artificial truncations remain identifiable in outcome-category
+diagnostics despite being non-terminal for Bellman.
+
+The diagnostic game in this run was recorded before propagation
+of the bootstrapping option to greedy diagnostic-game recording.
+Its final-truncation TD target therefore used the previous
+terminal semantics. The code was subsequently corrected and
+tested, but no updated diagnostic-game TD result has yet
+been measured.
+
 ## Current experimental status
 
 The baseline configuration has been restored after the controlled gamma and
