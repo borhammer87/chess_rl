@@ -901,6 +901,7 @@ def main() -> None:
             max_agent_steps=max_agent_steps,
             agent_color=chess.WHITE,
             replay_buffer=attempt_buffer,
+            bootstrap_truncation=bootstrap_truncation,
         )
 
         if attempt_result.truncated:

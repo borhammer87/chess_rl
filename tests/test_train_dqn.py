@@ -2091,6 +2091,7 @@ def test_save_greedy_evaluation_game_writes_pgn(
     opponent = RandomAgent()
 
     received_epsilon = []
+    received_bootstrap = []
 
     def fake_run_dqn_vs_random_episode(
         env,
@@ -2104,7 +2105,7 @@ def test_save_greedy_evaluation_game_writes_pgn(
         bootstrap_truncation=False,
     ):
         received_epsilon.append(agent.epsilon)
-
+        received_bootstrap.append(bootstrap_truncation)
         env.reset()
         env.step(chess.Move.from_uci("e2e4"))
         env.step(chess.Move.from_uci("e7e5"))
@@ -2146,7 +2147,45 @@ def test_save_greedy_evaluation_game_writes_pgn(
     assert '[White "DQN"]' in pgn
     assert '[Black "RandomAgent"]' in pgn
     assert "1. e4 e5" in pgn
+    assert received_bootstrap == [False]
 
+def test_save_greedy_game_forwards_bootstrap_truncation(
+    monkeypatch,
+    tmp_path,
+):
+    received = []
+
+    def fake_episode(**kwargs):
+        received.append(kwargs["bootstrap_truncation"])
+        kwargs["env"].reset()
+        return VsRandomEpisodeResult(
+            agent_steps=0,
+            total_plies=0,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=0.0,
+            replay_size=0,
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_episode,
+    )
+
+    save_greedy_evaluation_game(
+        env=ChessEnv(),
+        agent=DQNAgent(),
+        opponent=RandomAgent(),
+        path=tmp_path / "diagnostic.pgn",
+        bootstrap_truncation=True,
+    )
+
+    assert received == [True]
+    
 def test_save_first_truncated_greedy_evaluation_game_stops_at_first_truncation(
     monkeypatch,
     tmp_path,

@@ -689,6 +689,7 @@ def save_greedy_evaluation_game(
     max_agent_steps: int = 150,
     agent_color: chess.Color = chess.WHITE,
     replay_buffer: ReplayBuffer | None = None,
+    bootstrap_truncation: bool = False,
 ) -> VsRandomEpisodeResult:
     """
     Play one greedy evaluation game against RandomAgent
@@ -719,6 +720,7 @@ def save_greedy_evaluation_game(
             batch_size=1,
             min_replay_size=max_agent_steps + 1,
             agent_color=agent_color,
+            bootstrap_truncation=bootstrap_truncation,
         )
 
     finally:
