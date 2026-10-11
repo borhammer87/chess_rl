@@ -210,4 +210,30 @@ def test_capture_generator_rejects_impossible_count():
     )
 
     with pytest.raises(ValueError, match="theoretical maximum"):
-        generate_capture_positions(121, seed=42)
+        generate_capture_positions(481, seed=42)
+
+
+def test_capture_generator_supports_larger_dataset():
+    from chess_rl.training.capture_learning_task import (
+        generate_capture_positions,
+    )
+
+    positions = generate_capture_positions(150, seed=42)
+
+    assert len(positions) == 150
+    assert len({board.fen() for board, _, _ in positions}) == 150
+
+    white_king_squares = {
+        board.king(chess.WHITE) for board, _, _ in positions
+    }
+    black_king_squares = {
+        board.king(chess.BLACK) for board, _, _ in positions
+    }
+
+    assert len(white_king_squares) > 1
+    assert len(black_king_squares) > 1
+
+    for board, first, second in positions:
+        assert board.is_valid()
+        assert first in board.legal_moves
+        assert second in board.legal_moves
