@@ -649,7 +649,7 @@ def main() -> None:
     batch_size = 32
     min_replay_size = 1_000
     target_update_frequency = 10
-    bootstrap_truncation=True,
+    bootstrap_truncation=True
 
 
     initialization_seed = 12345
