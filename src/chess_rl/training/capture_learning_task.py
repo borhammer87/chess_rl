@@ -30,3 +30,46 @@ def best_material_capture(
         raise ValueError("Captures must have different material rewards.")
 
     return first_move if rewards[0] > rewards[1] else second_move
+
+
+def make_capture_positions() -> list[
+    tuple[chess.Board, chess.Move, chess.Move]
+]:
+    """Build a small deterministic set of capture comparisons."""
+    positions = []
+
+    for knight_file in (2, 3, 4, 5):
+        knight_square = chess.square(knight_file, 2)
+        left_target = chess.square(knight_file - 1, 4)
+        right_target = chess.square(knight_file + 1, 4)
+
+        for rook_on_left in (True, False):
+            board = chess.Board(None)
+            board.turn = chess.WHITE
+            board.set_piece_at(chess.A1, chess.Piece(chess.KING, chess.WHITE))
+            board.set_piece_at(chess.H8, chess.Piece(chess.KING, chess.BLACK))
+            board.set_piece_at(
+                knight_square, chess.Piece(chess.KNIGHT, chess.WHITE)
+            )
+            board.set_piece_at(
+                left_target,
+                chess.Piece(
+                    chess.ROOK if rook_on_left else chess.PAWN,
+                    chess.BLACK,
+                ),
+            )
+            board.set_piece_at(
+                right_target,
+                chess.Piece(
+                    chess.PAWN if rook_on_left else chess.ROOK,
+                    chess.BLACK,
+                ),
+            )
+
+            positions.append((
+                board,
+                chess.Move(knight_square, left_target),
+                chess.Move(knight_square, right_target),
+            ))
+
+    return positions

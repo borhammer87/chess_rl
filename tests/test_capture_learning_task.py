@@ -68,3 +68,41 @@ def test_best_material_capture_rejects_non_capture():
             chess.Move.from_uci("e3d5"),
             chess.Move.from_uci("e3g4"),
         )
+
+
+def test_generated_capture_positions_are_valid():
+    from chess_rl.training.capture_learning_task import (
+        best_material_capture,
+        make_capture_positions,
+    )
+
+    positions = make_capture_positions()
+
+    assert len(positions) == 8
+    assert len({board.fen() for board, _, _ in positions}) == 8
+
+    for board, first, second in positions:
+        assert board.is_valid()
+        assert first in board.legal_moves
+        assert second in board.legal_moves
+        assert board.is_capture(first)
+        assert board.is_capture(second)
+
+        best = best_material_capture(board, first, second)
+        assert best in (first, second)
+
+
+def test_generated_capture_positions_balance_candidate_order():
+    from chess_rl.training.capture_learning_task import (
+        best_material_capture,
+        make_capture_positions,
+    )
+
+    positions = make_capture_positions()
+
+    first_wins = sum(
+        best_material_capture(board, first, second) == first
+        for board, first, second in positions
+    )
+
+    assert first_wins == 4
