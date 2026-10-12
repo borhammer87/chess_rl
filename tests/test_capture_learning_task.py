@@ -316,3 +316,31 @@ def test_capture_transitions_do_not_modify_original_board():
     build_capture_transitions([(board, first, second)])
 
     assert board.fen() == original_fen
+
+
+def test_capture_q_gap_summary_for_fixed_scores():
+    from chess_rl.training.capture_learning_task import (
+        capture_q_gap_summary,
+        make_capture_positions,
+    )
+
+    class FixedScores(torch.nn.Module):
+        def evaluate_action_ids(self, state, action_ids):
+            return torch.tensor([0.05, 0.01])
+
+    positions = make_capture_positions()
+    mean_gap, error_rate = capture_q_gap_summary(
+        FixedScores(), positions
+    )
+
+    assert mean_gap == pytest.approx(0.0, abs=1e-7)
+    assert error_rate == 0.5
+
+
+def test_capture_q_gap_summary_rejects_empty_positions():
+    from chess_rl.training.capture_learning_task import (
+        capture_q_gap_summary,
+    )
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        capture_q_gap_summary(torch.nn.Linear(1, 1), [])

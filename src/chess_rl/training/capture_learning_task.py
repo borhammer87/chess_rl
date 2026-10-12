@@ -263,3 +263,38 @@ def train_capture_batch(
 
     transitions = build_capture_transitions(positions)
     return agent.train_step(transitions)
+
+
+def capture_q_gap_summary(
+    model: torch.nn.Module,
+    positions: list[tuple[chess.Board, chess.Move, chess.Move]],
+) -> tuple[float, float]:
+    """Return mean correct-minus-incorrect Q gap and error rate."""
+    if not positions:
+        raise ValueError("Positions cannot be empty.")
+
+    gaps = []
+    was_training = model.training
+    model.eval()
+
+    try:
+        with torch.no_grad():
+            for board, first, second in positions:
+                scores = model.evaluate_action_ids(
+                    encode_board(board),
+                    [encode_move(first), encode_move(second)],
+                )
+                best = best_material_capture(board, first, second)
+                gap = (
+                    scores[0] - scores[1]
+                    if best == first
+                    else scores[1] - scores[0]
+                )
+                gaps.append(gap.item())
+    finally:
+        model.train(was_training)
+
+    return (
+        sum(gaps) / len(gaps),
+        sum(gap <= 0 for gap in gaps) / len(gaps),
+    )

@@ -4,7 +4,7 @@ import pytest
 from scripts.run_capture_learning_probe import (
     run_initial_capture_probe,
 )
-
+from unittest.mock import MagicMock
 
 
 def test_train_capture_batch_uses_existing_agent_update(monkeypatch):
@@ -49,7 +49,11 @@ def test_initial_capture_probe_reports_accuracy(capsys):
             "scripts.run_capture_learning_probe.evaluate_capture_accuracy",
             side_effect=[0.50, 0.625, 0.875, 0.95],
         ) as evaluate:
-            result = run_initial_capture_probe(seed=42, updates=3)
+            with patch(
+                "scripts.run_capture_learning_probe.capture_q_gap_summary",
+                side_effect=[(0.02, 0.24), (-0.01, 0.40)],
+            ) as gaps:
+                result = run_initial_capture_probe(seed=42, updates=3)
 
     output = capsys.readouterr().out
 
@@ -63,6 +67,11 @@ def test_initial_capture_probe_reports_accuracy(capsys):
     assert "Untrained accuracy: 62.5%" in output
     assert "Training updates: 3" in output
     assert "Final accuracy: 87.5%" in output
+    assert gaps.call_count == 2
+    assert "Training mean Q gap: 0.020000" in output
+    assert "Evaluation mean Q gap: -0.010000" in output
+    assert "Training Q error rate: 24.0%" in output
+    assert "Evaluation Q error rate: 40.0%" in output
 
 
 def test_capture_probe_runs_one_training_update(capsys):
@@ -74,7 +83,11 @@ def test_capture_probe_runs_one_training_update(capsys):
             "scripts.run_capture_learning_probe.evaluate_capture_accuracy",
             side_effect=[0.50, 0.575, 0.65, 0.75],
         ) as evaluate:
-            run_initial_capture_probe(seed=42, updates=1)
+            with patch(
+                "scripts.run_capture_learning_probe.capture_q_gap_summary",
+                side_effect=[(0.02, 0.24), (-0.01, 0.40)],
+            ) as gaps:
+                run_initial_capture_probe(seed=42, updates=1)
 
     output = capsys.readouterr().out
 
@@ -84,6 +97,11 @@ def test_capture_probe_runs_one_training_update(capsys):
     assert "First training loss: 0.012500" in output
     assert "Final training loss: 0.012500" in output
     assert "Final accuracy: 65.0%" in output
+    assert gaps.call_count == 2
+    assert "Training mean Q gap: 0.020000" in output
+    assert "Evaluation mean Q gap: -0.010000" in output
+    assert "Training Q error rate: 24.0%" in output
+    assert "Evaluation Q error rate: 40.0%" in output
 
 
 def test_capture_probe_rejects_nonpositive_updates():

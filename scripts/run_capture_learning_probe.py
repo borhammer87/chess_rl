@@ -6,6 +6,7 @@ from chess_rl.training.capture_learning_task import (
     evaluate_capture_accuracy,
     split_capture_positions,
     train_capture_batch,
+    capture_q_gap_summary,
 )
 
 
@@ -43,6 +44,13 @@ def run_initial_capture_probe(
     final_train_accuracy = evaluate_capture_accuracy(
     agent.policy_net, train
     )
+
+    train_gap, train_error_rate = capture_q_gap_summary(
+    agent.policy_net, train
+    )
+    eval_gap, eval_error_rate = capture_q_gap_summary(
+        agent.policy_net, evaluation
+    )
     
     print("State-Action capture learning probe")
     print(f"Training positions reserved: {len(train)}")
@@ -54,6 +62,10 @@ def run_initial_capture_probe(
     print(f"Final accuracy: {final_accuracy:.1%}")
     print(f"Initial training accuracy: {initial_train_accuracy:.1%}")
     print(f"Final training accuracy: {final_train_accuracy:.1%}")
+    print(f"Training mean Q gap: {train_gap:.6f}")
+    print(f"Evaluation mean Q gap: {eval_gap:.6f}")
+    print(f"Training Q error rate: {train_error_rate:.1%}")
+    print(f"Evaluation Q error rate: {eval_error_rate:.1%}")    
     return accuracy
 
 
