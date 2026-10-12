@@ -47,7 +47,7 @@ def test_initial_capture_probe_reports_accuracy(capsys):
     ) as train:
         with patch(
             "scripts.run_capture_learning_probe.evaluate_capture_accuracy",
-            side_effect=[0.625, 0.875],
+            side_effect=[0.50, 0.625, 0.875, 0.95],
         ) as evaluate:
             result = run_initial_capture_probe(seed=42, updates=3)
 
@@ -55,7 +55,9 @@ def test_initial_capture_probe_reports_accuracy(capsys):
 
     assert result == 0.625
     assert train.call_count == 3
-    assert evaluate.call_count == 2
+    assert evaluate.call_count == 4
+    assert "Initial training accuracy: 50.0%" in output
+    assert "Final training accuracy: 95.0%" in output
     assert "Training positions reserved: 100" in output
     assert "Evaluation positions: 40" in output
     assert "Untrained accuracy: 62.5%" in output
@@ -70,7 +72,7 @@ def test_capture_probe_runs_one_training_update(capsys):
     ) as train:
         with patch(
             "scripts.run_capture_learning_probe.evaluate_capture_accuracy",
-            side_effect=[0.575, 0.65],
+            side_effect=[0.50, 0.575, 0.65, 0.75],
         ) as evaluate:
             run_initial_capture_probe(seed=42, updates=1)
 
@@ -78,7 +80,7 @@ def test_capture_probe_runs_one_training_update(capsys):
 
     assert train.call_count == 1
     assert len(train.call_args.args[1]) == 100
-    assert evaluate.call_count == 2
+    assert evaluate.call_count == 4
     assert "First training loss: 0.012500" in output
     assert "Final training loss: 0.012500" in output
     assert "Final accuracy: 65.0%" in output

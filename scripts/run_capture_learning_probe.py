@@ -27,6 +27,9 @@ def run_initial_capture_probe(
     )
 
     agent = StateActionDQNAgent()
+    initial_train_accuracy = evaluate_capture_accuracy(
+    agent.policy_net, train
+    )
     accuracy = evaluate_capture_accuracy(agent.policy_net, evaluation)
 
     losses = [
@@ -37,7 +40,10 @@ def run_initial_capture_probe(
     final_accuracy = evaluate_capture_accuracy(
         agent.policy_net, evaluation
     )
-
+    final_train_accuracy = evaluate_capture_accuracy(
+    agent.policy_net, train
+    )
+    
     print("State-Action capture learning probe")
     print(f"Training positions reserved: {len(train)}")
     print(f"Evaluation positions: {len(evaluation)}")
@@ -46,7 +52,8 @@ def run_initial_capture_probe(
     print(f"First training loss: {losses[0]:.6f}")
     print(f"Final training loss: {losses[-1]:.6f}")
     print(f"Final accuracy: {final_accuracy:.1%}")
-
+    print(f"Initial training accuracy: {initial_train_accuracy:.1%}")
+    print(f"Final training accuracy: {final_train_accuracy:.1%}")
     return accuracy
 
 
