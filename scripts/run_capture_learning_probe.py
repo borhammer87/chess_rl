@@ -9,8 +9,15 @@ from chess_rl.training.capture_learning_task import (
 )
 
 
-def run_initial_capture_probe(seed: int = 42) -> float:
-    """Evaluate an untrained model on held-out capture positions."""
+
+def run_initial_capture_probe(
+    seed: int = 42,
+    updates: int = 50,
+) -> float:
+    """Train on fixed capture examples and evaluate held-out accuracy."""
+    if updates < 1:
+        raise ValueError("Updates must be positive.")
+
     torch.manual_seed(seed)
 
     train, evaluation = split_capture_positions(
@@ -21,15 +28,24 @@ def run_initial_capture_probe(seed: int = 42) -> float:
 
     agent = StateActionDQNAgent()
     accuracy = evaluate_capture_accuracy(agent.policy_net, evaluation)
-    loss = train_capture_batch(agent, train)
-    final_accuracy = evaluate_capture_accuracy(agent.policy_net, evaluation)
+
+    losses = [
+        train_capture_batch(agent, train)
+        for _ in range(updates)
+    ]
+
+    final_accuracy = evaluate_capture_accuracy(
+        agent.policy_net, evaluation
+    )
 
     print("State-Action capture learning probe")
     print(f"Training positions reserved: {len(train)}")
     print(f"Evaluation positions: {len(evaluation)}")
     print(f"Untrained accuracy: {accuracy:.1%}")
-    print(f"Training loss: {loss:.6f}")
-    print(f"Accuracy after one update: {final_accuracy:.1%}")
+    print(f"Training updates: {updates}")
+    print(f"First training loss: {losses[0]:.6f}")
+    print(f"Final training loss: {losses[-1]:.6f}")
+    print(f"Final accuracy: {final_accuracy:.1%}")
 
     return accuracy
 
