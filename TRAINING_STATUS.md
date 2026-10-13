@@ -444,3 +444,38 @@ State-Action self-play integration.
 
 For the active hypothesis tree and next diagnostic question, see
 `DIAGNOSTICS.md`.
+
+
+---
+
+## Controlled one-step capture-learning probes
+
+The experimental `scripts/run_capture_learning_probe.py` tests whether the
+State-Action network can prefer a knight capture of a rook over a pawn.
+Both candidate moves are legal captures; each produces a terminal one-step
+transition with a material reward (rook `0.05`, pawn `0.01`).
+The network is evaluated on held-out positions and trained using the existing
+`StateActionDQNAgent.train_step()` path. The runs below used seed `42` and
+50 training updates on the complete fixed training set.
+
+| Measurement | Initial 100 train / 40 eval | Expanded 300 train / 100 eval |
+| --- | ---: | ---: |
+| Initial training accuracy | 48.0% | 50.7% |
+| Final training accuracy | 76.0% | 64.3% |
+| Initial evaluation accuracy | 57.5% | 52.0% |
+| Final evaluation accuracy | 60.0% | 50.0% |
+| First training loss | 0.014887 | 0.016685 |
+| Final training loss | 0.000274 | 0.000357 |
+| Final training mean correct-minus-incorrect Q gap | +0.013290 | +0.004421 |
+| Final evaluation mean Q gap | +0.007471 | +0.000597 |
+| Final training Q error rate | 24.0% | 35.7% |
+| Final evaluation Q error rate | 40.0% | 50.0% |
+
+The position generator was expanded to support at least 400 distinct valid
+positions by increasing the possible king placements. Thus the two runs
+used different generators and evaluation sets; they do not isolate the
+effect of training-set size. Increasing the training set also increases
+the number of transitions per update (200 versus 600).
+
+These experiments establish that training loss can decrease sharply without
+reliable held-out capture selection. They do not establish a root cause.

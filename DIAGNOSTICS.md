@@ -413,3 +413,47 @@ For subsequent investigations:
 9. Record negative results when they eliminate a plausible explanation.
 10. Prefer measurements that distinguish competing hypotheses before adding new
     algorithmic complexity.
+
+  
+---
+
+## Controlled one-step capture-learning evidence (October 2026)
+
+The State-Action network was trained on terminal, one-step knight captures
+where the correct preference is rook over pawn. The material rewards are
+`0.05` and `0.01`, respectively. The existing agent optimizer was reused.
+
+With 100 training and 40 held-out positions, 50 updates increased training
+accuracy from 48% to 76%, but evaluation accuracy only from 57.5% to 60%.
+The final mean correct-minus-incorrect Q gaps were +0.013290 on training
+and +0.007471 on evaluation.
+
+With an expanded generator, 300 training and 100 held-out positions,
+50 updates increased training accuracy from 50.7% to 64.3%, while evaluation
+accuracy changed from 52% to 50%. The final mean Q gaps were +0.004421
+on training and +0.000597 on evaluation. Both runs sharply reduced
+training loss. See `TRAINING_STATUS.md` for the full measurements.
+
+The runs are not a controlled comparison of dataset size: the generator,
+evaluation set and transitions per update changed. These results show
+limited learning of the capture preference and no reliable held-out
+generalization; they do not prove overfitting or a specific defect.
+
+### Additional hypotheses to discriminate
+
+- **Data/target correctness:** the terminal transitions, action IDs,
+  material rewards, Bellman targets and predicted Q-values must be audited
+  end to end before changing optimization.
+- **Representation/optimization difficulty:** the model receives board
+  planes and origin/destination embeddings, not an explicit captured-piece
+  feature; learning the spatial relationship may be difficult.
+- **Capacity relative to the task:** the CNN, embeddings and Q-head may
+  have more capacity than needed for this narrow exercise. A train/eval gap
+  is compatible with overfitting but does not establish that capacity is
+  the cause. A controlled capacity comparison is premature until the
+  data/target audit is complete.
+
+**Highest-value next diagnostic:** verify the construction of a small
+set of terminal capture transitions and the exact Q targets and predictions
+used by the existing training path. Do not change the architecture, reward
+scale or optimizer during that audit.

@@ -177,16 +177,27 @@ The final greedy diagnostic-game recording now accepts the same
 option, independently of greedy evaluation scoring. Its corrected
 TD measurements have not yet been collected.
 
-## Immediate next task
 
-Design a small, controlled chess-learning test to determine
-whether State-Action DQN can learn a simple, measurable
-state-action preference before further full-game training.
+## Current capture-learning diagnostic (October 2026)
 
-Define the task, success criterion and training budget before
-implementing it. Preserve the existing full-game baseline.
+A controlled one-step capture probe is implemented in
+`scripts/run_capture_learning_probe.py`, with deterministic training/evaluation
+splits, terminal capture transitions, repeated updates through the existing
+State-Action agent, and accuracy/Q-gap diagnostics. The position generator
+was expanded to produce 400 distinct valid positions.
 
-Do not scale training or integrate State-Action self-play yet.
+After 50 updates, the 100/40 probe achieved 76% training and 60% evaluation
+accuracy; the expanded 300/100 probe achieved 64.3% training and 50%
+evaluation accuracy. Loss fell sharply in both runs. These experiments are
+not directly controlled comparisons of dataset size because the generator,
+evaluation sets and experiences processed per update changed. Full results
+are recorded in `TRAINING_STATUS.md`; competing explanations are in
+`DIAGNOSTICS.md`.
+
+**Immediate next task:** audit the capture transitions, encoded actions,
+rewards, terminal Bellman targets and predicted Q-values using the current
+State-Action training path. Do not change the architecture or scale training
+until that audit clarifies the failure mode.
 
 ## Development constraints
 
