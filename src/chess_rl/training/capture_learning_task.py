@@ -86,10 +86,10 @@ def generate_capture_positions(
     """Generate reproducible, distinct capture comparisons."""
     if count < 0:
         raise ValueError("Count cannot be negative.")
-    if count > 480:
+    if count > 12000:
         raise ValueError(
             "Requested count exceeds the generator's "
-            "theoretical maximum of 480 distinct positions."
+            "theoretical maximum of 12000 distinct positions."
         )
     rng = random.Random(seed)
     positions = []
@@ -109,8 +109,15 @@ def generate_capture_positions(
 
         board = chess.Board(None)
         board.turn = color
-        white_king = rng.choice((chess.A1, chess.B1))
-        black_king = rng.choice((chess.H8, chess.G8))
+        white_king = rng.choice((
+            chess.A1, chess.B1, chess.C1,
+            chess.A2, chess.B2, chess.C2,
+        ))
+
+        black_king = rng.choice((
+            chess.F7, chess.G7, chess.H7,
+            chess.F8, chess.G8, chess.H8,
+        ))
 
         board.set_piece_at(
             white_king, chess.Piece(chess.KING, chess.WHITE)

@@ -210,7 +210,7 @@ def test_capture_generator_rejects_impossible_count():
     )
 
     with pytest.raises(ValueError, match="theoretical maximum"):
-        generate_capture_positions(481, seed=42)
+        generate_capture_positions(12001, seed=42)
 
 
 def test_capture_generator_supports_larger_dataset():
@@ -344,3 +344,32 @@ def test_capture_q_gap_summary_rejects_empty_positions():
 
     with pytest.raises(ValueError, match="cannot be empty"):
         capture_q_gap_summary(torch.nn.Linear(1, 1), [])
+
+
+def test_capture_generator_supports_400_positions():
+    from chess_rl.training.capture_learning_task import (
+        generate_capture_positions,
+        split_capture_positions,
+    )
+
+    positions = generate_capture_positions(400, seed=42)
+
+    assert len(positions) == 400
+    assert len({board.fen() for board, _, _ in positions}) == 400
+
+    for board, first, second in positions:
+        assert board.is_valid()
+        assert first in board.legal_moves
+        assert second in board.legal_moves
+        assert board.is_capture(first)
+        assert board.is_capture(second)
+
+    train, evaluation = split_capture_positions(300, 100, seed=42)
+
+    assert len(train) == 300
+    assert len(evaluation) == 100
+
+    train_fens = {board.fen() for board, _, _ in train}
+    eval_fens = {board.fen() for board, _, _ in evaluation}
+
+    assert train_fens.isdisjoint(eval_fens)
