@@ -373,3 +373,38 @@ def test_capture_generator_supports_400_positions():
     eval_fens = {board.fen() for board, _, _ in evaluation}
 
     assert train_fens.isdisjoint(eval_fens)
+
+
+def test_capture_transitions_match_board_and_rewards():
+    from chess_rl.training.capture_learning_task import (
+        build_capture_transitions,
+    )
+    from chess_rl.utils.action_encoder import encode_move
+    from chess_rl.utils.board_encoder import encode_board
+
+    board = chess.Board(
+        "4k3/8/8/3r1p2/8/4N3/8/4K3 w - - 0 1"
+    )
+    rook_move = chess.Move.from_uci("e3d5")
+    pawn_move = chess.Move.from_uci("e3f5")
+
+    transitions = build_capture_transitions(
+        [(board, rook_move, pawn_move)]
+    )
+
+    for transition, move, reward in zip(
+        transitions,
+        (rook_move, pawn_move),
+        (0.05, 0.01),
+    ):
+        next_board = board.copy()
+        next_board.push(move)
+
+        assert transition.action == encode_move(move)
+        assert torch.equal(transition.state, encode_board(board))
+        assert torch.equal(
+            transition.next_state, encode_board(next_board)
+        )
+        assert transition.reward == pytest.approx(reward)
+        assert transition.done is True
+        assert transition.next_legal_actions == []
