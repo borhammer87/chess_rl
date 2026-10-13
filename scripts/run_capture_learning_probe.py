@@ -22,8 +22,8 @@ def run_initial_capture_probe(
     torch.manual_seed(seed)
 
     train, evaluation = split_capture_positions(
-        train_count=100,
-        evaluation_count=40,
+        train_count=300,
+        evaluation_count=100,
         seed=seed,
     )
 

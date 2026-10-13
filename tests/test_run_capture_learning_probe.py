@@ -62,8 +62,8 @@ def test_initial_capture_probe_reports_accuracy(capsys):
     assert evaluate.call_count == 4
     assert "Initial training accuracy: 50.0%" in output
     assert "Final training accuracy: 95.0%" in output
-    assert "Training positions reserved: 100" in output
-    assert "Evaluation positions: 40" in output
+    assert "Training positions reserved: 300" in output
+    assert "Evaluation positions: 100" in output
     assert "Untrained accuracy: 62.5%" in output
     assert "Training updates: 3" in output
     assert "Final accuracy: 87.5%" in output
@@ -92,7 +92,7 @@ def test_capture_probe_runs_one_training_update(capsys):
     output = capsys.readouterr().out
 
     assert train.call_count == 1
-    assert len(train.call_args.args[1]) == 100
+    assert len(train.call_args.args[1]) == 300
     assert evaluate.call_count == 4
     assert "First training loss: 0.012500" in output
     assert "Final training loss: 0.012500" in output
@@ -102,7 +102,8 @@ def test_capture_probe_runs_one_training_update(capsys):
     assert "Evaluation mean Q gap: -0.010000" in output
     assert "Training Q error rate: 24.0%" in output
     assert "Evaluation Q error rate: 40.0%" in output
-
+    assert len(evaluate.call_args_list[0].args[1]) == 300
+    assert len(evaluate.call_args_list[1].args[1]) == 100
 
 def test_capture_probe_rejects_nonpositive_updates():
     with pytest.raises(ValueError, match="must be positive"):
