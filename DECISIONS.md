@@ -431,3 +431,44 @@ Continue directly to 1,000 or more episodes, implement CUDA first, immediately t
 
 ### Consequences
 The next development phase is diagnostic rather than scale-oriented. CUDA remains a valid future optimization if training scale later justifies it. Longer training, reward changes, replay/PER changes, epsilon changes and self-play integration should be justified by diagnostic evidence rather than introduced together.
+
+
+## D-025 — Keep artificial-truncation bootstrapping optional
+
+### Status
+Accepted experimentally.
+
+### Decision
+Allow artificial episode truncations to retain legal next actions
+and bootstrap Bellman targets through `bootstrap_truncation=True`.
+
+Preserve `bootstrap_truncation=False` as the default for existing
+training and evaluation callers.
+
+Keep chess outcomes and artificial truncation reporting independent
+of Bellman terminality.
+
+Allow final greedy diagnostic-game recording to use the same
+bootstrapping semantics without changing evaluation scoring.
+
+### Motivation
+Artificial training horizons do not necessarily represent real
+terminal chess positions.
+
+A controlled 100-episode experiment tested bootstrapping while
+preserving the existing truncation penalty and other baseline settings.
+
+Both the baseline and experimental runs achieved a final balanced
+greedy RandomAgent score of 0.113.
+
+### Alternatives considered
+Always bootstrap artificial truncations, always treat them as
+Bellman-terminal, or remove the artificial training horizon.
+
+### Consequences
+Both truncation treatments remain available for controlled experiments.
+
+No improvement in greedy chess performance has been demonstrated.
+
+The corrected final-policy diagnostic-game TD measurements have
+not yet been collected.

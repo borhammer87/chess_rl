@@ -427,3 +427,56 @@ def test_state_action_train_step_bootstraps_non_terminal_transition(
     assert calls[0][1] == [[action]]
     assert len(td_errors) == 1
     assert td_errors[0] == pytest.approx(0.35)
+
+
+def test_state_action_train_step_uses_exact_terminal_targets(
+    monkeypatch,
+):
+    agent = StateActionDQNAgent()
+
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
+    rook_action = encode_move(chess.Move.from_uci("e3d5"))
+    pawn_action = encode_move(chess.Move.from_uci("e3f5"))
+
+    batch = [
+        Transition(
+            state=state,
+            action=action,
+            reward=reward,
+            next_state=state,
+            done=True,
+            next_legal_actions=[],
+        )
+        for action, reward in (
+            (rook_action, 0.05),
+            (pawn_action, 0.01),
+        )
+    ]
+
+    parameter = next(agent.policy_net.parameters())
+
+    def fake_policy_q_values(states, actions):
+        assert actions == [rook_action, pawn_action]
+        return parameter.sum() * 0 + torch.tensor([0.02, 0.03])
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Terminal transitions must not bootstrap.")
+
+    monkeypatch.setattr(
+        agent.policy_net,
+        "evaluate_state_action_pairs",
+        fake_policy_q_values,
+    )
+    monkeypatch.setattr(
+        agent.target_net,
+        "evaluate_legal_action_maxes",
+        fail_if_called,
+    )
+
+    loss, td_errors = agent.train_step(
+        batch,
+        return_td_errors=True,
+    )
+
+    assert loss == pytest.approx(0.00065)
+    assert td_errors == pytest.approx([0.03, 0.02])
