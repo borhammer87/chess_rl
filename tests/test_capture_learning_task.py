@@ -408,3 +408,23 @@ def test_capture_transitions_match_board_and_rewards():
         assert transition.reward == pytest.approx(reward)
         assert transition.done is True
         assert transition.next_legal_actions == []
+
+
+def test_captured_piece_features_distinguish_rook_and_pawn():
+    from chess_rl.training.capture_learning_task import (
+        captured_piece_features,
+    )
+
+    board = chess.Board(
+        "4k3/8/8/3r1p2/8/4N3/8/4K3 w - - 0 1"
+    )
+
+    rook = captured_piece_features(
+        board, chess.Move.from_uci("e3d5")
+    )
+    pawn = captured_piece_features(
+        board, chess.Move.from_uci("e3f5")
+    )
+
+    assert rook.tolist() == [0, 0, 0, 1, 0, 0]
+    assert pawn.tolist() == [1, 0, 0, 0, 0, 0]

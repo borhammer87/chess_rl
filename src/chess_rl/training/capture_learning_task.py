@@ -305,3 +305,20 @@ def capture_q_gap_summary(
         sum(gaps) / len(gaps),
         sum(gap <= 0 for gap in gaps) / len(gaps),
     )
+
+
+def captured_piece_features(
+    board: chess.Board,
+    move: chess.Move,
+) -> torch.Tensor:
+    """One-hot encoding of the captured piece type."""
+    if move not in board.legal_moves or not board.is_capture(move):
+        raise ValueError("Expected a legal capture.")
+
+    piece = board.piece_at(move.to_square)
+    if piece is None:
+        raise ValueError("Expected a piece on the destination square.")
+
+    features = torch.zeros(6, dtype=torch.float32)
+    features[piece.piece_type - 1] = 1.0
+    return features
