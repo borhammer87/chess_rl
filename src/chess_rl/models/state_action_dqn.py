@@ -18,6 +18,25 @@ ACTION_FEATURE_SIZE = (
 )
 Q_HEAD_HIDDEN_SIZE = 256
 
+
+def destination_square_features(
+    states: torch.Tensor,
+    to_squares: torch.Tensor,
+) -> torch.Tensor:
+    """Extract board channels at each action's destination square."""
+    if states.ndim != 4 or states.shape[-2:] != (8, 8):
+        raise ValueError("Expected batched 8x8 board states.")
+
+    if to_squares.ndim != 1 or len(to_squares) != len(states):
+        raise ValueError("Expected one destination square per state.")
+
+    rows = 7 - torch.div(to_squares, 8, rounding_mode="floor")
+    cols = to_squares % 8
+    indices = torch.arange(len(states), device=states.device)
+
+    return states[indices, :, rows, cols]
+
+
 class StateActionDQN(nn.Module):
 
     def __init__(self):

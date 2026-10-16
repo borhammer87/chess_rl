@@ -550,3 +550,30 @@ def test_evaluate_legal_action_maxes_rejects_state_without_legal_actions():
             legal_action_ids,
         )
 
+
+def test_destination_square_features_reads_captured_piece():
+    from chess_rl.models.state_action_dqn import (
+        destination_square_features,
+    )
+    from chess_rl.utils.board_encoder import (
+        encode_board,
+        PIECE_TO_CHANNEL,
+    )
+
+    board = chess.Board(
+        "4k3/8/8/3r1p2/8/4N3/8/4K3 w - - 0 1"
+    )
+    states = torch.stack([encode_board(board), encode_board(board)])
+    destinations = torch.tensor([chess.D5, chess.F5])
+
+    features = destination_square_features(states, destinations)
+
+    assert features.shape == (2, BOARD_CHANNELS)
+
+    rook_channel = PIECE_TO_CHANNEL[(chess.ROOK, chess.BLACK)]
+    pawn_channel = PIECE_TO_CHANNEL[(chess.PAWN, chess.BLACK)]
+
+    assert features[0, rook_channel].item() == 1.0
+    assert features[0, pawn_channel].item() == 0.0
+    assert features[1, pawn_channel].item() == 1.0
+    assert features[1, rook_channel].item() == 0.0
