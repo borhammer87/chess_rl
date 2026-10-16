@@ -52,3 +52,18 @@ class SpatialStateActionDQN(StateActionDQN):
             (state_features, action_features, destination_features),
             dim=-1,
         )).squeeze(-1)
+
+
+    def evaluate_action_ids(self, state, action_ids):
+        if not action_ids:
+            raise ValueError("Cannot evaluate an empty action list.")
+
+        if state.ndim == 3:
+            state = state.unsqueeze(0)
+
+        if state.ndim != 4 or state.shape[0] != 1:
+            raise ValueError("Expected a single board state.")
+
+        states = state.expand(len(action_ids), -1, -1, -1)
+
+        return self.evaluate_state_action_pairs(states, action_ids)
