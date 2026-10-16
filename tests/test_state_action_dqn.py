@@ -263,6 +263,38 @@ def test_evaluate_action_ids_rejects_empty_action_list():
             [],
         )
 
+
+def test_individual_and_batched_action_scores_match():
+    torch.manual_seed(42)
+    model = StateActionDQN()
+    model.eval()
+
+    state = torch.zeros((BOARD_CHANNELS, 8, 8))
+    state[1, 2, 4] = 1.0
+
+    actions = [
+        encode_move(chess.Move.from_uci("e3d5")),
+        encode_move(chess.Move.from_uci("e3f5")),
+    ]
+
+    with torch.no_grad():
+        individual_scores = model.evaluate_action_ids(
+            state, actions
+        )
+
+        batched_scores = model.evaluate_state_action_pairs(
+            torch.stack([state, state]),
+            actions,
+        )
+
+    torch.testing.assert_close(
+        individual_scores,
+        batched_scores,
+        rtol=1e-5,
+        atol=1e-6,
+    )
+
+
 def test_evaluate_state_action_pairs_returns_one_q_per_pair():
     model = StateActionDQN()
 
@@ -517,3 +549,4 @@ def test_evaluate_legal_action_maxes_rejects_state_without_legal_actions():
             states,
             legal_action_ids,
         )
+
