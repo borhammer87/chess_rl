@@ -400,7 +400,9 @@ def test_probe_cli_defaults():
 
     assert args.episodes == 100
     assert args.architecture == "spatial"
-
+    assert args.initialization_seed == 12345
+    assert args.evaluation_seed == 54321
+    assert args.training_seed == 67890
 
 def test_probe_cli_accepts_standard_architecture():
     from scripts.run_state_action_probe import parse_args
@@ -452,3 +454,16 @@ def test_probe_prints_effective_configuration(capsys):
     assert "replay capacity: 10000" in output
     assert "initialization: 12345" in output
     assert "bootstrap truncation: True" in output
+
+def test_probe_cli_accepts_custom_seeds():
+    from scripts.run_state_action_probe import parse_args
+
+    args = parse_args([
+        "--initialization-seed", "101",
+        "--evaluation-seed", "202",
+        "--training-seed", "303",
+    ])
+
+    assert args.initialization_seed == 101
+    assert args.evaluation_seed == 202
+    assert args.training_seed == 303

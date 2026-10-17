@@ -650,6 +650,23 @@ def parse_args(args=None):
         choices=("spatial", "standard"),
         default="spatial",
     )
+
+    parser.add_argument(
+        "--initialization-seed",
+        type=int,
+        default=12345,
+    )
+    parser.add_argument(
+        "--evaluation-seed",
+        type=int,
+        default=54321,
+    )
+    parser.add_argument(
+        "--training-seed",
+        type=int,
+        default=67890,
+    )
+
     return parser.parse_args(args)
 
 def print_probe_configuration(
@@ -706,9 +723,9 @@ def main() -> None:
     bootstrap_truncation=True
 
 
-    initialization_seed = 12345
-    evaluation_seed = 54321
-    training_seed = 67890
+    initialization_seed = args.initialization_seed
+    evaluation_seed = args.evaluation_seed
+    training_seed = args.training_seed
 
     set_random_seed(initialization_seed)
 
