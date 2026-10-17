@@ -109,10 +109,16 @@ See `DIAGNOSTICS.md` for the evidence and active hypotheses.
 
 ## Experimental spatial diagnostic probe
 
-Run `python scripts/run_state_action_probe.py` to train and evaluate the
-experimental spatial State-Action agent against `RandomAgent` using the
-configuration currently defined in that script. This is separate from the
-original `DQNCNN` self-play `main()` workflow. The probe currently requires
-editing its parameters in source; command-line configuration is planned.
-The 100-episode spatial result and its limitations are recorded in
-`TRAINING_STATUS.md` and `DIAGNOSTICS.md`.
+Run python scripts/run_state_action_probe.py to train and evaluate the experimental spatial State-Action agent against RandomAgent.
+
+The probe supports command-line configuration of the architecture (spatial or standard) and training episode count. The defaults are spatial and 100 episodes.
+
+For example:
+
+python scripts/run_state_action_probe.py --episodes 100 --architecture spatial
+
+The probe prints the effective architecture, truncation-bootstrapping setting, random seeds, evaluation settings, replay capacity and training parameters before execution.
+
+This diagnostic workflow is separate from the original DQNCNN self-play main() workflow. Other experiment parameters remain defined in the script.
+
+The 100-episode spatial result and its limitations are recorded in TRAINING_STATUS.md and DIAGNOSTICS.md.

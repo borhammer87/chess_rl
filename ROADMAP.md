@@ -145,8 +145,8 @@ This roadmap distinguishes implemented milestones from validation that is still 
 
 ## Phase 8 — Workflow/reproducibility improvements
 
-- [ ] Add CLI configuration to `run_state_action_probe.py` (architecture and episode count first) with tests
-- [ ] Record reproducible experiment configuration alongside diagnostic output
+- [x] Add CLI configuration to `run_state_action_probe.py` (architecture and episode count first) with tests
+- [x] Record reproducible experiment configuration alongside diagnostic output
 
 - [ ] Declare runtime/development dependencies in project metadata or an equivalent reproducible environment specification
 - [ ] Consider RNG-state persistence if exact resume reproducibility becomes a requirement

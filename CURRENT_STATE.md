@@ -29,9 +29,7 @@ State-Action DQN path.
 
 The current development focus is not adding basic DQN functionality.
 
-The active objective is to preserve and evaluate the promising 100-episode
-spatial State-Action result, then make the diagnostic probe configurable without
-editing source between experiments. Chess-playing strength remains unproven.
+The active objective is to preserve and evaluate the promising 100-episode spatial State-Action result. The diagnostic probe now supports command-line selection of architecture and episode count, and prints its effective experiment configuration. Chess-playing strength remains unproven.
 
 ---
 
@@ -202,9 +200,9 @@ The spatial model's legal-next-action maxima, matching policy/target networks
 and non-terminal training have been implemented and tested. A 100-episode
 full-game probe now provides an initial comparison; see `TRAINING_STATUS.md`.
 
-**Immediate next task:** make `scripts/run_state_action_probe.py` configurable
-through command-line arguments, starting with architecture and episode count,
-with tests. Preserve the original models and `RandomAgent` benchmark.
+**Immediate next task:** Completed workflow improvement: scripts/run_state_action_probe.py supports --architecture (spatial or standard) and --episodes (1–100000), prints the effective experiment configuration, and includes CLI and configuration-output tests.
+
+Immediate next task: design a controlled, multi-seed spatial-versus-standard experiment that keeps truncation bootstrapping and other training settings identical. Use the existing RandomAgent benchmark and distinguish measured results from hypotheses before changing the training architecture.
 
 ## Development constraints
 
