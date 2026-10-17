@@ -1,5 +1,6 @@
 
 from unittest.mock import patch
+import math
 import pytest
 from scripts.run_capture_learning_probe import (
     run_initial_capture_probe,
@@ -108,3 +109,55 @@ def test_capture_probe_runs_one_training_update(capsys):
 def test_capture_probe_rejects_nonpositive_updates():
     with pytest.raises(ValueError, match="must be positive"):
         run_initial_capture_probe(updates=0)
+
+
+def test_capture_feature_probe_rejects_invalid_updates():
+    from scripts.run_capture_learning_probe import (
+        run_capture_feature_probe,
+    )
+
+    with pytest.raises(ValueError, match="positive"):
+        run_capture_feature_probe(updates=0)
+
+
+def test_capture_feature_probe_returns_valid_accuracy(capsys):
+    from scripts.run_capture_learning_probe import (
+        run_capture_feature_probe,
+    )
+
+    accuracy = run_capture_feature_probe(seed=42, updates=2)
+
+    assert 0.0 <= accuracy <= 1.0
+    assert "Final evaluation accuracy:" in capsys.readouterr().out
+
+
+def test_spatial_comparison_uses_both_models():
+    from scripts.run_capture_learning_probe import (
+        run_spatial_comparison,
+    )
+
+    results = run_spatial_comparison(
+        seed=42,
+        updates=1,
+        train_count=4,
+        evaluation_count=4,
+    )
+
+    assert set(results) == {"original", "spatial"}
+
+    for result in results.values():
+        for key in (
+            "initial_train",
+            "initial_eval",
+            "final_train",
+            "final_eval",
+        ):
+            assert 0.0 <= result[key] <= 1.0
+
+        for key in (
+            "first_loss",
+            "final_loss",
+            "train_q_gap",
+            "eval_q_gap",
+        ):
+            assert math.isfinite(result[key])
