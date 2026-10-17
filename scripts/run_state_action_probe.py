@@ -2,6 +2,7 @@ import random
 from time import perf_counter
 import numpy as np
 import torch
+import argparse
 import chess
 import chess.pgn
 from chess_rl.agents.random_agent import RandomAgent
@@ -633,7 +634,23 @@ def analyze_replay_diversity(
         f"- top 50: {top_action_share(50):.3f}"
     )
 
-
+def parse_args(args=None):
+    parser = argparse.ArgumentParser(
+        description="State-Action DQN diagnostic training probe."
+    )
+    parser.add_argument(
+        "--episodes",
+        type=int,
+        default=100,
+        choices=range(1, 100_001),
+        metavar="1..100000",
+    )
+    parser.add_argument(
+        "--architecture",
+        choices=("spatial", "standard"),
+        default="spatial",
+    )
+    return parser.parse_args(args)
 
 def main() -> None:
     """
@@ -643,7 +660,8 @@ def main() -> None:
     its wall-clock cost before deciding whether longer CPU training
     or explicit CUDA support should come next.
     """
-    training_episodes = 100
+    args = parse_args()
+    training_episodes = args.episodes
     evaluation_episodes_per_color = 20
     max_agent_steps = 150
     batch_size = 32
@@ -662,7 +680,7 @@ def main() -> None:
 
     agent = StateActionDQNAgent(
         epsilon=1.0,
-        spatial=True,
+        spatial=(args.architecture == "spatial"),
     )
 
     opponent = RandomAgent()

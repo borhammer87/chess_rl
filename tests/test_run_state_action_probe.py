@@ -393,3 +393,29 @@ def test_observed_per_samples_without_selections(capsys):
     assert "win: count=0 - share=0.000000" in output
     assert "non-terminal: count=0 - share=0.000000" in output
 
+def test_probe_cli_defaults():
+    from scripts.run_state_action_probe import parse_args
+
+    args = parse_args([])
+
+    assert args.episodes == 100
+    assert args.architecture == "spatial"
+
+
+def test_probe_cli_accepts_standard_architecture():
+    from scripts.run_state_action_probe import parse_args
+
+    args = parse_args([
+        "--episodes", "5",
+        "--architecture", "standard",
+    ])
+
+    assert args.episodes == 5
+    assert args.architecture == "standard"
+
+
+def test_probe_cli_rejects_invalid_episodes():
+    from scripts.run_state_action_probe import parse_args
+
+    with pytest.raises(SystemExit):
+        parse_args(["--episodes", "0"])
