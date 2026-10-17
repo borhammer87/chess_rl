@@ -1,6 +1,6 @@
 
 import torch
-
+from statistics import mean, stdev
 from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 from chess_rl.training.capture_learning_task import (
     evaluate_capture_accuracy,
@@ -190,6 +190,47 @@ def run_spatial_comparison(
             print(f"{metric}: {value:.6f}")
 
     return results
+
+
+def run_spatial_multiseed(
+    seeds=(42, 43, 44, 45, 46),
+    updates=50,
+    train_count=300,
+    evaluation_count=100,
+):
+    """Repeat the controlled A/B comparison across several seeds."""
+    if len(seeds) < 2 or len(set(seeds)) != len(seeds):
+        raise ValueError("Provide at least two distinct seeds.")
+
+    runs = [
+        run_spatial_comparison(
+            seed=seed,
+            updates=updates,
+            train_count=train_count,
+            evaluation_count=evaluation_count,
+        )
+        for seed in seeds
+    ]
+
+    print("\nMULTI-SEED SUMMARY")
+    print("Model       Initial eval    Final eval     Q gap")
+    for name in ("original", "spatial"):
+        initial = [r[name]["initial_eval"] for r in runs]
+        final = [r[name]["final_eval"] for r in runs]
+        gaps = [r[name]["eval_q_gap"] for r in runs]
+        print(
+            f"{name:<12}"
+            f"{mean(initial):.1%}          "
+            f"{mean(final):.1%} ± {stdev(final):.1%}    "
+            f"{mean(gaps):+.5f}"
+        )
+
+    advantages = [
+        r["spatial"]["final_eval"] - r["original"]["final_eval"]
+        for r in runs
+    ]
+    print(f"Spatial advantage in {sum(a > 0 for a in advantages)}/{len(runs)} seeds")
+    return runs
 
 
 if __name__ == "__main__":

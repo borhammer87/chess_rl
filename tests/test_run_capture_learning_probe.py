@@ -161,3 +161,42 @@ def test_spatial_comparison_uses_both_models():
             "eval_q_gap",
         ):
             assert math.isfinite(result[key])
+
+
+def test_spatial_multiseed_uses_requested_seeds(capsys):
+    from scripts.run_capture_learning_probe import (
+        run_spatial_multiseed,
+    )
+
+    def fake_comparison(seed, updates, train_count, evaluation_count):
+        assert updates == 2
+        assert train_count == 4
+        assert evaluation_count == 4
+        return {
+            name: {
+                "initial_eval": 0.5,
+                "final_eval": score,
+                "eval_q_gap": 0.02,
+            }
+            for name, score in (
+                ("original", 0.6),
+                ("spatial", 0.9),
+            )
+        }
+
+    with patch(
+        "scripts.run_capture_learning_probe.run_spatial_comparison",
+        side_effect=fake_comparison,
+    ) as comparison:
+        results = run_spatial_multiseed(
+            seeds=(42, 43),
+            updates=2,
+            train_count=4,
+            evaluation_count=4,
+        )
+
+    assert len(results) == 2
+    assert [call.kwargs["seed"] for call in comparison.call_args_list] == [
+        42, 43
+    ]
+    assert "Spatial advantage in 2/2 seeds" in capsys.readouterr().out
