@@ -652,6 +652,42 @@ def parse_args(args=None):
     )
     return parser.parse_args(args)
 
+def print_probe_configuration(
+    args,
+    *,
+    bootstrap_truncation,
+    initialization_seed,
+    evaluation_seed,
+    training_seed,
+    evaluation_episodes_per_color,
+    target_update_frequency,
+    replay_buffer,
+    max_agent_steps,
+    batch_size,
+    min_replay_size,
+):
+    print("State-Action DQN CPU probe")
+    print(
+        f"Architecture: {args.architecture} "
+        f"- bootstrap truncation: {bootstrap_truncation}"
+    )
+    print(
+        f"Seeds - initialization: {initialization_seed} "
+        f"- evaluation: {evaluation_seed} "
+        f"- training: {training_seed}"
+    )
+    print(
+        f"Evaluation games per color: {evaluation_episodes_per_color} "
+        f"- target update frequency: {target_update_frequency} "
+        f"- replay capacity: {replay_buffer.buffer.maxlen}"
+    )
+    print(
+        f"Training episodes: {args.episodes} "
+        f"- max agent steps: {max_agent_steps} "
+        f"- batch size: {batch_size} "
+        f"- min replay size: {min_replay_size}"
+    )
+
 def main() -> None:
     """
     Run a short CPU training probe for the State-Action DQN.
@@ -689,26 +725,18 @@ def main() -> None:
         capacity=10_000,
     )
 
-    print("State-Action DQN CPU probe")
-    print(
-        f"Architecture: {args.architecture} "
-        f"- bootstrap truncation: {bootstrap_truncation}"
-    )
-    print(
-        f"Seeds - initialization: {initialization_seed} "
-        f"- evaluation: {evaluation_seed} "
-        f"- training: {training_seed}"
-    )
-    print(
-        f"Evaluation games per color: {evaluation_episodes_per_color} "
-        f"- target update frequency: {target_update_frequency} "
-        f"- replay capacity: {replay_buffer.buffer.maxlen}"
-    )
-    print(
-        f"Training episodes: {training_episodes} "
-        f"- max agent steps: {max_agent_steps} "
-        f"- batch size: {batch_size} "
-        f"- min replay size: {min_replay_size}"
+    print_probe_configuration(
+        args,
+        bootstrap_truncation=bootstrap_truncation,
+        initialization_seed=initialization_seed,
+        evaluation_seed=evaluation_seed,
+        training_seed=training_seed,
+        evaluation_episodes_per_color=evaluation_episodes_per_color,
+        target_update_frequency=target_update_frequency,
+        replay_buffer=replay_buffer,
+        max_agent_steps=max_agent_steps,
+        batch_size=batch_size,
+        min_replay_size=min_replay_size,
     )
 
     print("\nInitial greedy evaluation...")

@@ -419,3 +419,36 @@ def test_probe_cli_rejects_invalid_episodes():
 
     with pytest.raises(SystemExit):
         parse_args(["--episodes", "0"])
+
+def test_probe_prints_effective_configuration(capsys):
+    from scripts.run_state_action_probe import (
+        parse_args,
+        print_probe_configuration,
+    )
+
+    args = parse_args([
+        "--episodes", "5",
+        "--architecture", "standard",
+    ])
+
+    print_probe_configuration(
+        args,
+        bootstrap_truncation=True,
+        initialization_seed=12345,
+        evaluation_seed=54321,
+        training_seed=67890,
+        evaluation_episodes_per_color=20,
+        target_update_frequency=10,
+        replay_buffer=ReplayBuffer(capacity=10000),
+        max_agent_steps=150,
+        batch_size=32,
+        min_replay_size=1000,
+    )
+
+    output = capsys.readouterr().out
+
+    assert "Architecture: standard" in output
+    assert "Training episodes: 5" in output
+    assert "replay capacity: 10000" in output
+    assert "initialization: 12345" in output
+    assert "bootstrap truncation: True" in output
