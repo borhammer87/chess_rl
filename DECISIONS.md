@@ -477,13 +477,15 @@ not yet been collected.
 ## D-026 — Retain a parallel spatial State-Action variant for validation
 
 ### Status
-Accepted experimentally; not promoted to the full-game training path.
+Accepted experimentally; validated in the parallel full-game RandomAgent probe,
+not promoted to the main self-play path.
 
 ### Decision
 Keep `SpatialStateActionDQN` alongside the original `StateActionDQN` and
 `DQNCNN`. Provide the 18 encoded channels of each action's destination
-square directly to its Q-head. Complete non-terminal evaluation and target
-network compatibility before considering full-game use.
+square directly to its Q-head. Non-terminal evaluation and target-network
+compatibility are implemented and tested; continue controlled validation
+before considering replacement of the main self-play model.
 
 ### Motivation
 In five paired terminal capture-learning runs, the original State-Action
@@ -498,7 +500,8 @@ immediately, or add broader chess-specific features before validating this
 single change.
 
 ### Consequences
-The experimental model remains isolated from the main training path.
+The experimental model remains outside the main `DQNCNN` self-play workflow.
 Its larger Q-head and explicit destination lookup are not independently
-controlled factors. Non-terminal Bellman and full-game comparisons remain
-required before any architectural promotion.
+controlled factors. A first full-game spatial probe improved the RandomAgent
+score within one run, but it also used truncation bootstrapping, and repeated
+seeds are needed before an architectural promotion.

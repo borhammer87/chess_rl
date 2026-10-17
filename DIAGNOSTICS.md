@@ -481,6 +481,28 @@ so the comparison does not isolate spatial lookup from increased capacity.
 The probe uses terminal transitions only: it does not test non-terminal
 bootstrapping or the spatial target network.
 
-**Next test:** implement and validate spatial non-terminal Q maxima and
-policy/target-network compatibility, then compare full-game performance
-against the existing stable benchmark without replacing the original path.
+**Follow-up:** spatial non-terminal Q maxima, policy/target integration and
+non-terminal training are now implemented and tested. The first full-game
+spatial probe is summarized below; further seed-controlled comparisons remain
+necessary.
+
+## Spatial full-game evidence — 100 episodes (October 2026)
+
+**Observed:** The spatial probe used 100 training episodes, 150 learner steps
+maximum, batch 32, minimum replay 1,000, target sync every 10 episodes,
+`bootstrap_truncation=True`, and the probe's fixed seeds. Initial balanced
+greedy evaluation: 0W / 1D / 11L / 28 truncated, score 0.0125. Final:
+8W / 27D / 1L / 4 truncated, score 0.5375 (40 games each evaluation).
+Training: 11W / 29D / 4L / 56 truncated, 340.30 seconds; epsilon 0.6274.
+
+**Interpretation:** Strong within-run improvement against `RandomAgent`,
+particularly fewer losses and truncations. The final evaluation contains
+27 draws, and the saved greedy diagnostic trajectory still repeats moves.
+This does not demonstrate general chess strength, consistent conversion of
+advantages, or repeatability across seeds. The earlier non-spatial baseline
+had different truncation-bootstrapping semantics, so it is not a clean
+architecture-only comparison.
+
+**Next question:** Does the improvement persist across independent seeds,
+and how much comes from spatial features versus truncation bootstrapping?
+First improve diagnostic configurability to make these comparisons repeatable.

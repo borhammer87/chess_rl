@@ -89,14 +89,13 @@ action features. Its Q-head therefore receives 310 inputs instead of 292.
 This supplies an action-conditioned spatial lookup, not new chess information
 or a prescribed move value.
 
-The variant implements `evaluate_state_action_pairs()` and
-`evaluate_action_ids()` consistently. It **does not yet override**
-`evaluate_legal_action_maxes()`; the inherited implementation is incompatible
-with the enlarged Q-head. Consequently it is currently valid for the
-terminal capture-learning probe, **not** for general non-terminal Bellman
-training or complete-game deployment. The capture comparison substitutes
-only the policy network in a temporary State-Action agent; its unchanged
-target network is not consulted because all probe transitions are terminal.
+The variant implements `evaluate_state_action_pairs()`,
+`evaluate_action_ids()` and its own `evaluate_legal_action_maxes()`.
+`StateActionDQNAgent(spatial=True)` instantiates matching spatial policy and
+target networks, and tests cover non-terminal Bellman updates and target
+synchronization. The variant can be trained against `RandomAgent` using the
+existing State-Action training path. It remains separate from the original
+`DQNCNN` self-play workflow used by `main()`.
 
 The State-Action architecture is not used by `main()` and is not integrated into the current frozen-opponent self-play helper, whose opponent type is `DQNCNN`.
 

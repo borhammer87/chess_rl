@@ -11,8 +11,8 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Fixed 4272-action encoding with distinct queen, rook, bishop and knight promotions.
 - Legal-action filtering for exploration and greedy action selection.
 - Original CNN DQN with policy and target networks.
-- Experimental explicit State-Action DQN with structured action features and a shared `Q(s, a)` head.
-- Reproducible State-Action CPU probe with balanced greedy pre/post evaluation and separate fixed seeds for initialization, training and evaluation.
+- Experimental explicit State-Action DQN and parallel spatial variant with destination-square features, both using a shared `Q(s, a)` head.
+- Reproducible State-Action CPU probe with balanced greedy pre/post evaluation, fixed seeds and an optional spatial policy/target pair (`spatial=True` in the probe).
 - Replay buffer with Prioritized Experience Replay (PER), importance-sampling weights and TD-error priority updates.
 - DQN-vs-RandomAgent episodes and generic DQN-vs-opponent episode execution.
 - Multi-episode training with alternating learner color.
@@ -106,3 +106,13 @@ a small, controlled chess-relevant state-action preference before
 committing additional resources to full-game training.
 
 See `DIAGNOSTICS.md` for the evidence and active hypotheses.
+
+## Experimental spatial diagnostic probe
+
+Run `python scripts/run_state_action_probe.py` to train and evaluate the
+experimental spatial State-Action agent against `RandomAgent` using the
+configuration currently defined in that script. This is separate from the
+original `DQNCNN` self-play `main()` workflow. The probe currently requires
+editing its parameters in source; command-line configuration is planned.
+The 100-episode spatial result and its limitations are recorded in
+`TRAINING_STATUS.md` and `DIAGNOSTICS.md`.

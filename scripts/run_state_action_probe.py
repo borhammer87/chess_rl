@@ -647,7 +647,7 @@ def main() -> None:
     evaluation_episodes_per_color = 20
     max_agent_steps = 150
     batch_size = 32
-    min_replay_size = 1_000
+    min_replay_size = 1000
     target_update_frequency = 10
     bootstrap_truncation=True
 
@@ -662,6 +662,7 @@ def main() -> None:
 
     agent = StateActionDQNAgent(
         epsilon=1.0,
+        spatial=True,
     )
 
     opponent = RandomAgent()

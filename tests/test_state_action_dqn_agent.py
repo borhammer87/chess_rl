@@ -504,3 +504,67 @@ def test_state_action_agent_can_use_spatial_networks():
             policy_parameter,
             target_parameter,
         )
+
+
+def test_spatial_agent_trains_non_terminal_and_syncs_target():
+    from chess_rl.utils.board_encoder import encode_board
+
+    torch.manual_seed(42)
+    agent = StateActionDQNAgent(spatial=True, gamma=0.9)
+
+    board = chess.Board()
+    next_board = board.copy()
+    next_board.push_uci("e2e4")
+
+    action = encode_move(chess.Move.from_uci("e2e4"))
+    next_actions = [
+        encode_move(move)
+        for move in next_board.legal_moves
+    ]
+
+    transition = Transition(
+        state=encode_board(board),
+        action=action,
+        reward=0.05,
+        next_state=encode_board(next_board),
+        done=False,
+        next_legal_actions=next_actions,
+    )
+
+    policy_before = {
+        name: value.detach().clone()
+        for name, value in agent.policy_net.state_dict().items()
+    }
+    target_before = {
+        name: value.detach().clone()
+        for name, value in agent.target_net.state_dict().items()
+    }
+
+    loss, td_errors = agent.train_step(
+        [transition],
+        return_td_errors=True,
+    )
+
+    assert torch.isfinite(torch.tensor(loss))
+    assert len(td_errors) == 1
+    assert torch.isfinite(torch.tensor(td_errors)).all()
+
+    policy_after = agent.policy_net.state_dict()
+    target_after = agent.target_net.state_dict()
+
+    assert any(
+        not torch.equal(policy_before[name], policy_after[name])
+        for name in policy_before
+    )
+    assert all(
+        torch.equal(target_before[name], target_after[name])
+        for name in target_before
+    )
+
+    agent.update_target()
+
+    for name, value in agent.policy_net.state_dict().items():
+        torch.testing.assert_close(
+            value,
+            agent.target_net.state_dict()[name],
+        )

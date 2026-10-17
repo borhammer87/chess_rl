@@ -450,3 +450,4 @@ class StateActionDQN(nn.Module):
         return torch.stack(
             max_q_values
         )
+

@@ -503,3 +503,32 @@ percentage points; spatial mean initial evaluation `52.4%`, final
 Spatial was more accurate in all five runs. Mean final held-out Q gap:
 original `-0.00001`, spatial `+0.03964`; target reward gap `0.04`.
 These are controlled one-step capture results, not full-game evaluation.
+
+## Spatial State-Action full-game CPU probe — 100 episodes (October 2026)
+
+Configuration from `scripts/run_state_action_probe.py`: `spatial=True`,
+100 training episodes, 20 evaluation games per color before and after,
+150 maximum learner decisions per episode, batch size 32, minimum replay
+size 1,000, target synchronization every 10 episodes,
+`bootstrap_truncation=True`, replay capacity 10,000. Fixed seeds:
+initialization 12345, evaluation 54321, training 67890.
+
+| Metric | Initial greedy | Final greedy |
+| --- | ---: | ---: |
+| Wins | 0 | 8 |
+| Draws | 1 | 27 |
+| Losses | 11 | 1 |
+| Truncated | 28 | 4 |
+| Balanced score | 0.0125 | 0.5375 |
+
+Training outcomes: 11 wins, 29 draws, 4 losses, 56 truncated; average
+251.91 plies; average reward 0.0134; average loss 0.00039624;
+final epsilon 0.6274; replay 10,000; time 340.30 seconds (3.40 s/episode).
+Final replay: 10,000 transitions, 9,961 non-terminal and 39 Bellman-terminal;
+mean absolute TD error 0.026979; 370,752 observed PER selections.
+
+The final diagnostic game reached 300 plies and exhibited repeated move
+sequences. The large within-run improvement is encouraging but remains
+single-seed evidence against a weak benchmark. Unlike the original baseline,
+this run enabled truncation bootstrapping; it is not a controlled
+architecture-only comparison.

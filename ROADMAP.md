@@ -134,7 +134,9 @@ This roadmap distinguishes implemented milestones from validation that is still 
   final greedy diagnostic-game recording
 - [x] Design and run a bounded one-step capture-learning test and a five-seed original/spatial A/B comparison
 - [x] Add experimental destination-square features and a spatial Q-head for terminal capture training
-- [ ] Complete spatial non-terminal legal-next-action maxima and policy/target integration tests
+- [x] Complete spatial non-terminal legal-next-action maxima and policy/target integration tests
+- [x] Run initial 100-episode spatial full-game CPU probe against RandomAgent
+- [ ] Repeat spatial evaluation across seeds and isolate architecture from truncation-bootstrapping settings
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN
@@ -142,6 +144,9 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [ ] Integrate State-Action into frozen-opponent self-play only if validation warrants it
 
 ## Phase 8 — Workflow/reproducibility improvements
+
+- [ ] Add CLI configuration to `run_state_action_probe.py` (architecture and episode count first) with tests
+- [ ] Record reproducible experiment configuration alongside diagnostic output
 
 - [ ] Declare runtime/development dependencies in project metadata or an equivalent reproducible environment specification
 - [ ] Consider RNG-state persistence if exact resume reproducibility becomes a requirement

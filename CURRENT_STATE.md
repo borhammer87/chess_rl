@@ -29,9 +29,9 @@ State-Action DQN path.
 
 The current development focus is not adding basic DQN functionality.
 
-The active objective is to understand why the State-Action DQN trains
-successfully but has not yet demonstrated reliable greedy chess play before
-scaling training or integrating it into the main self-play workflow.
+The active objective is to preserve and evaluate the promising 100-episode
+spatial State-Action result, then make the diagnostic probe configurable without
+editing source between experiments. Chess-playing strength remains unproven.
 
 ---
 
@@ -198,9 +198,13 @@ This supports the practical value of explicit action-conditioned spatial
 features for this narrow task, but does not establish better full-game chess
 play or isolate feature access from the slightly larger Q-head.
 
-**Immediate next task:** complete and test the spatial model's non-terminal
-legal-action maximum evaluation and target-network integration before any
-full-game training comparison. Preserve the original models and benchmark.
+The spatial model's legal-next-action maxima, matching policy/target networks
+and non-terminal training have been implemented and tested. A 100-episode
+full-game probe now provides an initial comparison; see `TRAINING_STATUS.md`.
+
+**Immediate next task:** make `scripts/run_state_action_probe.py` configurable
+through command-line arguments, starting with architecture and episode count,
+with tests. Preserve the original models and `RandomAgent` benchmark.
 
 ## Development constraints
 
@@ -214,6 +218,22 @@ Before any new repository-specific modification:
 6. update tests together with production behavior when appropriate;
 7. do not infer repository state from previous conversations.
 
-Do not scale training, add CUDA-specific work, or integrate State-Action into
-the main self-play workflow while the current learning-behavior investigation
-remains unresolved.
+Do not infer general playing strength from a single seed or replace the main
+self-play model without further controlled evaluation.
+
+## Spatial full-game probe — October 2026
+
+With `spatial=True`, 100 episodes, 150 maximum learner steps, batch size 32,
+minimum replay size 1,000, target synchronization every 10 episodes,
+`bootstrap_truncation=True`, and fixed probe seeds, training completed in
+340.30 seconds (CPU). Training outcomes: 11 wins, 29 draws, 4 losses,
+56 truncations; final epsilon 0.6274; replay size 10,000.
+
+Balanced greedy evaluation against `RandomAgent` (20 games per color) changed
+from 0 wins / 1 draw / 11 losses / 28 truncations (score 0.0125) to
+8 wins / 27 draws / 1 loss / 4 truncations (score 0.5375).
+This is encouraging **within this run**, not evidence of reproducibility or
+strong chess play. Repetitive move sequences remain in the diagnostic game.
+The original non-spatial 100-episode baseline ended at score 0.1125, but the
+spatial run also enabled truncation bootstrapping, so it is **not** a strict
+one-variable architecture A/B comparison.
