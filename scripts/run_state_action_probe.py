@@ -691,6 +691,20 @@ def main() -> None:
 
     print("State-Action DQN CPU probe")
     print(
+        f"Architecture: {args.architecture} "
+        f"- bootstrap truncation: {bootstrap_truncation}"
+    )
+    print(
+        f"Seeds - initialization: {initialization_seed} "
+        f"- evaluation: {evaluation_seed} "
+        f"- training: {training_seed}"
+    )
+    print(
+        f"Evaluation games per color: {evaluation_episodes_per_color} "
+        f"- target update frequency: {target_update_frequency} "
+        f"- replay capacity: {replay_buffer.buffer.maxlen}"
+    )
+    print(
         f"Training episodes: {training_episodes} "
         f"- max agent steps: {max_agent_steps} "
         f"- batch size: {batch_size} "
