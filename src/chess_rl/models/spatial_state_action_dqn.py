@@ -67,3 +67,28 @@ class SpatialStateActionDQN(StateActionDQN):
         states = state.expand(len(action_ids), -1, -1, -1)
 
         return self.evaluate_state_action_pairs(states, action_ids)
+
+
+    def evaluate_legal_action_maxes(self, states, legal_action_ids):
+        if states.ndim != 4 or len(states) != len(legal_action_ids):
+            raise ValueError("State and legal-action batch sizes must match.")
+
+        if not legal_action_ids or any(not ids for ids in legal_action_ids):
+            raise ValueError("Each state must have legal actions.")
+
+        counts = [len(ids) for ids in legal_action_ids]
+        repeated_states = torch.repeat_interleave(
+            states,
+            torch.tensor(counts, device=states.device),
+            dim=0,
+        )
+        actions = [action for ids in legal_action_ids for action in ids]
+
+        scores = self.evaluate_state_action_pairs(
+            repeated_states, actions
+        )
+
+        return torch.stack([
+            group.max()
+            for group in torch.split(scores, counts)
+        ])
