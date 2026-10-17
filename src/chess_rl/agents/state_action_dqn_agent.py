@@ -1,5 +1,5 @@
 import random
-
+from chess_rl.models.spatial_state_action_dqn import SpatialStateActionDQN
 import chess
 import torch
 
@@ -25,9 +25,15 @@ class StateActionDQNAgent:
         epsilon: float = 1.0,
         epsilon_min: float = 0.1,
         epsilon_decay: float = 0.995,
+        spatial: bool = False,
     ):
-        self.policy_net = StateActionDQN()
-        self.target_net = StateActionDQN()
+
+        network_type = (
+            SpatialStateActionDQN if spatial else StateActionDQN
+        )
+
+        self.policy_net = network_type()
+        self.target_net = network_type()
 
         self.target_net.load_state_dict(
             self.policy_net.state_dict()

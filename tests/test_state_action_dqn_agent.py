@@ -1,7 +1,8 @@
 import chess
 import pytest
 import torch
-
+from chess_rl.models.spatial_state_action_dqn import SpatialStateActionDQN
+from chess_rl.models.state_action_dqn import StateActionDQN
 from chess_rl.agents.state_action_dqn_agent import (
     StateActionDQNAgent,
 )
@@ -480,3 +481,26 @@ def test_state_action_train_step_uses_exact_terminal_targets(
 
     assert loss == pytest.approx(0.00065)
     assert td_errors == pytest.approx([0.03, 0.02])
+
+
+def test_state_action_agent_uses_original_network_by_default():
+    agent = StateActionDQNAgent()
+
+    assert type(agent.policy_net) is StateActionDQN
+    assert type(agent.target_net) is StateActionDQN
+
+
+def test_state_action_agent_can_use_spatial_networks():
+    agent = StateActionDQNAgent(spatial=True)
+
+    assert isinstance(agent.policy_net, SpatialStateActionDQN)
+    assert isinstance(agent.target_net, SpatialStateActionDQN)
+
+    for policy_parameter, target_parameter in zip(
+        agent.policy_net.parameters(),
+        agent.target_net.parameters(),
+    ):
+        torch.testing.assert_close(
+            policy_parameter,
+            target_parameter,
+        )

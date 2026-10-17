@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
 from chess_rl.utils.action_encoder import (
     decode_action_components,
