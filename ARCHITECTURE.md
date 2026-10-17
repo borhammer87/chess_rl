@@ -6,7 +6,7 @@ This document describes the architecture implemented at the current repository H
 
 - `src/chess_rl/env/` — chess environment.
 - `src/chess_rl/utils/` — board/action encoding, legal-action selection/masking and replay memory.
-- `src/chess_rl/models/` — original fixed-output CNN and experimental State-Action network.
+- `src/chess_rl/models/` — original fixed-output CNN, State-Action network and experimental spatial variant.
 - `src/chess_rl/agents/` — `RandomAgent`, `DQNAgent` and `StateActionDQNAgent`.
 - `src/chess_rl/training/` — episode execution, training orchestration, self-play, summaries, checkpoints and diagnostics.
 - `scripts/` — standalone utility script(s).
@@ -79,6 +79,24 @@ The network supports:
 - batched maximum legal-action evaluation for non-terminal next states.
 
 `StateActionDQNAgent` mirrors the policy/target, epsilon-greedy, optimizer, Bellman-update and serialization interfaces needed by the existing RandomAgent training path. Terminal next states receive future value zero and are excluded from next-state legal-action evaluation.
+
+### Experimental spatial State-Action variant
+
+`SpatialStateActionDQN` extends `StateActionDQN`. For each selected action,
+`destination_square_features()` extracts the 18 encoded board channels at its
+destination square and concatenates them with the 256 state features and 36
+action features. Its Q-head therefore receives 310 inputs instead of 292.
+This supplies an action-conditioned spatial lookup, not new chess information
+or a prescribed move value.
+
+The variant implements `evaluate_state_action_pairs()` and
+`evaluate_action_ids()` consistently. It **does not yet override**
+`evaluate_legal_action_maxes()`; the inherited implementation is incompatible
+with the enlarged Q-head. Consequently it is currently valid for the
+terminal capture-learning probe, **not** for general non-terminal Bellman
+training or complete-game deployment. The capture comparison substitutes
+only the policy network in a temporary State-Action agent; its unchanged
+target network is not consulted because all probe transitions are terminal.
 
 The State-Action architecture is not used by `main()` and is not integrated into the current frozen-opponent self-play helper, whose opponent type is `DQNCNN`.
 

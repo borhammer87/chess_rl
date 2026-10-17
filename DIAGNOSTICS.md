@@ -380,21 +380,13 @@ lower diagnostic value.
 
 ## Next diagnostic question
 
-Can the State-Action DQN learn a simple chess-relevant
-state-action preference under controlled conditions?
+The bounded one-step capture task has now been run, including a paired
+five-seed original-versus-spatial comparison (see below). The next question
+is whether the spatial model can be integrated safely into non-terminal
+Bellman training and subsequently improve full-game greedy play.
 
-Before further full-game training, define a small task with:
-
-1. a measurable correct action or action preference;
-2. controlled training and evaluation positions;
-3. a fixed training budget;
-4. a success criterion established before running the experiment.
-
-A positive result would demonstrate limited learning capability,
-not general chess-playing strength.
-
-A negative result would motivate examining representation,
-optimization and reward propagation before scaling training.
+Before comparing complete games, validate spatial legal-next-action maxima,
+policy/target-network compatibility and action-selection consistency.
 
 ## Diagnostic discipline
 
@@ -457,3 +449,38 @@ generalization; they do not prove overfitting or a specific defect.
 set of terminal capture transitions and the exact Q targets and predictions
 used by the existing training path. Do not change the architecture, reward
 scale or optimizer during that audit.
+
+## Spatial capture comparison: five seeds (October 2026)
+
+**Measured setup:** seeds `42, 43, 44, 45, 46`; per seed, 300 training and
+100 held-out capture positions, 50 full-set updates, same position split and
+training budget for the original and spatial variants. Capturing the rook
+pays `0.05`, capturing the pawn `0.01`. The spatial variant adds the 18 board
+channels at the selected action's destination to the Q-head.
+
+| Seed | Original final evaluation | Spatial final evaluation |
+| --- | ---: | ---: |
+| 42 | 50% | 99% |
+| 43 | 47% | 100% |
+| 44 | 53% | 100% |
+| 45 | 53% | 98% |
+| 46 | 48% | 100% |
+
+Mean initial evaluation accuracy: original `51.0%`, spatial `52.4%`.
+Mean final evaluation accuracy: original `50.2%` (sample SD `2.8` percentage
+points), spatial `99.4%` (sample SD `0.9` percentage points).
+The spatial variant outperformed the original in `5/5` paired runs.
+Mean held-out correct-minus-incorrect Q gap: original approximately
+`-0.00001`; spatial `+0.03964`, near the target reward gap `0.04`.
+
+**Interpretation:** explicit action-conditioned access to destination-square
+contents greatly improves learning and held-out generalization for this
+specific immediate-capture task. This is not evidence that full-game chess
+performance has improved. The spatial Q-head also has 18 additional inputs,
+so the comparison does not isolate spatial lookup from increased capacity.
+The probe uses terminal transitions only: it does not test non-terminal
+bootstrapping or the spatial target network.
+
+**Next test:** implement and validate spatial non-terminal Q maxima and
+policy/target-network compatibility, then compare full-game performance
+against the existing stable benchmark without replacing the original path.

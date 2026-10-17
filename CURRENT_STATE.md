@@ -178,26 +178,29 @@ option, independently of greedy evaluation scoring. Its corrected
 TD measurements have not yet been collected.
 
 
-## Current capture-learning diagnostic (October 2026)
+## Spatial capture-learning diagnosis (October 2026)
 
-A controlled one-step capture probe is implemented in
-`scripts/run_capture_learning_probe.py`, with deterministic training/evaluation
-splits, terminal capture transitions, repeated updates through the existing
-State-Action agent, and accuracy/Q-gap diagnostics. The position generator
-was expanded to produce 400 distinct valid positions.
+The repository contains `SpatialStateActionDQN`, a parallel experimental
+State-Action variant that explicitly supplies the destination-square board
+channels to the Q-head. It also contains a paired capture-learning comparison
+and a five-seed runner in `scripts/run_capture_learning_probe.py`.
 
-After 50 updates, the 100/40 probe achieved 76% training and 60% evaluation
-accuracy; the expanded 300/100 probe achieved 64.3% training and 50%
-evaluation accuracy. Loss fell sharply in both runs. These experiments are
-not directly controlled comparisons of dataset size because the generator,
-evaluation sets and experiences processed per update changed. Full results
-are recorded in `TRAINING_STATUS.md`; competing explanations are in
-`DIAGNOSTICS.md`.
+The controlled task compares terminal one-step knight captures of a rook
+(reward `0.05`) and pawn (`0.01`). Each seed uses 300 training positions,
+100 held-out evaluation positions and 50 full-set updates per model.
+Across seeds 42–46, the original State-Action model reached **50.2% ± 2.8
+percentage points** final evaluation accuracy; the spatial variant reached
+**99.4% ± 0.9 percentage points**, winning in all five paired runs.
+The mean held-out correct-minus-incorrect Q gap was approximately `-0.00001`
+(original) versus `+0.03964` (spatial); the reward difference is `0.04`.
 
-**Immediate next task:** audit the capture transitions, encoded actions,
-rewards, terminal Bellman targets and predicted Q-values using the current
-State-Action training path. Do not change the architecture or scale training
-until that audit clarifies the failure mode.
+This supports the practical value of explicit action-conditioned spatial
+features for this narrow task, but does not establish better full-game chess
+play or isolate feature access from the slightly larger Q-head.
+
+**Immediate next task:** complete and test the spatial model's non-terminal
+legal-action maximum evaluation and target-network integration before any
+full-game training comparison. Preserve the original models and benchmark.
 
 ## Development constraints
 

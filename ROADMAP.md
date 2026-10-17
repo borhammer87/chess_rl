@@ -132,7 +132,9 @@ This roadmap distinguishes implemented milestones from validation that is still 
   bootstrapping semantics; no greedy improvement demonstrated
 - [x] Propagate truncation-bootstrapping configuration to
   final greedy diagnostic-game recording
-- [ ] Design and run a bounded chess-relevant learning-capability test
+- [x] Design and run a bounded one-step capture-learning test and a five-seed original/spatial A/B comparison
+- [x] Add experimental destination-square features and a spatial Q-head for terminal capture training
+- [ ] Complete spatial non-terminal legal-next-action maxima and policy/target integration tests
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
 - [ ] Compare greedy performance with original DQNCNN

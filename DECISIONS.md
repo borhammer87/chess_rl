@@ -472,3 +472,33 @@ No improvement in greedy chess performance has been demonstrated.
 
 The corrected final-policy diagnostic-game TD measurements have
 not yet been collected.
+
+
+## D-026 — Retain a parallel spatial State-Action variant for validation
+
+### Status
+Accepted experimentally; not promoted to the full-game training path.
+
+### Decision
+Keep `SpatialStateActionDQN` alongside the original `StateActionDQN` and
+`DQNCNN`. Provide the 18 encoded channels of each action's destination
+square directly to its Q-head. Complete non-terminal evaluation and target
+network compatibility before considering full-game use.
+
+### Motivation
+In five paired terminal capture-learning runs, the original State-Action
+model averaged 50.2% held-out accuracy and the spatial variant 99.4%.
+The spatial variant's mean held-out Q gap (`0.03964`) approached the
+known reward difference (`0.04`). This supports a spatial representation
+hypothesis for the narrow capture task, not general chess strength.
+
+### Alternatives considered
+Continue scaling the unchanged State-Action network, replace the main DQN
+immediately, or add broader chess-specific features before validating this
+single change.
+
+### Consequences
+The experimental model remains isolated from the main training path.
+Its larger Q-head and explicit destination lookup are not independently
+controlled factors. Non-terminal Bellman and full-game comparisons remain
+required before any architectural promotion.

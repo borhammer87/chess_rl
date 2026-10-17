@@ -479,3 +479,27 @@ the number of transitions per update (200 versus 600).
 
 These experiments establish that training loss can decrease sharply without
 reliable held-out capture selection. They do not establish a root cause.
+
+---
+
+## Five-seed spatial capture A/B comparison (October 2026)
+
+The repository's `run_spatial_multiseed()` compares original State-Action
+DQN with the experimental destination-feature variant. For each seed
+`42`–`46`, both use the same 300 training and 100 held-out positions and
+50 training updates. All capture transitions are terminal.
+
+| Seed | Original eval accuracy | Spatial eval accuracy |
+| --- | ---: | ---: |
+| 42 | 50% | 99% |
+| 43 | 47% | 100% |
+| 44 | 53% | 100% |
+| 45 | 53% | 98% |
+| 46 | 48% | 100% |
+
+Across seeds: original mean initial evaluation `51.0%`, final `50.2% ± 2.8`
+percentage points; spatial mean initial evaluation `52.4%`, final
+`99.4% ± 0.9` percentage points (sample standard deviations).
+Spatial was more accurate in all five runs. Mean final held-out Q gap:
+original `-0.00001`, spatial `+0.03964`; target reward gap `0.04`.
+These are controlled one-step capture results, not full-game evaluation.
