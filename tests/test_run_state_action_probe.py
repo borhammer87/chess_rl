@@ -467,3 +467,38 @@ def test_probe_cli_accepts_custom_seeds():
     assert args.initialization_seed == 101
     assert args.evaluation_seed == 202
     assert args.training_seed == 303
+
+def test_training_profiler_preserves_calls_and_reports_time(capsys):
+    from scripts.run_state_action_probe import TrainingProfiler
+
+    class FakeAgent:
+        def select_action(self, state, legal_moves):
+            return 42
+
+        def train_step(self, batch, *, return_td_errors=False):
+            return (0.5, [0.1]) if return_td_errors else 0.5
+
+    agent = FakeAgent()
+    profiler = TrainingProfiler()
+    profiler.attach(agent)
+
+    assert agent.select_action("state", ["move"]) == 42
+    assert agent.train_step(
+        ["transition"],
+        return_td_errors=True,
+    ) == (0.5, [0.1])
+
+    assert profiler.action_calls == 1
+    assert profiler.update_calls == 1
+    assert profiler.action_seconds >= 0
+    assert profiler.update_seconds >= 0
+
+    profiler.print_summary(10.0)
+
+    output = capsys.readouterr().out
+
+    assert "Training performance profile" in output
+    assert "Action selection:" in output
+    assert "Neural updates:" in output
+    assert "Other training work:" in output
+    assert "Total training: 10.00s" in output

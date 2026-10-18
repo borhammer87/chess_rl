@@ -705,6 +705,56 @@ def print_probe_configuration(
         f"- min replay size: {min_replay_size}"
     )
 
+class TrainingProfiler:
+    """Measure time spent in action selection and neural updates."""
+
+    def __init__(self):
+        self.action_seconds = 0.0
+        self.update_seconds = 0.0
+        self.action_calls = 0
+        self.update_calls = 0
+
+    def attach(self, agent):
+        original_select_action = agent.select_action
+        original_train_step = agent.train_step
+
+        def timed_select_action(*args, **kwargs):
+            start = perf_counter()
+            try:
+                return original_select_action(*args, **kwargs)
+            finally:
+                self.action_seconds += perf_counter() - start
+                self.action_calls += 1
+
+        def timed_train_step(*args, **kwargs):
+            start = perf_counter()
+            try:
+                return original_train_step(*args, **kwargs)
+            finally:
+                self.update_seconds += perf_counter() - start
+                self.update_calls += 1
+
+        agent.select_action = timed_select_action
+        agent.train_step = timed_train_step
+
+    def print_summary(self, total_seconds):
+        other_seconds = max(
+            0.0,
+            total_seconds - self.action_seconds - self.update_seconds,
+        )
+
+        print("\nTraining performance profile")
+        print(
+            f"Action selection: {self.action_seconds:.2f}s "
+            f"({self.action_calls} calls)"
+        )
+        print(
+            f"Neural updates: {self.update_seconds:.2f}s "
+            f"({self.update_calls} calls)"
+        )
+        print(f"Other training work: {other_seconds:.2f}s")
+        print(f"Total training: {total_seconds:.2f}s")
+
 def main() -> None:
     """
     Run a short CPU training probe for the State-Action DQN.
@@ -812,6 +862,9 @@ def main() -> None:
     sample_observer = PrioritizedSampleObserver(replay_buffer)
     replay_buffer.sample_prioritized = sample_observer.sample_prioritized
 
+    profiler = TrainingProfiler()
+    profiler.attach(agent)
+
     start_time = perf_counter()
 
     results = train_against_random(
@@ -840,6 +893,8 @@ def main() -> None:
         perf_counter() - start_time
     )
 
+    profiler.print_summary(elapsed_seconds)
+    
     summary = summarize_training(
         results
     )
