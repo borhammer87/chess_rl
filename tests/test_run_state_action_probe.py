@@ -403,6 +403,7 @@ def test_probe_cli_defaults():
     assert args.initialization_seed == 12345
     assert args.evaluation_seed == 54321
     assert args.training_seed == 67890
+    assert args.device == "cpu"
 
 def test_probe_cli_accepts_standard_architecture():
     from scripts.run_state_action_probe import parse_args
@@ -415,6 +416,19 @@ def test_probe_cli_accepts_standard_architecture():
     assert args.episodes == 5
     assert args.architecture == "standard"
 
+def test_probe_cli_accepts_cuda_device():
+    from scripts.run_state_action_probe import parse_args
+
+    args = parse_args(["--device", "cuda"])
+
+    assert args.device == "cuda"
+
+
+def test_probe_cli_rejects_invalid_device():
+    from scripts.run_state_action_probe import parse_args
+
+    with pytest.raises(SystemExit):
+        parse_args(["--device", "invalid"])
 
 def test_probe_cli_rejects_invalid_episodes():
     from scripts.run_state_action_probe import parse_args
@@ -454,6 +468,7 @@ def test_probe_prints_effective_configuration(capsys):
     assert "replay capacity: 10000" in output
     assert "initialization: 12345" in output
     assert "bootstrap truncation: True" in output
+    assert "Device: cpu" in output
 
 def test_probe_cli_accepts_custom_seeds():
     from scripts.run_state_action_probe import parse_args
@@ -502,3 +517,134 @@ def test_training_profiler_preserves_calls_and_reports_time(capsys):
     assert "Neural updates:" in output
     assert "Other training work:" in output
     assert "Total training: 10.00s" in output
+
+def test_replay_learning_signal_uses_agent_device(capsys):
+    from scripts.run_state_action_probe import (
+        analyze_replay_learning_signal,
+    )
+    from chess_rl.agents.state_action_dqn_agent import (
+        StateActionDQNAgent,
+    )
+    from chess_rl.utils.action_encoder import encode_move
+
+    agent = StateActionDQNAgent(spatial=True)
+    buffer = ReplayBuffer(capacity=2)
+
+    board = chess.Board()
+    state = torch.zeros((18, 8, 8))
+
+    buffer.push(
+        state=state,
+        action=encode_move(chess.Move.from_uci("e2e4")),
+        reward=1.0,
+        next_state=state,
+        done=True,
+        next_legal_actions=[],
+    )
+
+    analyze_replay_learning_signal(
+        agent=agent,
+        replay_buffer=buffer,
+    )
+
+    output = capsys.readouterr().out
+    assert "TD" in output
+
+def test_probe_main_passes_device_to_agent(monkeypatch):
+    from scripts import run_state_action_probe as probe
+
+    class StopAfterAgentCreation(Exception):
+        pass
+
+    def fake_agent(*args, **kwargs):
+        assert kwargs["device"] == "cpu"
+        raise StopAfterAgentCreation
+
+    monkeypatch.setattr(
+        probe,
+        "StateActionDQNAgent",
+        fake_agent,
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["run_state_action_probe.py", "--episodes", "1"],
+    )
+
+    with pytest.raises(StopAfterAgentCreation):
+        probe.main()
+
+def test_greedy_pgn_analysis_uses_agent_device(
+    tmp_path, monkeypatch
+):
+    from scripts import run_state_action_probe as probe
+    from chess_rl.utils.action_encoder import encode_move
+
+    move = chess.Move.from_uci("e2e4")
+    game = chess.pgn.Game()
+    game.add_variation(move)
+
+    path = tmp_path / "game.pgn"
+    path.write_text(str(game), encoding="utf-8")
+
+    device = torch.device("meta")
+    checked = []
+
+    class FakeNetwork:
+        def evaluate_action_ids(self, state, action_ids):
+            assert state.device == device
+            checked.append("q_values")
+            return torch.zeros(len(action_ids))
+
+    def fake_greedy_choice(*, network, state, legal_moves):
+        assert state.device == device
+        checked.append("greedy")
+        return encode_move(move), 0.0, 0.0
+
+    monkeypatch.setattr(
+        probe,
+        "evaluate_state_action_greedy_choice",
+        fake_greedy_choice,
+    )
+
+    agent = SimpleNamespace(
+        device=device,
+        policy_net=FakeNetwork(),
+    )
+
+    probe.analyze_greedy_pgn(
+        path=path,
+        agent=agent,
+        agent_color=chess.WHITE,
+    )
+
+    assert checked == ["greedy", "q_values"]
+
+def test_training_profiler_synchronizes_cuda(monkeypatch):
+    from scripts.run_state_action_probe import TrainingProfiler
+
+    calls = []
+
+    monkeypatch.setattr(
+        torch.cuda,
+        "synchronize",
+        lambda device: calls.append("sync"),
+    )
+
+    agent = SimpleNamespace(
+        device=torch.device("cuda"),
+        select_action=lambda *args, **kwargs: calls.append("action"),
+        train_step=lambda *args, **kwargs: calls.append("update"),
+    )
+
+    profiler = TrainingProfiler()
+    profiler.attach(agent)
+
+    agent.select_action(None, [])
+    agent.train_step([])
+
+    assert calls == [
+        "sync", "action", "sync",
+        "sync", "update", "sync",
+    ]
+    assert profiler.action_calls == 1
+    assert profiler.update_calls == 1

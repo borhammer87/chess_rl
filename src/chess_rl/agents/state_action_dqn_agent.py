@@ -26,14 +26,20 @@ class StateActionDQNAgent:
         epsilon_min: float = 0.1,
         epsilon_decay: float = 0.995,
         spatial: bool = False,
+        device: str = "cpu",
     ):
 
         network_type = (
             SpatialStateActionDQN if spatial else StateActionDQN
         )
 
-        self.policy_net = network_type()
-        self.target_net = network_type()
+        self.device = torch.device(device)
+
+        if self.device.type == "cuda" and not torch.cuda.is_available():
+            raise RuntimeError("CUDA is not available.")
+
+        self.policy_net = network_type().to(self.device)
+        self.target_net = network_type().to(self.device)
 
         self.target_net.load_state_dict(
             self.policy_net.state_dict()
@@ -69,7 +75,7 @@ class StateActionDQNAgent:
 
         return select_state_action_greedy_action(
             network=self.policy_net,
-            state=state,
+            state=state.to(self.device),
             legal_moves=legal_moves,
         )
 
@@ -85,7 +91,7 @@ class StateActionDQNAgent:
         states = torch.stack([
             transition.state
             for transition in batch
-        ])
+        ]).to(self.device)
 
         actions = [
             transition.action
@@ -98,6 +104,7 @@ class StateActionDQNAgent:
                 for transition in batch
             ],
             dtype=torch.float32,
+            device=self.device,
         )
 
         # Q(s, a) for the action actually taken in each transition.
@@ -111,6 +118,7 @@ class StateActionDQNAgent:
             next_q_values = torch.zeros(
                 len(batch),
                 dtype=torch.float32,
+                device=self.device,
             )
 
             non_terminal_indices = [
@@ -129,7 +137,7 @@ class StateActionDQNAgent:
                 non_terminal_next_states = torch.stack([
                     batch[index].next_state
                     for index in non_terminal_indices
-                ])
+                ]).to(self.device)
 
                 non_terminal_legal_actions = [
                     batch[index].next_legal_actions
@@ -161,6 +169,7 @@ class StateActionDQNAgent:
         )
 
         if weights is not None:
+            weights = weights.to(self.device)
             if weights.shape != elementwise_losses.shape:
                 raise ValueError(
                     "weights must match the batch size."

@@ -568,3 +568,28 @@ def test_spatial_agent_trains_non_terminal_and_syncs_target():
             value,
             agent.target_net.state_dict()[name],
         )
+
+def test_state_action_agent_uses_cpu_by_default():
+    agent = StateActionDQNAgent()
+
+    assert agent.device == torch.device("cpu")
+    assert next(agent.policy_net.parameters()).device.type == "cpu"
+    assert next(agent.target_net.parameters()).device.type == "cpu"
+
+
+def test_state_action_agent_rejects_unavailable_cuda(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+
+    with pytest.raises(RuntimeError, match="CUDA is not available"):
+        StateActionDQNAgent(device="cuda")
+
+
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="CUDA is not available",
+)
+def test_state_action_agent_creates_cuda_networks():
+    agent = StateActionDQNAgent(device="cuda", spatial=True)
+
+    assert next(agent.policy_net.parameters()).device.type == "cuda"
+    assert next(agent.target_net.parameters()).device.type == "cuda"

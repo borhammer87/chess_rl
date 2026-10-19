@@ -177,7 +177,7 @@ def analyze_greedy_pgn(
 
             state = encode_board(
                 board
-            )
+            ).to(agent.device)
             legal_moves = list(
                 board.legal_moves
             )
@@ -212,10 +212,7 @@ def analyze_greedy_pgn(
 
             with torch.no_grad():
                 q_values = agent.policy_net.evaluate_action_ids(
-                    state=torch.as_tensor(
-                        state,
-                        dtype=torch.float32,
-                    ),
+                    state=state,
                     action_ids=legal_actions,
                 )
 
@@ -284,7 +281,7 @@ def analyze_replay_learning_signal(
             states = torch.stack([
                 transition.state
                 for transition in batch
-            ])
+            ]).to(agent.device)
 
             actions = [
                 transition.action
@@ -297,6 +294,7 @@ def analyze_replay_learning_signal(
                     for transition in batch
                 ],
                 dtype=torch.float32,
+                device=agent.device,
             )
 
             q_values = (
@@ -309,6 +307,7 @@ def analyze_replay_learning_signal(
             next_q_values = torch.zeros(
                 len(batch),
                 dtype=torch.float32,
+                device=agent.device,
             )
 
             non_terminal_indices = [
@@ -328,7 +327,7 @@ def analyze_replay_learning_signal(
                 next_states = torch.stack([
                     batch[index].next_state
                     for index in non_terminal_indices
-                ])
+                ]).to(agent.device)
 
                 next_legal_actions = [
                     batch[index].next_legal_actions
@@ -652,6 +651,12 @@ def parse_args(args=None):
     )
 
     parser.add_argument(
+        "--device",
+        choices=("cpu", "cuda"),
+        default="cpu",
+    )
+
+    parser.add_argument(
         "--initialization-seed",
         type=int,
         default=12345,
@@ -683,7 +688,8 @@ def print_probe_configuration(
     batch_size,
     min_replay_size,
 ):
-    print("State-Action DQN CPU probe")
+    print("State-Action DQN probe")
+    print(f"Device: {args.device}")
     print(
         f"Architecture: {args.architecture} "
         f"- bootstrap truncation: {bootstrap_truncation}"
@@ -713,24 +719,36 @@ class TrainingProfiler:
         self.update_seconds = 0.0
         self.action_calls = 0
         self.update_calls = 0
+        self.device = torch.device("cpu")
+
+    def synchronize(self):
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
 
     def attach(self, agent):
+        self.device = torch.device(
+            getattr(agent, "device", "cpu")
+        )
         original_select_action = agent.select_action
         original_train_step = agent.train_step
 
         def timed_select_action(*args, **kwargs):
+            self.synchronize()
             start = perf_counter()
             try:
                 return original_select_action(*args, **kwargs)
             finally:
+                self.synchronize()
                 self.action_seconds += perf_counter() - start
                 self.action_calls += 1
 
         def timed_train_step(*args, **kwargs):
+            self.synchronize()
             start = perf_counter()
             try:
                 return original_train_step(*args, **kwargs)
             finally:
+                self.synchronize()
                 self.update_seconds += perf_counter() - start
                 self.update_calls += 1
 
@@ -784,6 +802,7 @@ def main() -> None:
     agent = StateActionDQNAgent(
         epsilon=1.0,
         spatial=(args.architecture == "spatial"),
+        device=args.device,
     )
 
     opponent = RandomAgent()
@@ -864,7 +883,7 @@ def main() -> None:
 
     profiler = TrainingProfiler()
     profiler.attach(agent)
-
+    profiler.synchronize()
     start_time = perf_counter()
 
     results = train_against_random(
@@ -888,13 +907,13 @@ def main() -> None:
         "Final replay terminal categories:",
         dict(Counter(final_terminal_labels.values())),
     )
-
+    profiler.synchronize()
     elapsed_seconds = (
         perf_counter() - start_time
     )
 
     profiler.print_summary(elapsed_seconds)
-    
+
     summary = summarize_training(
         results
     )
