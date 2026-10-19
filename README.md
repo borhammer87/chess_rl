@@ -26,8 +26,8 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
 - Automated tests covering the environment, encoders, agents, replay, training, self-play, checkpointing, diagnostics and both DQN model families.
 - Truncation diagnostics covering claimable draws and final material state.
-- Bounded search and PGN capture of a concrete truncated State-Action greedy
-  evaluation game.
+- One final State-Action greedy diagnostic game, regardless of outcome,
+  included as a delimited PGN block in console output (and captured logs).
 - Diagnostic State-Action greedy-choice inspection with best-Q and
   best-vs-second-best Q-value gap reporting.
 - Final-replay and exact diagnostic-game Bellman-target / TD-error analysis.

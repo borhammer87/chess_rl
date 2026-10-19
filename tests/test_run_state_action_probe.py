@@ -648,3 +648,39 @@ def test_training_profiler_synchronizes_cuda(monkeypatch):
     ]
     assert profiler.action_calls == 1
     assert profiler.update_calls == 1
+
+def test_print_diagnostic_pgn_includes_complete_game(tmp_path, capsys):
+    from scripts.run_state_action_probe import print_diagnostic_pgn
+
+    path = tmp_path / "game.pgn"
+    game_text = (
+        '[Event "Diagnostic"]\n'
+        '[Result "1/2-1/2"]\n\n'
+        '1. Nf3 Nf6 1/2-1/2\n'
+    )
+    path.write_text(game_text, encoding="utf-8")
+
+    print_diagnostic_pgn(path)
+
+    output = capsys.readouterr().out
+    assert "--- BEGIN DIAGNOSTIC PGN ---" in output
+    assert game_text.strip() in output
+    assert "--- END DIAGNOSTIC PGN ---" in output
+
+
+def test_print_diagnostic_pgn_supports_all_results(tmp_path, capsys):
+    from scripts.run_state_action_probe import print_diagnostic_pgn
+
+    path = tmp_path / "game.pgn"
+
+    for result in ("1-0", "0-1", "1/2-1/2", "*"):
+        path.write_text(
+            f'[Result "{result}"]\n\n{result}\n',
+            encoding="utf-8",
+        )
+
+        print_diagnostic_pgn(path)
+
+        output = capsys.readouterr().out
+        assert f'[Result "{result}"]' in output
+

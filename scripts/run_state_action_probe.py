@@ -19,6 +19,7 @@ from chess_rl.training.train_dqn import (
 from chess_rl.training.episodes import PER_ALPHA
 from collections import Counter
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from chess_rl.utils.replay_buffer import ReplayBuffer, Transition
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.action_encoder import encode_move
@@ -148,7 +149,11 @@ def analyze_observed_per_samples(
         share = count / total if total else 0.0
         print(f"{category}: count={count} - share={share:.6f}")
 
-
+def print_diagnostic_pgn(path: Path) -> None:
+    """Include a complete diagnostic game in the console log."""
+    print("\n--- BEGIN DIAGNOSTIC PGN ---")
+    print(path.read_text(encoding="utf-8").strip())
+    print("--- END DIAGNOSTIC PGN ---")
 
 def analyze_greedy_pgn(
     path: Path,
@@ -1034,79 +1039,45 @@ def main() -> None:
 
     set_random_seed(evaluation_seed)
 
-    diagnostic_path = Path(
-        "state_action_evaluation_game.pgn"
-    )
-    diagnostic_result = None
-    diagnostic_buffer = None
+    with TemporaryDirectory() as temporary_directory:
+        diagnostic_path = Path(temporary_directory) / "diagnostic.pgn"
+        diagnostic_buffer = ReplayBuffer(capacity=max_agent_steps)
 
-    for _ in range(evaluation_episodes_per_color):
-        attempt_buffer = ReplayBuffer(
-            capacity=max_agent_steps,
-        )
-
-        attempt_result = save_greedy_evaluation_game(
+        diagnostic_result = save_greedy_evaluation_game(
             env=env,
             agent=agent,
             opponent=opponent,
             path=diagnostic_path,
             max_agent_steps=max_agent_steps,
             agent_color=chess.WHITE,
-            replay_buffer=attempt_buffer,
+            replay_buffer=diagnostic_buffer,
             bootstrap_truncation=bootstrap_truncation,
         )
 
-        if attempt_result.truncated:
-            diagnostic_result = attempt_result
-            diagnostic_buffer = attempt_buffer
-            break
-
-    if diagnostic_result is None:
-        if diagnostic_path.exists():
-            diagnostic_path.unlink()
-
-    if diagnostic_result is None:
         print(
-            "No truncated diagnostic game found "
-            f"after {evaluation_episodes_per_color} attempts."
-        )
-    else:
-        print(
-            f"Truncated diagnostic game "
-            f"- plies: {diagnostic_result.total_plies} "
-            f"- path: {diagnostic_path}"
-        )
-        if diagnostic_buffer is None:
-            raise RuntimeError(
-                "Truncated diagnostic game has no replay buffer."
-            )
-
-        print(
-            "\nFinal-policy diagnostic-game learning signal..."
+            f"Diagnostic game - plies: {diagnostic_result.total_plies} "
+            f"- truncated: {diagnostic_result.truncated}"
         )
 
+        print("\nFinal-policy diagnostic-game learning signal...")
         analyze_replay_learning_signal(
             agent=agent,
             replay_buffer=diagnostic_buffer,
         )
 
-        print(
-            "\nFinal-policy diagnostic-game diversity..."
-        )
-
+        print("\nFinal-policy diagnostic-game diversity...")
         analyze_replay_diversity(
             replay_buffer=diagnostic_buffer,
         )
 
-        print(
-            "\nAnalyzing reconstructed greedy choices..."
-        )
-
+        print("\nAnalyzing reconstructed greedy choices...")
         analyze_greedy_pgn(
             path=diagnostic_path,
             agent=agent,
             agent_color=chess.WHITE,
         )
+
+        print_diagnostic_pgn(diagnostic_path)
 
 if __name__ == "__main__":
     main()
