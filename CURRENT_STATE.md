@@ -29,7 +29,7 @@ State-Action DQN path.
 
 The current development focus is not adding basic DQN functionality.
 
-The active objective is to preserve and evaluate the promising 100-episode spatial State-Action result. The diagnostic probe now supports command-line selection of architecture and episode count, and prints its effective experiment configuration. Chess-playing strength remains unproven.
+The active objective is to evaluate the promising 100-episode spatial State-Action result with controlled, multi-seed comparisons. The diagnostic probe supports architecture, episode count and CPU/CUDA device selection. CUDA training has been validated with real neural updates, but chess-playing strength remains unproven.
 
 ---
 
@@ -56,7 +56,7 @@ The repository currently includes:
 - greedy evaluation against RandomAgent;
 - checkpoint infrastructure;
 - self-play infrastructure for the original DQN path;
-- reproducible State-Action CPU diagnostic probe.
+- reproducible State-Action CPU/CUDA diagnostic probe.
 
 See `ARCHITECTURE.md` for implementation details.
 
@@ -72,8 +72,8 @@ It is currently exercised through:
 
 `scripts/run_state_action_probe.py`
 
-The probe provides a reproducible CPU test bed for training and diagnostic
-experiments.
+The probe provides a reproducible CPU/CUDA test bed for training and diagnostic
+experiments. Device selection does not change the original DQNCNN `main()` workflow.
 
 The State-Action path has not yet replaced the original DQN in the main
 training/self-play workflow.
@@ -200,9 +200,9 @@ The spatial model's legal-next-action maxima, matching policy/target networks
 and non-terminal training have been implemented and tested. A 100-episode
 full-game probe now provides an initial comparison; see `TRAINING_STATUS.md`.
 
-**Immediate next task:** Completed workflow improvement: scripts/run_state_action_probe.py supports --architecture (spatial or standard) and --episodes (1–100000), prints the effective experiment configuration, and includes CLI and configuration-output tests.
+**Completed workflow improvement:** `scripts/run_state_action_probe.py` supports `--architecture`, `--episodes` and `--device` (CPU/CUDA), prints the experiment configuration and profiles training time. A 10-episode CUDA run completed 350 neural updates without errors; the CPU comparison completed 377 updates. CUDA took 4.13 s total versus 9.67 s on CPU, an indicative 2.34× total-time speedup, not a strict equal-work benchmark. See `TRAINING_STATUS.md`.
 
-Immediate next task: design a controlled, multi-seed spatial-versus-standard experiment that keeps truncation bootstrapping and other training settings identical. Use the existing RandomAgent benchmark and distinguish measured results from hypotheses before changing the training architecture.
+**Immediate next task:** design a controlled, multi-seed spatial-versus-standard experiment keeping truncation bootstrapping and other training settings identical. Use the existing RandomAgent benchmark and separate measured evidence from hypotheses before changing the training architecture.
 
 ## Development constraints
 

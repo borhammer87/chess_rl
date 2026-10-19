@@ -17,6 +17,33 @@ For the current repository snapshot and immediate next task, see
 
 ---
 
+## CPU/CUDA State-Action spatial smoke comparison (October 2026)
+
+Both runs used 10 episodes, spatial architecture, `bootstrap_truncation=True`,
+150 maximum learner steps, batch size 32, minimum replay 1,000, target update
+frequency 10 and the same configured seeds. The GPU was an NVIDIA GeForce
+RTX 4060 Laptop GPU running PyTorch 2.11.0+cu130.
+
+| Measurement | CPU | CUDA |
+| --- | ---: | ---: |
+| Training time | 9.67 s | 4.13 s |
+| Neural update time | 9.07 s | 3.61 s |
+| Neural updates | 377 | 350 |
+| Time per neural update | 24.1 ms | 10.3 ms |
+| Replay transitions | 1,376 | 1,349 |
+| Final epsilon | 0.9851 | 0.9851 |
+| Final balanced greedy score (40 games) | 0.350 | 0.275 |
+
+The measured total-time ratio is approximately 2.34× and the per-update
+ratio approximately 2.33× in favor of CUDA. Different trajectories and update
+counts make these indicative performance measurements, not a strict
+equal-work benchmark. Both runs performed actual neural optimization; no
+conclusion about chess-playing strength follows from 10 episodes. The
+preceding 2-episode CUDA smoke run had only 300 replay transitions and
+therefore zero neural updates (minimum replay size: 1,000).
+
+---
+
 ## Original DQN pipeline
 
 The original fixed-output DQN training path reached a complete working training

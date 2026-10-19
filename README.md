@@ -12,7 +12,7 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Legal-action filtering for exploration and greedy action selection.
 - Original CNN DQN with policy and target networks.
 - Experimental explicit State-Action DQN and parallel spatial variant with destination-square features, both using a shared `Q(s, a)` head.
-- Reproducible State-Action CPU probe with balanced greedy pre/post evaluation, fixed seeds and an optional spatial policy/target pair (`spatial=True` in the probe).
+- Reproducible State-Action probe with balanced greedy pre/post evaluation, fixed seeds, selectable standard/spatial architecture and explicit CPU/CUDA device selection.
 - Replay buffer with Prioritized Experience Replay (PER), importance-sampling weights and TD-error priority updates.
 - DQN-vs-RandomAgent episodes and generic DQN-vs-opponent episode execution.
 - Multi-episode training with alternating learner color.
@@ -75,7 +75,7 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 - The State-Action agent is not integrated into the frozen-opponent self-play path used by `main()`.
 - Board encoding omits repetition history and move counters and remains absolute rather than agent-relative.
 - Checkpoints do not preserve random-number-generator state or a lifetime episode counter.
-- Explicit device/CUDA management is not implemented.
+- Explicit CPU/CUDA selection is available for the experimental State-Action probe, not the original `main()` self-play workflow. A CUDA-enabled PyTorch build and compatible NVIDIA GPU are required for `--device cuda`.
 - Runtime dependencies are not declared in `pyproject.toml`.
 
 ## Current objective
@@ -111,11 +111,14 @@ See `DIAGNOSTICS.md` for the evidence and active hypotheses.
 
 Run python scripts/run_state_action_probe.py to train and evaluate the experimental spatial State-Action agent against RandomAgent.
 
-The probe supports command-line configuration of the architecture (spatial or standard) and training episode count. The defaults are spatial and 100 episodes.
+The probe supports command-line configuration of architecture (spatial or standard), training episode count and device (cpu or cuda). The defaults are spatial, 100 episodes and CPU.
 
 For example:
 
-python scripts/run_state_action_probe.py --episodes 100 --architecture spatial
+python scripts/run_state_action_probe.py --episodes 100 --architecture spatial --device cpu
+
+# CUDA-enabled PyTorch and compatible NVIDIA GPU required:
+python scripts/run_state_action_probe.py --episodes 100 --architecture spatial --device cuda
 
 The probe prints the effective architecture, truncation-bootstrapping setting, random seeds, evaluation settings, replay capacity and training parameters before execution.
 

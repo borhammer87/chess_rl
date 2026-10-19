@@ -151,7 +151,10 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [ ] Declare runtime/development dependencies in project metadata or an equivalent reproducible environment specification
 - [ ] Consider RNG-state persistence if exact resume reproducibility becomes a requirement
 - [ ] Consider a lifetime episode counter if training history requires it
-- [ ] Add explicit device/CUDA support if future training scale justifies it; current CPU probe cost does not make it an immediate priority
+- [x] Add explicit CPU/CUDA selection for the experimental State-Action probe and CUDA-aware timing
+- [x] Validate neural updates on an RTX 4060 Laptop GPU and perform an initial 10-episode CPU/CUDA comparison
+- [ ] Benchmark CPU/CUDA under more closely matched update counts if precise performance estimates become necessary
+- [ ] Consider device support for the original DQNCNN `main()` workflow only if justified
 
 ## Phase 9 — Longer-term work
 

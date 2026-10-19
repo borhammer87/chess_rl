@@ -35,8 +35,9 @@ improved greedy performance.
 
 High truncation also remained a persistent feature of evaluation.
 
-The immediate objective is to understand this behavior before scaling training,
-adding CUDA support or integrating State-Action into self-play.
+The immediate objective is to understand this behavior before scaling training
+or integrating State-Action into self-play. Experimental CUDA execution has
+now been validated; it does not resolve the learning diagnosis.
 
 ## Established diagnostic evidence
 

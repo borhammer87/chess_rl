@@ -97,6 +97,8 @@ synchronization. The variant can be trained against `RandomAgent` using the
 existing State-Action training path. It remains separate from the original
 `DQNCNN` self-play workflow used by `main()`.
 
+`StateActionDQNAgent` accepts `device="cpu"` (default) or `device="cuda"`, checks CUDA availability, and places its networks and training tensors on the selected device. `scripts/run_state_action_probe.py` exposes `--device` and synchronizes CUDA for accurate training-phase timing. This support is specific to the experimental State-Action path.
+
 The State-Action architecture is not used by `main()` and is not integrated into the current frozen-opponent self-play helper, whose opponent type is `DQNCNN`.
 
 ## Replay and learning

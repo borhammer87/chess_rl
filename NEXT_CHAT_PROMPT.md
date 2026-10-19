@@ -60,7 +60,7 @@ reliable greedy chess play.
 The project is currently investigating this learning behavior before:
 
 - scaling training;
-- adding CUDA-specific work;
+- further CUDA optimization without a measured need;
 - integrating State-Action DQN into the main self-play workflow.
 
 Read `CURRENT_STATE.md` for the exact current snapshot.
