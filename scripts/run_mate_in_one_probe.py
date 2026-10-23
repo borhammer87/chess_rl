@@ -3,6 +3,9 @@ import chess
 from chess_rl.utils.action_encoder import decode_legal_action
 from chess_rl.utils.action_selection import evaluate_state_action_greedy_choice
 from chess_rl.utils.board_encoder import encode_board
+import torch
+
+from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 
 def find_mate_in_one_moves(board: chess.Board) -> list[chess.Move]:
     """Return all legal moves that immediately checkmate."""
@@ -75,3 +78,22 @@ def run_mate_in_one_probe(network):
 
     print(f"Mate-in-one accuracy: {correct}/{total} ({correct / total:.1%})")
     return correct, total
+
+
+def main():
+    """Evaluate an untrained spatial State-Action DQN."""
+    seed = 12345
+    torch.manual_seed(seed)
+
+    agent = StateActionDQNAgent(
+        spatial=True,
+        device="cpu",
+    )
+    agent.policy_net.eval()
+
+    print(f"Mate-in-one probe - spatial - untrained - seed: {seed}")
+    run_mate_in_one_probe(agent.policy_net)
+
+
+if __name__ == "__main__":
+    main()

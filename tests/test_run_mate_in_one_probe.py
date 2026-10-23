@@ -111,3 +111,35 @@ def test_run_mate_in_one_probe_summarizes_results(monkeypatch, capsys):
     assert output.count("PASS") == 2
     assert output.count("FAIL") == 2
     assert set(visited_colors) == {chess.WHITE, chess.BLACK}
+
+
+
+def test_main_uses_untrained_spatial_agent(monkeypatch, capsys):
+    from scripts import run_mate_in_one_probe as probe
+
+    captured = {}
+
+    class FakeNetwork:
+        def eval(self):
+            captured["eval_called"] = True
+
+    class FakeAgent:
+        def __init__(self, spatial, device):
+            captured["spatial"] = spatial
+            captured["device"] = device
+            self.policy_net = FakeNetwork()
+
+    def fake_run(network):
+        captured["network"] = network
+        return 0, 4
+
+    monkeypatch.setattr(probe, "StateActionDQNAgent", FakeAgent)
+    monkeypatch.setattr(probe, "run_mate_in_one_probe", fake_run)
+
+    probe.main()
+
+    assert captured["spatial"] is True
+    assert captured["device"] == "cpu"
+    assert captured["eval_called"] is True
+    assert isinstance(captured["network"], FakeNetwork)
+    assert "untrained - seed: 12345" in capsys.readouterr().out
