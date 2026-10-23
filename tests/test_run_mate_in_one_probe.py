@@ -1,7 +1,6 @@
 
 import chess
 
-from scripts.run_mate_in_one_probe import find_mate_in_one_moves
 from scripts.run_mate_in_one_probe import (
     MATE_POSITIONS,
     find_mate_in_one_moves,
@@ -88,3 +87,27 @@ def test_evaluate_mate_position_detects_greedy_checkmate():
     assert q_gap == 1.0
     assert board.fen() == original_fen
     assert board.move_stack == original_history
+
+
+def test_run_mate_in_one_probe_summarizes_results(monkeypatch, capsys):
+    from scripts import run_mate_in_one_probe as probe
+
+    outcomes = iter([True, False, True, False])
+    visited_colors = []
+
+    def fake_evaluate(board, network):
+        visited_colors.append(board.turn)
+        return chess.Move.from_uci("a2a3"), next(outcomes), 0.5, 0.1
+
+    monkeypatch.setattr(probe, "evaluate_mate_position", fake_evaluate)
+
+    network = object()
+    correct, total = probe.run_mate_in_one_probe(network)
+
+    output = capsys.readouterr().out
+
+    assert (correct, total) == (2, 4)
+    assert "Mate-in-one accuracy: 2/4 (50.0%)" in output
+    assert output.count("PASS") == 2
+    assert output.count("FAIL") == 2
+    assert set(visited_colors) == {chess.WHITE, chess.BLACK}

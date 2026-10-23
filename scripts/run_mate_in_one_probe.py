@@ -51,3 +51,27 @@ def evaluate_mate_position(board, network):
     mate_moves = find_mate_in_one_moves(board)
 
     return chosen_move, chosen_move in mate_moves, best_q, q_gap
+
+
+def run_mate_in_one_probe(network):
+    """Evaluate all mate-in-one positions and report accuracy."""
+    correct = 0
+    total = len(MATE_POSITIONS)
+
+    for name, fen in MATE_POSITIONS.items():
+        board = chess.Board(fen)
+        move, is_mate, best_q, q_gap = evaluate_mate_position(
+            board, network
+        )
+
+        correct += is_mate
+        status = "PASS" if is_mate else "FAIL"
+        gap_text = "N/A" if q_gap is None else f"{q_gap:.4f}"
+
+        print(
+            f"{name}: {status} | move={move.uci()} "
+            f"| Q={best_q:.4f} | Q gap={gap_text}"
+        )
+
+    print(f"Mate-in-one accuracy: {correct}/{total} ({correct / total:.1%})")
+    return correct, total
