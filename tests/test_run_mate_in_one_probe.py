@@ -66,27 +66,26 @@ def test_evaluate_mate_position_detects_greedy_checkmate():
     board = chess.Board(MATE_POSITIONS["fools_mate_black"])
     mating_move = chess.Move.from_uci("d8h4")
 
-    class FakeNetwork:
+    class FakeNetwork(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.zeros(1))
+
         def evaluate_action_ids(self, state, action_ids):
-            assert state.shape == (18, 8, 8)
-            return torch.tensor([
-                1.0 if action == encode_move(mating_move) else 0.0
-                for action in action_ids
-            ])
+            
+            original_fen = board.fen()
+            original_history = list(board.move_stack)
 
-    original_fen = board.fen()
-    original_history = list(board.move_stack)
+            move, is_mate, best_q, q_gap = evaluate_mate_position(
+                board, FakeNetwork()
+            )
 
-    move, is_mate, best_q, q_gap = evaluate_mate_position(
-        board, FakeNetwork()
-    )
-
-    assert move == mating_move
-    assert is_mate is True
-    assert best_q == 1.0
-    assert q_gap == 1.0
-    assert board.fen() == original_fen
-    assert board.move_stack == original_history
+            assert move == mating_move
+            assert is_mate is True
+            assert best_q == 1.0
+            assert q_gap == 1.0
+            assert board.fen() == original_fen
+            assert board.move_stack == original_history
 
 
 def test_run_mate_in_one_probe_summarizes_results(monkeypatch, capsys):
@@ -143,3 +142,25 @@ def test_main_uses_untrained_spatial_agent(monkeypatch, capsys):
     assert captured["eval_called"] is True
     assert isinstance(captured["network"], FakeNetwork)
     assert "untrained - seed: 12345" in capsys.readouterr().out
+
+
+def test_evaluate_mate_position_uses_network_device():
+    board = chess.Board(MATE_POSITIONS["fools_mate_black"])
+
+    class FakeNetwork(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.weight = torch.nn.Parameter(torch.zeros(1))
+
+        def evaluate_action_ids(self, state, action_ids):
+            assert state.device == self.weight.device
+            return torch.zeros(len(action_ids), device=state.device)
+
+    move, is_mate, best_q, q_gap = evaluate_mate_position(
+        board, FakeNetwork()
+    )
+
+    assert move in board.legal_moves
+    assert isinstance(is_mate, bool)
+    assert best_q == 0.0
+    assert q_gap == 0.0

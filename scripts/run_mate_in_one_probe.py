@@ -42,7 +42,7 @@ MATE_POSITIONS = {
 def evaluate_mate_position(board, network):
     """Evaluate whether the network chooses an immediate checkmate."""
     legal_moves = list(board.legal_moves)
-    state = encode_board(board)
+    state = encode_board(board).to(next(network.parameters()).device)
 
     action, best_q, q_gap = evaluate_state_action_greedy_choice(
         network=network,
