@@ -26,11 +26,19 @@ from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.action_selection import (
     evaluate_state_action_greedy_choice,
 )
+from scripts.run_mate_in_one_probe import run_mate_in_one_probe
 
 def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
     random.seed(seed)
     torch.manual_seed(seed)
+
+
+def evaluate_mate_in_one(agent, label):
+    """Run the mate-in-one diagnostic without training the agent."""
+    print(f"\n{label} mate-in-one evaluation...")
+    return run_mate_in_one_probe(agent.policy_net)
+
 
 class TerminalTransitionTracker:
     """Track episode-ending transitions without modifying replay data."""

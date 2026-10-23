@@ -689,3 +689,24 @@ def test_diagnostic_termination_is_available_in_episode_result():
     result.final_info["termination"] = "FIVEFOLD_REPETITION"
 
     assert result.final_info["termination"] == "FIVEFOLD_REPETITION"
+
+
+
+def test_evaluate_mate_in_one_uses_existing_policy(monkeypatch, capsys):
+    from scripts import run_state_action_probe as probe
+
+    network = object()
+    agent = SimpleNamespace(policy_net=network)
+    received = []
+
+    def fake_probe(passed_network):
+        received.append(passed_network)
+        return 2, 4
+
+    monkeypatch.setattr(probe, "run_mate_in_one_probe", fake_probe)
+
+    result = probe.evaluate_mate_in_one(agent, "Initial")
+
+    assert result == (2, 4)
+    assert received == [network]
+    assert "Initial mate-in-one evaluation..." in capsys.readouterr().out
