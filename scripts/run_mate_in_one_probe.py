@@ -1,6 +1,8 @@
 
 import chess
-
+from chess_rl.utils.action_encoder import decode_legal_action
+from chess_rl.utils.action_selection import evaluate_state_action_greedy_choice
+from chess_rl.utils.board_encoder import encode_board
 
 def find_mate_in_one_moves(board: chess.Board) -> list[chess.Move]:
     """Return all legal moves that immediately checkmate."""
@@ -31,3 +33,21 @@ MATE_POSITIONS = {
         "4q1kr/6pp/8/8/8/8/5PPP/6K1 b - - 0 1"
     ),
 }
+
+
+
+def evaluate_mate_position(board, network):
+    """Evaluate whether the network chooses an immediate checkmate."""
+    legal_moves = list(board.legal_moves)
+    state = encode_board(board)
+
+    action, best_q, q_gap = evaluate_state_action_greedy_choice(
+        network=network,
+        state=state,
+        legal_moves=legal_moves,
+    )
+
+    chosen_move = decode_legal_action(action, legal_moves)
+    mate_moves = find_mate_in_one_moves(board)
+
+    return chosen_move, chosen_move in mate_moves, best_q, q_gap
