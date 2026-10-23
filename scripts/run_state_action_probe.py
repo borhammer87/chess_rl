@@ -1054,9 +1054,12 @@ def main() -> None:
             bootstrap_truncation=bootstrap_truncation,
         )
 
+        termination = diagnostic_result.final_info.get("termination")
+
         print(
             f"Diagnostic game - plies: {diagnostic_result.total_plies} "
-            f"- truncated: {diagnostic_result.truncated}"
+            f"- truncated: {diagnostic_result.truncated} "
+            f"- termination: {termination}"
         )
 
         print("\nFinal-policy diagnostic-game learning signal...")

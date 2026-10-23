@@ -684,3 +684,8 @@ def test_print_diagnostic_pgn_supports_all_results(tmp_path, capsys):
         output = capsys.readouterr().out
         assert f'[Result "{result}"]' in output
 
+def test_diagnostic_termination_is_available_in_episode_result():
+    result = episode_result(result="1/2-1/2")
+    result.final_info["termination"] = "FIVEFOLD_REPETITION"
+
+    assert result.final_info["termination"] == "FIVEFOLD_REPETITION"

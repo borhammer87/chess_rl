@@ -308,3 +308,28 @@ def test_decode_action_components_for_promotions(
         promotion_type
         == expected_promotion_type
     )
+
+def test_board_encoder_does_not_distinguish_repetition_history():
+    fresh_board = chess.Board()
+    repeated_board = chess.Board()
+
+    cycle = ["g1f3", "g8f6", "f3g1", "f6g8"]
+
+    for _ in range(2):
+        for uci in cycle:
+            repeated_board.push_uci(uci)
+
+    assert not fresh_board.can_claim_threefold_repetition()
+    assert repeated_board.can_claim_threefold_repetition()
+
+    assert fresh_board.board_fen() == repeated_board.board_fen()
+    assert fresh_board.turn == repeated_board.turn
+    assert (
+        fresh_board.castling_rights
+        == repeated_board.castling_rights
+    )
+
+    assert torch.equal(
+        encode_board(fresh_board),
+        encode_board(repeated_board),
+    )
