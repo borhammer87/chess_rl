@@ -202,7 +202,11 @@ full-game probe now provides an initial comparison; see `TRAINING_STATUS.md`.
 
 **Completed workflow improvement:** `scripts/run_state_action_probe.py` supports `--architecture`, `--episodes` and `--device` (CPU/CUDA), prints the experiment configuration and profiles training time. A 10-episode CUDA run completed 350 neural updates without errors; the CPU comparison completed 377 updates. CUDA took 4.13 s total versus 9.67 s on CPU, an indicative 2.34× total-time speedup, not a strict equal-work benchmark. See `TRAINING_STATUS.md`.
 
-**Immediate next task:** design a controlled, multi-seed spatial-versus-standard experiment keeping truncation bootstrapping and other training settings identical. Use the existing RandomAgent benchmark and separate measured evidence from hypotheses before changing the training architecture.
+**Completed checkpoint workflow improvement:** `scripts/run_state_action_probe.py` saves training checkpoints every 25 completed episodes using the existing checkpoint infrastructure. Each execution creates a unique directory under `checkpoints/state_action_probe/<run_id>/`, with checkpoint files named `episode_<N>.pt`. The saved state includes the agent (policy network, target network, optimizer and epsilon), replay buffer and metadata. The integration test verifies checkpoint creation and restoration. Checkpoints do not yet preserve RNG state or a lifetime episode counter.
+
+**Immediate next development task:** implement safe checkpoint resume for the experimental State-Action probe, including a clear distinction between restoring model/training state and exact reproducibility. Preserve the existing experiment configuration and avoid changing the DQN learning algorithm.
+
+**Next learning-validation milestone:** run controlled multi-seed spatial-versus-standard comparisons with matching training settings and the existing RandomAgent benchmark.
 
 ## Development constraints
 

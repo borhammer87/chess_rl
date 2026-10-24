@@ -21,7 +21,8 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Agent-perspective learning rewards while the board representation remains absolute.
 - Material reward shaping, a small non-terminal step penalty and a separate artificial-truncation penalty.
 - Training summaries that classify chess outcomes from the actual game result rather than from shaped reward.
-- Periodic checkpoints, replay-buffer persistence and automatic resume from `checkpoints/latest.pt`.
+- Periodic checkpoints and replay-buffer persistence. The original DQN main workflow supports automatic resume from `checkpoints/latest.pt`.
+- The experimental State-Action probe saves checkpoints every 25 completed episodes in a unique directory per execution under `checkpoints/state_action_probe/<run_id>/`, avoiding overwrites between runs. Automatic resume is not yet implemented for this probe.
 - Balanced White/Black evaluation against `RandomAgent` and evaluation-based `checkpoints/best.pt` selection.
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
 - Automated tests covering the environment, encoders, agents, replay, training, self-play, checkpointing, diagnostics and both DQN model families.

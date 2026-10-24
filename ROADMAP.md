@@ -147,7 +147,11 @@ This roadmap distinguishes implemented milestones from validation that is still 
 
 - [x] Add CLI configuration to `run_state_action_probe.py` (architecture and episode count first) with tests
 - [x] Record reproducible experiment configuration alongside diagnostic output
-
+- [x] Add periodic State-Action probe checkpoints using existing agent and replay-buffer serialization
+- [x] Isolate probe checkpoints in unique per-execution directories to prevent overwriting previous runs
+- [x] Add integration testing for checkpoint creation and restoration
+- [ ] Implement explicit checkpoint resume for the State-Action probe
+- [ ] Define and test reproducibility guarantees for resumed experiments
 - [ ] Declare runtime/development dependencies in project metadata or an equivalent reproducible environment specification
 - [ ] Consider RNG-state persistence if exact resume reproducibility becomes a requirement
 - [ ] Consider a lifetime episode counter if training history requires it
