@@ -28,7 +28,10 @@ from chess_rl.utils.action_selection import (
 )
 from scripts.run_mate_in_one_probe import run_mate_in_one_probe
 from chess_rl.training.checkpoint import save_training_checkpoint
-
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from datetime import datetime
+from uuid import uuid4
 def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
     random.seed(seed)
@@ -824,7 +827,8 @@ def main() -> None:
     replay_buffer = ReplayBuffer(
         capacity=10_000,
     )
-    checkpoint_dir = Path("checkpoints") / "state_action_probe"
+    run_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
+    checkpoint_dir = Path("checkpoints") / "state_action_probe" / run_id
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def save_probe_checkpoint(completed_episodes, trained_agent):

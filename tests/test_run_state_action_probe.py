@@ -797,7 +797,11 @@ def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
     with pytest.raises(StopAfterCheckpoint):
         probe.main()
 
-    path = tmp_path / "checkpoints" / "state_action_probe" / "episode_25.pt"
+    checkpoint_root = tmp_path / "checkpoints" / "state_action_probe"
+    saved_paths = list(checkpoint_root.glob("*/episode_25.pt"))
+
+    assert len(saved_paths) == 1
+    path = saved_paths[0]
 
     assert path.is_file()
     assert load_checkpoint_metadata(str(path)) == {
