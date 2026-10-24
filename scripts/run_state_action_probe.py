@@ -27,6 +27,7 @@ from chess_rl.utils.action_selection import (
     evaluate_state_action_greedy_choice,
 )
 from scripts.run_mate_in_one_probe import run_mate_in_one_probe
+from chess_rl.training.checkpoint import save_training_checkpoint
 
 def set_random_seed(seed: int) -> None:
     """Seed Python and PyTorch random number generators."""
@@ -823,7 +824,21 @@ def main() -> None:
     replay_buffer = ReplayBuffer(
         capacity=10_000,
     )
+    checkpoint_dir = Path("checkpoints") / "state_action_probe"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
+    def save_probe_checkpoint(completed_episodes, trained_agent):
+        path = checkpoint_dir / f"episode_{completed_episodes}.pt"
+        save_training_checkpoint(
+            path=str(path),
+            agent=trained_agent,
+            replay_buffer=replay_buffer,
+            metadata={
+                "episodes": completed_episodes,
+                "architecture": args.architecture,
+            },
+        )
+        print(f"Checkpoint saved: {path}")
     print_probe_configuration(
         args,
         bootstrap_truncation=bootstrap_truncation,
@@ -912,6 +927,8 @@ def main() -> None:
         alternate_colors=True,
         progress_callback=terminal_tracker.record_episode,
         bootstrap_truncation=bootstrap_truncation,
+        checkpoint_frequency=25,
+        checkpoint_callback=save_probe_checkpoint,
     )
 
     final_terminal_labels = terminal_tracker.get_final_labels()

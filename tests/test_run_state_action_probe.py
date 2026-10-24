@@ -736,3 +736,29 @@ def test_main_evaluates_mates_before_and_after_training(monkeypatch):
     assert source.index('evaluate_mate_in_one(agent, "Final")') > (
         source.index("train_against_random(")
     )
+
+def test_probe_checkpoint_saves_agent_and_replay(tmp_path):
+    from scripts import run_state_action_probe as probe
+    from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
+    from chess_rl.training.checkpoint import load_checkpoint_metadata
+
+    agent = StateActionDQNAgent(spatial=True)
+    replay = ReplayBuffer(capacity=10)
+    add_transition(replay)
+
+    path = tmp_path / "episode_25.pt"
+
+    from chess_rl.training.checkpoint import save_training_checkpoint
+
+    save_training_checkpoint(
+        path=str(path),
+        agent=agent,
+        replay_buffer=replay,
+        metadata={"episodes": 25, "architecture": "spatial"},
+    )
+
+    assert path.exists()
+    assert load_checkpoint_metadata(str(path)) == {
+        "episodes": 25,
+        "architecture": "spatial",
+    }
