@@ -217,3 +217,33 @@ def test_old_checkpoint_rejects_strict_rng_restore(tmp_path):
             replay_buffer=ReplayBuffer(capacity=10),
             restore_rng_state=True,
         )
+
+def test_missing_rng_does_not_modify_training_state(tmp_path):
+    path = tmp_path / "legacy_checkpoint.pt"
+
+    save_training_checkpoint(
+        path=str(path),
+        agent=DQNAgent(epsilon=0.2),
+        replay_buffer=ReplayBuffer(capacity=10),
+    )
+
+    checkpoint = torch.load(path, weights_only=False)
+    del checkpoint["rng_state"]
+    torch.save(checkpoint, path)
+
+    agent = DQNAgent(epsilon=0.8)
+    replay_buffer = ReplayBuffer(capacity=3)
+
+    with pytest.raises(
+        ValueError,
+        match="Checkpoint has no RNG state",
+    ):
+        load_training_checkpoint(
+            path=str(path),
+            agent=agent,
+            replay_buffer=replay_buffer,
+            restore_rng_state=True,
+        )
+
+    assert agent.epsilon == 0.8
+    assert replay_buffer.buffer.maxlen == 3

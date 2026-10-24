@@ -60,13 +60,6 @@ def load_training_checkpoint(
         weights_only=False,
     )
 
-    agent.load_state_dict(
-        checkpoint["agent"]
-    )
-
-    replay_buffer.load_state_dict(
-        checkpoint["replay_buffer"]
-    )
     if restore_rng_state:
         rng_state = checkpoint.get("rng_state")
         if rng_state is None:
@@ -80,6 +73,10 @@ def load_training_checkpoint(
                 "Checkpoint requires CUDA to restore RNG state."
             )
 
+    agent.load_state_dict(checkpoint["agent"])
+    replay_buffer.load_state_dict(checkpoint["replay_buffer"])
+
+    if restore_rng_state:
         random.setstate(rng_state["python"])
         np.random.set_state(rng_state["numpy"])
         torch.set_rng_state(rng_state["torch"])
