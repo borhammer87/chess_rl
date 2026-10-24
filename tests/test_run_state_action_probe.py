@@ -787,6 +787,9 @@ def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
 
         agent.epsilon = 0.42
         add_transition(replay)
+        kwargs["progress_callback"](
+            25, 25, episode_result(result="1-0")
+        )
         original["agent"] = agent
 
         kwargs["checkpoint_callback"](25, agent)
@@ -804,9 +807,12 @@ def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
     path = saved_paths[0]
 
     assert path.is_file()
-    assert load_checkpoint_metadata(str(path)) == {
-        "episodes": 25,
-        "architecture": "spatial",
+    metadata = load_checkpoint_metadata(str(path))
+
+    assert metadata["episodes"] == 25
+    assert metadata["architecture"] == "spatial"
+    assert metadata["terminal_tracker"] == {
+        "terminal_labels": ["win"],
     }
 
     restored_agent = StateActionDQNAgent(spatial=True)
@@ -821,6 +827,14 @@ def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
     assert restored_agent.epsilon == 0.42
     assert len(restored_replay) == 1
     assert restored_replay.buffer.maxlen == 10000
+    restored_tracker = TerminalTransitionTracker(restored_replay)
+    restored_tracker.load_state_dict(
+        metadata["terminal_tracker"]
+    )
+
+    assert list(
+        restored_tracker.get_final_labels().values()
+    ) == ["win"]
 
     for original_param, restored_param in zip(
         original["agent"].policy_net.parameters(),

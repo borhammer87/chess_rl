@@ -855,6 +855,9 @@ def main() -> None:
     replay_buffer = ReplayBuffer(
         capacity=10_000,
     )
+    terminal_tracker = TerminalTransitionTracker(
+    replay_buffer=replay_buffer,
+    )
     run_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
     checkpoint_dir = Path("checkpoints") / "state_action_probe" / run_id
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -868,6 +871,7 @@ def main() -> None:
             metadata={
                 "episodes": completed_episodes,
                 "architecture": args.architecture,
+                "terminal_tracker": terminal_tracker.state_dict(),
             },
         )
         print(f"Checkpoint saved: {path}")
@@ -933,10 +937,6 @@ def main() -> None:
     print("\nTraining...")
 
     set_random_seed(training_seed)
-
-    terminal_tracker = TerminalTransitionTracker(
-        replay_buffer=replay_buffer,
-    )
 
     sample_observer = PrioritizedSampleObserver(replay_buffer)
     replay_buffer.sample_prioritized = sample_observer.sample_prioritized
