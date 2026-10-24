@@ -72,20 +72,27 @@ def test_evaluate_mate_position_detects_greedy_checkmate():
             self.weight = torch.nn.Parameter(torch.zeros(1))
 
         def evaluate_action_ids(self, state, action_ids):
-            
-            original_fen = board.fen()
-            original_history = list(board.move_stack)
-
-            move, is_mate, best_q, q_gap = evaluate_mate_position(
-                board, FakeNetwork()
+            return torch.tensor(
+                [
+                    1.0 if action == encode_move(mating_move) else 0.0
+                    for action in action_ids
+                ],
+                device=state.device,
             )
 
-            assert move == mating_move
-            assert is_mate is True
-            assert best_q == 1.0
-            assert q_gap == 1.0
-            assert board.fen() == original_fen
-            assert board.move_stack == original_history
+    original_fen = board.fen()
+    original_history = list(board.move_stack)
+
+    move, is_mate, best_q, q_gap = evaluate_mate_position(
+        board, FakeNetwork()
+    )
+
+    assert move == mating_move
+    assert is_mate is True
+    assert best_q == 1.0
+    assert q_gap == 1.0
+    assert board.fen() == original_fen
+    assert board.move_stack == original_history
 
 
 def test_run_mate_in_one_probe_summarizes_results(monkeypatch, capsys):
