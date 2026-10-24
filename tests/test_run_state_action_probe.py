@@ -944,3 +944,95 @@ def test_resume_validation_checks_architecture_and_metadata(
 
     with pytest.raises(ValueError, match="resume metadata"):
         probe.validate_resume_checkpoint(path, "spatial")
+
+def test_probe_resume_continues_in_original_directory(
+    tmp_path, monkeypatch
+):
+    from scripts import run_state_action_probe as probe
+    from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
+    from chess_rl.training.checkpoint import (
+        save_training_checkpoint,
+        load_checkpoint_metadata,
+    )
+
+    class StopAfterCheckpoint(Exception):
+        pass
+
+    run_dir = tmp_path / "checkpoints" / "state_action_probe" / "run_1"
+    run_dir.mkdir(parents=True)
+    previous_checkpoint = run_dir / "episode_25.pt"
+
+    save_training_checkpoint(
+        str(previous_checkpoint),
+        StateActionDQNAgent(spatial=True),
+        ReplayBuffer(capacity=10000),
+        metadata={
+            "episodes": 25,
+            "architecture": "spatial",
+            "terminal_tracker": {"terminal_labels": []},
+        },
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "run_state_action_probe.py",
+            "--episodes", "25",
+            "--resume", str(previous_checkpoint),
+        ],
+    )
+    monkeypatch.setattr(
+        probe, "evaluate_mate_in_one", lambda *args: (0, 4)
+    )
+    monkeypatch.setattr(
+        probe,
+        "evaluate_against_random_both_colors",
+        lambda **kwargs: SimpleNamespace(
+            episodes=40,
+            wins=0,
+            draws=0,
+            losses=0,
+            truncated=40,
+            truncated_claimable_threefold=0,
+            truncated_claimable_fifty_moves=0,
+            truncated_without_claimable_draw=40,
+            truncated_average_total_material=0.0,
+            truncated_average_material_balance=0.0,
+            truncated_average_absolute_material_balance=0.0,
+        ),
+    )
+
+    def fake_train(**kwargs):
+        assert kwargs["episodes"] == 25
+        assert kwargs["initial_episode"] == 25
+        assert kwargs["checkpoint_frequency"] == 25
+        assert kwargs["agent"].epsilon == 1.0
+
+        kwargs["agent"].epsilon = 0.42
+        add_transition(kwargs["replay_buffer"])
+        kwargs["progress_callback"](
+            50, 25, episode_result(result="1-0")
+        )
+        kwargs["checkpoint_callback"](50, kwargs["agent"])
+        raise StopAfterCheckpoint
+
+    monkeypatch.setattr(probe, "train_against_random", fake_train)
+
+    with pytest.raises(StopAfterCheckpoint):
+        probe.main()
+
+    next_checkpoint = run_dir / "episode_50.pt"
+    assert next_checkpoint.is_file()
+    assert previous_checkpoint.is_file()
+
+    metadata = load_checkpoint_metadata(str(next_checkpoint))
+    assert metadata["episodes"] == 50
+    assert metadata["terminal_tracker"] == {
+        "terminal_labels": ["win"],
+    }
+
+    assert not list(
+        (tmp_path / "checkpoints" / "state_action_probe")
+        .glob("*/episode_50.pt")
+    ) == []
