@@ -30,6 +30,7 @@ from scripts.run_mate_in_one_probe import run_mate_in_one_probe
 from chess_rl.training.checkpoint import (
     save_training_checkpoint,
     load_checkpoint_metadata,
+    load_training_checkpoint,
 )
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -861,13 +862,11 @@ def main() -> None:
     """
     args = parse_args()
 
+    resume_metadata = None
     if args.resume is not None:
-        validate_resume_checkpoint(
+        resume_metadata = validate_resume_checkpoint(
             args.resume,
             args.architecture,
-        )
-        raise NotImplementedError(
-            "Checkpoint resume is not enabled yet."
         )
 
     training_episodes = args.episodes
@@ -901,8 +900,12 @@ def main() -> None:
     terminal_tracker = TerminalTransitionTracker(
     replay_buffer=replay_buffer,
     )
-    run_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
-    checkpoint_dir = Path("checkpoints") / "state_action_probe" / run_id
+    if args.resume is None:
+        run_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
+        checkpoint_dir = Path("checkpoints") / "state_action_probe" / run_id
+    else:
+        checkpoint_dir = args.resume.parent
+
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
     def save_probe_checkpoint(completed_episodes, trained_agent):
@@ -918,6 +921,18 @@ def main() -> None:
             },
         )
         print(f"Checkpoint saved: {path}")
+
+    if resume_metadata is not None:
+        load_training_checkpoint(
+            str(args.resume),
+            agent,
+            replay_buffer,
+            restore_rng_state=False,
+        )
+        terminal_tracker.load_state_dict(
+            resume_metadata["terminal_tracker"]
+        )
+
     print_probe_configuration(
         args,
         bootstrap_truncation=bootstrap_truncation,
@@ -981,6 +996,14 @@ def main() -> None:
 
     set_random_seed(training_seed)
 
+    if resume_metadata is not None:
+        load_training_checkpoint(
+            str(args.resume),
+            agent,
+            replay_buffer,
+            restore_rng_state=True,
+        )
+
     sample_observer = PrioritizedSampleObserver(replay_buffer)
     replay_buffer.sample_prioritized = sample_observer.sample_prioritized
 
@@ -1004,6 +1027,10 @@ def main() -> None:
         bootstrap_truncation=bootstrap_truncation,
         checkpoint_frequency=25,
         checkpoint_callback=save_probe_checkpoint,
+        initial_episode=(
+            resume_metadata["episodes"]
+            if resume_metadata is not None else 0
+        ),
     )
 
     final_terminal_labels = terminal_tracker.get_final_labels()
