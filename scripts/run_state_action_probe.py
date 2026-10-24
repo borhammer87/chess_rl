@@ -27,7 +27,10 @@ from chess_rl.utils.action_selection import (
     evaluate_state_action_greedy_choice,
 )
 from scripts.run_mate_in_one_probe import run_mate_in_one_probe
-from chess_rl.training.checkpoint import save_training_checkpoint
+from chess_rl.training.checkpoint import (
+    save_training_checkpoint,
+    load_checkpoint_metadata,
+)
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from datetime import datetime
@@ -717,7 +720,37 @@ def parse_args(args=None):
         default=67890,
     )
 
+    parser.add_argument(
+        "--resume",
+        type=Path,
+        default=None,
+        help="Checkpoint to resume from.",
+    )
+
     return parser.parse_args(args)
+
+def validate_resume_checkpoint(path: Path, architecture: str) -> dict:
+    """Validate a probe checkpoint before resuming training."""
+    if not path.is_file():
+        raise ValueError(f"Checkpoint not found: {path}")
+
+    metadata = load_checkpoint_metadata(str(path))
+
+    if metadata.get("architecture") != architecture:
+        raise ValueError(
+            "Checkpoint architecture does not match --architecture."
+        )
+
+    if (
+        not isinstance(metadata.get("episodes"), int)
+        or metadata["episodes"] < 0
+        or "terminal_tracker" not in metadata
+    ):
+        raise ValueError(
+            "Checkpoint lacks required resume metadata."
+        )
+
+    return metadata
 
 def print_probe_configuration(
     args,
@@ -827,6 +860,16 @@ def main() -> None:
     or explicit CUDA support should come next.
     """
     args = parse_args()
+
+    if args.resume is not None:
+        validate_resume_checkpoint(
+            args.resume,
+            args.architecture,
+        )
+        raise NotImplementedError(
+            "Checkpoint resume is not enabled yet."
+        )
+
     training_episodes = args.episodes
     evaluation_episodes_per_color = 20
     max_agent_steps = 150

@@ -886,3 +886,61 @@ def test_terminal_tracker_rejects_mismatched_restored_labels():
         tracker.load_state_dict(
             {"terminal_labels": []}
         )
+
+def test_probe_cli_accepts_resume_path():
+    from pathlib import Path
+    from scripts.run_state_action_probe import parse_args
+
+    args = parse_args([
+        "--resume", "checkpoints/example/episode_25.pt",
+        "--episodes", "25",
+    ])
+
+    assert args.resume == Path(
+        "checkpoints/example/episode_25.pt"
+    )
+    assert args.episodes == 25
+
+
+def test_resume_validation_rejects_missing_checkpoint(tmp_path):
+    from scripts.run_state_action_probe import validate_resume_checkpoint
+
+    with pytest.raises(ValueError, match="Checkpoint not found"):
+        validate_resume_checkpoint(
+            tmp_path / "missing.pt",
+            "spatial",
+        )
+
+
+def test_resume_validation_checks_architecture_and_metadata(
+    tmp_path, monkeypatch
+):
+    from scripts import run_state_action_probe as probe
+
+    path = tmp_path / "episode_25.pt"
+    path.touch()
+
+    monkeypatch.setattr(
+        probe,
+        "load_checkpoint_metadata",
+        lambda _: {
+            "episodes": 25,
+            "architecture": "standard",
+            "terminal_tracker": {"terminal_labels": []},
+        },
+    )
+
+    with pytest.raises(ValueError, match="architecture"):
+        probe.validate_resume_checkpoint(path, "spatial")
+
+    monkeypatch.setattr(
+        probe,
+        "load_checkpoint_metadata",
+        lambda _: {
+            "episodes": 25,
+            "architecture": "spatial",
+        },
+    )
+
+    with pytest.raises(ValueError, match="resume metadata"):
+        probe.validate_resume_checkpoint(path, "spatial")
