@@ -811,6 +811,14 @@ def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
 
     assert metadata["episodes"] == 25
     assert metadata["architecture"] == "spatial"
+    assert metadata["training_config"] == {
+        "max_agent_steps": 150,
+        "batch_size": 32,
+        "min_replay_size": 1000,
+        "target_update_frequency": 10,
+        "bootstrap_truncation": True,
+        "replay_capacity": 10_000,
+    }
     assert metadata["terminal_tracker"] == {
         "terminal_labels": ["win"],
     }

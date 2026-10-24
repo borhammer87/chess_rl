@@ -876,6 +876,14 @@ def main() -> None:
     min_replay_size = 1000
     target_update_frequency = 10
     bootstrap_truncation=True
+    training_config = {
+        "max_agent_steps": max_agent_steps,
+        "batch_size": batch_size,
+        "min_replay_size": min_replay_size,
+        "target_update_frequency": target_update_frequency,
+        "bootstrap_truncation": bootstrap_truncation,
+        "replay_capacity": 10_000,
+    }
 
 
     initialization_seed = args.initialization_seed
@@ -918,6 +926,7 @@ def main() -> None:
                 "episodes": completed_episodes,
                 "architecture": args.architecture,
                 "terminal_tracker": terminal_tracker.state_dict(),
+                "training_config": training_config,
             },
         )
         print(f"Checkpoint saved: {path}")
