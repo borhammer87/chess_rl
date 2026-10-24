@@ -1,5 +1,10 @@
 from types import SimpleNamespace
-
+from scripts import run_state_action_probe as probe
+from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
+from chess_rl.training.checkpoint import (
+    save_training_checkpoint,
+    load_checkpoint_metadata,
+)
 import chess
 import pytest
 import torch
@@ -917,6 +922,7 @@ def test_resume_validation_rejects_missing_checkpoint(tmp_path):
         validate_resume_checkpoint(
             tmp_path / "missing.pt",
             "spatial",
+            {},
         )
 
 
@@ -939,7 +945,7 @@ def test_resume_validation_checks_architecture_and_metadata(
     )
 
     with pytest.raises(ValueError, match="architecture"):
-        probe.validate_resume_checkpoint(path, "spatial")
+        probe.validate_resume_checkpoint(path, "spatial", {})
 
     monkeypatch.setattr(
         probe,
@@ -951,17 +957,12 @@ def test_resume_validation_checks_architecture_and_metadata(
     )
 
     with pytest.raises(ValueError, match="resume metadata"):
-        probe.validate_resume_checkpoint(path, "spatial")
+        probe.validate_resume_checkpoint(path, "spatial",{})
 
 def test_probe_resume_continues_in_original_directory(
     tmp_path, monkeypatch
 ):
-    from scripts import run_state_action_probe as probe
-    from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
-    from chess_rl.training.checkpoint import (
-        save_training_checkpoint,
-        load_checkpoint_metadata,
-    )
+
 
     class StopAfterCheckpoint(Exception):
         pass
@@ -978,8 +979,17 @@ def test_probe_resume_continues_in_original_directory(
             "episodes": 25,
             "architecture": "spatial",
             "terminal_tracker": {"terminal_labels": []},
+            "training_config": {
+                "max_agent_steps": 150,
+                "batch_size": 32,
+                "min_replay_size": 1000,
+                "target_update_frequency": 10,
+                "bootstrap_truncation": True,
+                "replay_capacity": 10_000,
+            },
         },
     )
+
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
@@ -1044,3 +1054,41 @@ def test_probe_resume_continues_in_original_directory(
         (tmp_path / "checkpoints" / "state_action_probe")
         .glob("*/episode_50.pt")
     ) == []
+
+def test_resume_validation_rejects_changed_training_config(
+    tmp_path, monkeypatch
+):
+    from scripts import run_state_action_probe as probe
+
+    path = tmp_path / "episode_25.pt"
+    path.touch()
+
+    expected_config = {
+        "batch_size": 32,
+        "max_agent_steps": 150,
+    }
+
+    monkeypatch.setattr(
+        probe,
+        "load_checkpoint_metadata",
+        lambda _: {
+            "episodes": 25,
+            "architecture": "spatial",
+            "terminal_tracker": {"terminal_labels": []},
+            "training_config": expected_config,
+        },
+    )
+
+    assert probe.validate_resume_checkpoint(
+        path, "spatial", expected_config
+    )["episodes"] == 25
+
+    with pytest.raises(
+        ValueError,
+        match="training configuration does not match",
+    ):
+        probe.validate_resume_checkpoint(
+            path,
+            "spatial",
+            {"batch_size": 64, "max_agent_steps": 150},
+        )

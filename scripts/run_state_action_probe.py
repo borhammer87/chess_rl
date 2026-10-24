@@ -730,7 +730,11 @@ def parse_args(args=None):
 
     return parser.parse_args(args)
 
-def validate_resume_checkpoint(path: Path, architecture: str) -> dict:
+def validate_resume_checkpoint(
+    path: Path,
+    architecture: str,
+    training_config: dict,
+) -> dict:
     """Validate a probe checkpoint before resuming training."""
     if not path.is_file():
         raise ValueError(f"Checkpoint not found: {path}")
@@ -749,6 +753,18 @@ def validate_resume_checkpoint(path: Path, architecture: str) -> dict:
     ):
         raise ValueError(
             "Checkpoint lacks required resume metadata."
+        )
+
+    saved_config = metadata.get("training_config")
+
+    if saved_config is None:
+        raise ValueError(
+            "Checkpoint lacks training configuration."
+        )
+
+    if saved_config != training_config:
+        raise ValueError(
+            "Checkpoint training configuration does not match."
         )
 
     return metadata
@@ -862,13 +878,6 @@ def main() -> None:
     """
     args = parse_args()
 
-    resume_metadata = None
-    if args.resume is not None:
-        resume_metadata = validate_resume_checkpoint(
-            args.resume,
-            args.architecture,
-        )
-
     training_episodes = args.episodes
     evaluation_episodes_per_color = 20
     max_agent_steps = 150
@@ -885,6 +894,13 @@ def main() -> None:
         "replay_capacity": 10_000,
     }
 
+    resume_metadata = None
+    if args.resume is not None:
+        resume_metadata = validate_resume_checkpoint(
+            args.resume,
+            args.architecture,
+            training_config,
+        )
 
     initialization_seed = args.initialization_seed
     evaluation_seed = args.evaluation_seed
