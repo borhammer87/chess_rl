@@ -837,7 +837,7 @@ def main() -> None:
         batch_size=batch_size,
         min_replay_size=min_replay_size,
     )
-
+    evaluate_mate_in_one(agent, "Initial")
     print("\nInitial greedy evaluation...")
 
     set_random_seed(evaluation_seed)    
@@ -996,7 +996,7 @@ def main() -> None:
     analyze_replay_diversity(
         replay_buffer=replay_buffer,
     )
-
+    evaluate_mate_in_one(agent, "Final")
     print("\nFinal greedy evaluation...")
 
     set_random_seed(evaluation_seed)

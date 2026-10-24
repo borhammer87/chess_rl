@@ -710,3 +710,29 @@ def test_evaluate_mate_in_one_uses_existing_policy(monkeypatch, capsys):
     assert result == (2, 4)
     assert received == [network]
     assert "Initial mate-in-one evaluation..." in capsys.readouterr().out
+
+
+def test_main_evaluates_mates_before_and_after_training(monkeypatch):
+    from scripts import run_state_action_probe as probe
+
+    calls = []
+    original_evaluate = probe.evaluate_mate_in_one
+
+    def fake_evaluate(agent, label):
+        calls.append((agent, label))
+        return 0, 4
+
+    monkeypatch.setattr(probe, "evaluate_mate_in_one", fake_evaluate)
+
+    # Verificamos la integración en main sin ejecutar el
+    # entrenamiento completo en este test.
+    import inspect
+
+    source = inspect.getsource(probe.main)
+
+    assert source.index('evaluate_mate_in_one(agent, "Initial")') < (
+        source.index("train_against_random(")
+    )
+    assert source.index('evaluate_mate_in_one(agent, "Final")') > (
+        source.index("train_against_random(")
+    )
