@@ -737,28 +737,89 @@ def test_main_evaluates_mates_before_and_after_training(monkeypatch):
         source.index("train_against_random(")
     )
 
-def test_probe_checkpoint_saves_agent_and_replay(tmp_path):
+def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
     from scripts import run_state_action_probe as probe
     from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
-    from chess_rl.training.checkpoint import load_checkpoint_metadata
-
-    agent = StateActionDQNAgent(spatial=True)
-    replay = ReplayBuffer(capacity=10)
-    add_transition(replay)
-
-    path = tmp_path / "episode_25.pt"
-
-    from chess_rl.training.checkpoint import save_training_checkpoint
-
-    save_training_checkpoint(
-        path=str(path),
-        agent=agent,
-        replay_buffer=replay,
-        metadata={"episodes": 25, "architecture": "spatial"},
+    from chess_rl.training.checkpoint import (
+        load_training_checkpoint,
+        load_checkpoint_metadata,
     )
 
-    assert path.exists()
+    class StopAfterCheckpoint(Exception):
+        pass
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["run_state_action_probe.py", "--episodes", "25"],
+    )
+    monkeypatch.setattr(
+        probe,
+        "evaluate_mate_in_one",
+        lambda *args: (0, 4),
+    )
+
+    monkeypatch.setattr(
+        probe,
+        "evaluate_against_random_both_colors",
+        lambda **kwargs: SimpleNamespace(
+            episodes=40,
+            wins=0,
+            draws=0,
+            losses=0,
+            truncated=40,
+            truncated_claimable_threefold=0,
+            truncated_claimable_fifty_moves=0,
+            truncated_without_claimable_draw=40,
+            truncated_average_total_material=0.0,
+            truncated_average_material_balance=0.0,
+            truncated_average_absolute_material_balance=0.0,
+        ),
+    )
+
+    original = {}
+
+    def fake_train(**kwargs):
+        assert kwargs["checkpoint_frequency"] == 25
+
+        agent = kwargs["agent"]
+        replay = kwargs["replay_buffer"]
+
+        agent.epsilon = 0.42
+        add_transition(replay)
+        original["agent"] = agent
+
+        kwargs["checkpoint_callback"](25, agent)
+        raise StopAfterCheckpoint
+
+    monkeypatch.setattr(probe, "train_against_random", fake_train)
+
+    with pytest.raises(StopAfterCheckpoint):
+        probe.main()
+
+    path = tmp_path / "checkpoints" / "state_action_probe" / "episode_25.pt"
+
+    assert path.is_file()
     assert load_checkpoint_metadata(str(path)) == {
         "episodes": 25,
         "architecture": "spatial",
     }
+
+    restored_agent = StateActionDQNAgent(spatial=True)
+    restored_replay = ReplayBuffer(capacity=1)
+
+    load_training_checkpoint(
+        str(path),
+        restored_agent,
+        restored_replay,
+    )
+
+    assert restored_agent.epsilon == 0.42
+    assert len(restored_replay) == 1
+    assert restored_replay.buffer.maxlen == 10000
+
+    for original_param, restored_param in zip(
+        original["agent"].policy_net.parameters(),
+        restored_agent.policy_net.parameters(),
+    ):
+        assert torch.equal(original_param, restored_param)
