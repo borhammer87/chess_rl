@@ -54,6 +54,7 @@ def train_against_random(
     agent_color: chess.Color = chess.WHITE,
     alternate_colors: bool = False,
     bootstrap_truncation: bool = False,
+    initial_episode: int = 0,
 ) -> list[VsRandomEpisodeResult]:
     """
     Run multiple DQN-versus-random episodes.
@@ -92,13 +93,17 @@ def train_against_random(
         agent_color: Color played by the DQN agent. 
         alternate_colors: If True, alternate the DQN color after each episode,
         starting with agent_color.
+                initial_episode: Number of episodes completed before this call.
+            Used for color alternation, target synchronization,
+            checkpointing and evaluation schedules. Defaults to zero.
         
     Returns:
         One result for each completed or truncated episode.
     """
     if episodes <= 0:
         raise ValueError("episodes must be greater than zero.")
-
+    if initial_episode < 0:
+        raise ValueError("initial_episode must not be negative.")
     if target_update_frequency <= 0:
         raise ValueError(
             "target_update_frequency must be greater than zero."
@@ -149,9 +154,11 @@ def train_against_random(
     results: list[VsRandomEpisodeResult] = []
 
     for episode_index in range(episodes):
+        global_episode_index = initial_episode + episode_index
+
         episode_agent_color = get_episode_agent_color(
             initial_color=agent_color,
-            episode_index=episode_index,
+            episode_index=global_episode_index,
             alternate_colors=alternate_colors,
         )
 
@@ -169,7 +176,7 @@ def train_against_random(
 
         results.append(result)
 
-        completed_episodes = episode_index + 1
+        completed_episodes = initial_episode + episode_index + 1
 
         if progress_callback is not None:
             progress_callback(

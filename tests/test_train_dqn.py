@@ -2534,3 +2534,76 @@ def test_save_greedy_evaluation_game_uses_provided_replay_buffer(
     assert received_buffers == [
         replay_buffer,
     ]
+
+def test_train_against_random_uses_initial_episode(
+    monkeypatch,
+):
+    env = ChessEnv()
+    agent = DQNAgent()
+    opponent = RandomAgent()
+    replay_buffer = ReplayBuffer(capacity=100)
+
+    colors = []
+    checkpoints = []
+    evaluations = []
+    target_updates = []
+
+    def fake_episode(*args, **kwargs):
+        colors.append(kwargs["agent_color"])
+        return VsRandomEpisodeResult(
+            agent_steps=1,
+            total_plies=2,
+            total_reward=0.0,
+            done=False,
+            truncated=True,
+            final_info={},
+            training_losses=[],
+            final_epsilon=agent.epsilon,
+            replay_size=0,
+        )
+
+    monkeypatch.setattr(
+        train_dqn_module,
+        "run_dqn_vs_random_episode",
+        fake_episode,
+    )
+    monkeypatch.setattr(
+        agent,
+        "update_target",
+        lambda: target_updates.append(True),
+    )
+
+    results = train_against_random(
+        env=env,
+        agent=agent,
+        opponent=opponent,
+        replay_buffer=replay_buffer,
+        episodes=3,
+        initial_episode=24,
+        alternate_colors=True,
+        target_update_frequency=2,
+        checkpoint_frequency=5,
+        checkpoint_callback=lambda n, a: checkpoints.append(n),
+        evaluation_frequency=3,
+        evaluation_callback=lambda n, a: evaluations.append(n),
+    )
+
+    assert len(results) == 3
+    assert colors == [chess.WHITE, chess.BLACK, chess.WHITE]
+    assert len(target_updates) == 1
+    assert checkpoints == [25]
+    assert evaluations == [27]
+
+def test_train_against_random_rejects_negative_initial_episode():
+    with pytest.raises(
+        ValueError,
+        match="initial_episode must not be negative",
+    ):
+        train_against_random(
+            env=ChessEnv(),
+            agent=DQNAgent(),
+            opponent=RandomAgent(),
+            replay_buffer=ReplayBuffer(capacity=100),
+            episodes=1,
+            initial_episode=-1,
+        )
