@@ -827,3 +827,48 @@ def test_probe_main_checkpoint_can_be_restored(tmp_path, monkeypatch):
         restored_agent.policy_net.parameters(),
     ):
         assert torch.equal(original_param, restored_param)
+
+def test_terminal_tracker_state_survives_replay_restoration():
+    original_buffer = ReplayBuffer(capacity=10)
+    original_tracker = TerminalTransitionTracker(original_buffer)
+
+    add_transition(original_buffer, done=False)
+    add_transition(original_buffer, done=True)
+
+    original_tracker.record_episode(
+        1, 2, episode_result(result="1-0")
+    )
+
+    add_transition(original_buffer, done=False)
+
+    original_tracker.record_episode(
+        2, 2, episode_result(truncated=True)
+    )
+
+    saved_replay = original_buffer.state_dict()
+    saved_tracker = original_tracker.state_dict()
+
+    restored_buffer = ReplayBuffer(capacity=1)
+    restored_buffer.load_state_dict(saved_replay)
+
+    restored_tracker = TerminalTransitionTracker(restored_buffer)
+    restored_tracker.load_state_dict(saved_tracker)
+
+    assert list(
+        restored_tracker.get_final_labels().values()
+    ) == ["win", "truncated"]
+
+
+def test_terminal_tracker_rejects_mismatched_restored_labels():
+    buffer = ReplayBuffer(capacity=10)
+    add_transition(buffer, done=True)
+
+    tracker = TerminalTransitionTracker(buffer)
+
+    with pytest.raises(
+        ValueError,
+        match="Terminal labels do not match replay buffer length",
+    ):
+        tracker.load_state_dict(
+            {"terminal_labels": []}
+        )

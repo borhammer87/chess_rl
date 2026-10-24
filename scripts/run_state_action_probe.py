@@ -104,6 +104,34 @@ class TerminalTransitionTracker:
 
         return labels
 
+    def state_dict(self) -> dict:
+        """Serialize terminal labels in replay-buffer order."""
+        labels = self.get_final_labels()
+
+        return {
+            "terminal_labels": [
+                labels.get(id(transition))
+                for transition in self.replay_buffer.buffer
+            ],
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        """Restore labels for the currently loaded replay buffer."""
+        labels = state["terminal_labels"]
+        transitions = list(self.replay_buffer.buffer)
+
+        if len(labels) != len(transitions):
+            raise ValueError(
+                "Terminal labels do not match replay buffer length."
+            )
+
+        self.labels = {
+            id(transition): (transition, label)
+            for transition, label in zip(transitions, labels)
+            if label is not None
+        }
+
+        self.get_final_labels()
 
 class PrioritizedSampleObserver:
     """Record actual PER selections without changing sampling."""
