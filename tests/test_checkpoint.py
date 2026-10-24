@@ -1,5 +1,7 @@
 import torch
-
+import random
+import numpy as np
+import pytest
 from chess_rl.agents.dqn_agent import DQNAgent
 from chess_rl.training.checkpoint import (
     load_training_checkpoint,
@@ -151,4 +153,67 @@ def test_training_checkpoint_supports_state_action_agent(
         assert torch.equal(
             original,
             restored,
+        )
+
+def test_checkpoint_restores_random_generators(tmp_path):
+    random.seed(123)
+    np.random.seed(123)
+    torch.manual_seed(123)
+
+    path = tmp_path / "rng_checkpoint.pt"
+
+    save_training_checkpoint(
+        path=str(path),
+        agent=DQNAgent(),
+        replay_buffer=ReplayBuffer(capacity=10),
+    )
+
+    expected = (
+        random.random(),
+        np.random.random(),
+        torch.rand(1).item(),
+    )
+
+    random.seed(999)
+    np.random.seed(999)
+    torch.manual_seed(999)
+
+    load_training_checkpoint(
+        path=str(path),
+        agent=DQNAgent(),
+        replay_buffer=ReplayBuffer(capacity=10),
+        restore_rng_state=True,
+    )
+
+    actual = (
+        random.random(),
+        np.random.random(),
+        torch.rand(1).item(),
+    )
+
+    assert actual == expected
+
+
+def test_old_checkpoint_rejects_strict_rng_restore(tmp_path):
+    path = tmp_path / "old_checkpoint.pt"
+
+    save_training_checkpoint(
+        path=str(path),
+        agent=DQNAgent(),
+        replay_buffer=ReplayBuffer(capacity=10),
+    )
+
+    checkpoint = torch.load(path, weights_only=False)
+    del checkpoint["rng_state"]
+    torch.save(checkpoint, path)
+
+    with pytest.raises(
+        ValueError,
+        match="Checkpoint has no RNG state",
+    ):
+        load_training_checkpoint(
+            path=str(path),
+            agent=DQNAgent(),
+            replay_buffer=ReplayBuffer(capacity=10),
+            restore_rng_state=True,
         )
