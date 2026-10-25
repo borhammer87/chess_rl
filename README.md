@@ -22,7 +22,8 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Material reward shaping, a small non-terminal step penalty and a separate artificial-truncation penalty.
 - Training summaries that classify chess outcomes from the actual game result rather than from shaped reward.
 - Periodic checkpoints and replay-buffer persistence. The original DQN main workflow supports automatic resume from `checkpoints/latest.pt`.
-- The experimental State-Action probe saves checkpoints every 25 completed episodes in a unique directory per execution under `checkpoints/state_action_probe/<run_id>/`, avoiding overwrites between runs. Automatic resume is not yet implemented for this probe.
+- The experimental State-Action probe saves checkpoints every 25 completed episodes in a unique directory per execution under `checkpoints/state_action_probe/<run_id>/`, avoiding overwrites between runs. - The experimental State-Action probe saves checkpoints every 25 completed episodes in `checkpoints/state_action_probe/<run_id>/`. It supports explicit resume with `--resume`, restoring the agent, optimizer, epsilon, replay buffer, terminal labels, RNG state and cumulative episode numbering. Resume requires matching architecture and training configuration. `--episodes` specifies additional episodes when resuming.
+
 - Balanced White/Black evaluation against `RandomAgent` and evaluation-based `checkpoints/best.pt` selection.
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
 - Automated tests covering the environment, encoders, agents, replay, training, self-play, checkpointing, diagnostics and both DQN model families.
@@ -110,7 +111,19 @@ See `DIAGNOSTICS.md` for the evidence and active hypotheses.
 
 ## Experimental spatial diagnostic probe
 
-Run python scripts/run_state_action_probe.py to train and evaluate the experimental spatial State-Action agent against RandomAgent.
+Run the experimental State-Action probe as a Python module from the repository root:
+
+```powershell
+# New CUDA training run (25 episodes)
+python -m scripts.run_state_action_probe --architecture spatial --device cuda --episodes 25
+
+# Resume for 25 additional episodes
+python -m scripts.run_state_action_probe --architecture spatial --device cuda --episodes 25 --resume "checkpoints/state_action_probe/<run_id>/episode_25.pt"
+```
+
+Replace `<run_id>` with the actual run directory. A CUDA-enabled PyTorch installation and compatible NVIDIA GPU are required for CUDA execution. Use `--device cpu` for CPU execution.
+
+A resumed run saves checkpoints in the original run directory and preserves cumulative episode numbering. Resume compatibility checks cover the architecture and training configuration. Exact numerical equivalence between uninterrupted and resumed training has not yet been established.
 
 The probe supports command-line configuration of architecture (spatial or standard), training episode count and device (cpu or cuda). The defaults are spatial, 100 episodes and CPU.
 

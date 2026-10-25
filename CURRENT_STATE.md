@@ -202,9 +202,17 @@ full-game probe now provides an initial comparison; see `TRAINING_STATUS.md`.
 
 **Completed workflow improvement:** `scripts/run_state_action_probe.py` supports `--architecture`, `--episodes` and `--device` (CPU/CUDA), prints the experiment configuration and profiles training time. A 10-episode CUDA run completed 350 neural updates without errors; the CPU comparison completed 377 updates. CUDA took 4.13 s total versus 9.67 s on CPU, an indicative 2.34× total-time speedup, not a strict equal-work benchmark. See `TRAINING_STATUS.md`.
 
-**Completed checkpoint workflow improvement:** `scripts/run_state_action_probe.py` saves training checkpoints every 25 completed episodes using the existing checkpoint infrastructure. Each execution creates a unique directory under `checkpoints/state_action_probe/<run_id>/`, with checkpoint files named `episode_<N>.pt`. The saved state includes the agent (policy network, target network, optimizer and epsilon), replay buffer and metadata. The integration test verifies checkpoint creation and restoration. Checkpoints do not yet preserve RNG state or a lifetime episode counter.
+**Completed checkpoint workflow improvement:** 
 
-**Immediate next development task:** implement safe checkpoint resume for the experimental State-Action probe, including a clear distinction between restoring model/training state and exact reproducibility. Preserve the existing experiment configuration and avoid changing the DQN learning algorithm.
+**Completed checkpoint resume workflow (October 2026):** `scripts/run_state_action_probe.py` supports explicit `--resume`. Checkpoints are saved every 25 cumulative episodes under `checkpoints/state_action_probe/<run_id>/`. Resume restores the agent, optimizer, epsilon, replay buffer, terminal-transition labels and RNG state. The probe validates architecture and training configuration before resuming. The initial evaluation does not consume the restored training RNG sequence.
+
+Integration tests cover checkpoint restoration, cumulative episode numbering, reuse of the original checkpoint directory, configuration validation and single-load RNG restoration.
+
+A real CUDA resume test completed successfully: 25 initial episodes followed by 25 additional episodes, producing `episode_50.pt` in the original run directory. The resumed segment took 26.50 seconds, with final epsilon 0.8061 and replay size 6,602. Final balanced greedy evaluation scored 0.525 over 40 games (6 wins, 30 draws, 0 losses, 4 truncations). Mate-in-one accuracy remained 0/4.
+
+**Current limitation:** practical checkpoint continuation is validated, but exact numerical equivalence between uninterrupted and resumed training has not been demonstrated.
+
+**Immediate next development task:** return to controlled State-Action learning diagnostics. Prioritize understanding why the spatial agent frequently fails to convert material advantages into wins, while retaining multi-seed evaluation as the next broader validation milestone.
 
 **Next learning-validation milestone:** run controlled multi-seed spatial-versus-standard comparisons with matching training settings and the existing RandomAgent benchmark.
 

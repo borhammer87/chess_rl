@@ -54,6 +54,10 @@ The project already contains a complete DQN training pipeline.
 
 The current experimental focus is the State-Action DQN.
 
+The State-Action diagnostic probe now supports validated checkpoint resume. A real 25 + 25 episode CUDA continuation succeeded, creating `episode_50.pt` in the original run directory. Agent state, replay, RNG, terminal labels and cumulative episode numbering are restored. Exact numerical equivalence with uninterrupted training remains unverified.
+
+The next development focus is no longer checkpoint implementation. Return to the State-Action learning diagnosis: investigate the failure to convert material advantages into wins, including repeated moves, stalemates and missed mates. Preserve the distinction between measured evidence and hypotheses, and prioritize controlled comparisons before changing the learning algorithm.
+
 It trains end to end, but controlled evaluation has not yet demonstrated
 reliable greedy chess play.
 

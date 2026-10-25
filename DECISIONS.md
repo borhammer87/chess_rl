@@ -505,3 +505,22 @@ Its larger Q-head and explicit destination lookup are not independently
 controlled factors. A first full-game spatial probe improved the RandomAgent
 score within one run, but it also used truncation bootstrapping, and repeated
 seeds are needed before an architectural promotion.
+
+## D-027 — Explicit and validated State-Action checkpoint resume
+
+### Status
+Accepted.
+
+### Decision
+Support explicit `--resume` in the experimental State-Action probe, reusing the existing checkpoint infrastructure. Persist the agent, replay buffer, RNG state, terminal-transition labels, cumulative episode count, architecture and training configuration.
+
+Reject resume attempts with missing or incompatible architecture or training-configuration metadata. Interpret `--episodes` as additional training episodes when resuming, and continue saving checkpoints in the original run directory.
+
+### Motivation
+Longer experiments must be interruptible without losing learned parameters, optimizer state, exploration progress or replay history. Silent configuration changes would make continued experiments difficult to interpret.
+
+### Alternatives considered
+Restart training from saved network weights only, create a separate checkpoint format, silently accept configuration differences, or postpone resume support until exact numerical reproducibility is established.
+
+### Consequences
+The experimental probe supports practical training continuation, validated by automated tests and a successful 25 + 25 episode CUDA run. Older checkpoints without the required training configuration are rejected for resume. Exact equivalence with uninterrupted training remains a separate, unverified reproducibility requirement.

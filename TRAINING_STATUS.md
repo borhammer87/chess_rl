@@ -559,3 +559,40 @@ sequences. The large within-run improvement is encouraging but remains
 single-seed evidence against a weak benchmark. Unlike the original baseline,
 this run enabled truncation bootstrapping; it is not a controlled
 architecture-only comparison.
+
+## State-Action CUDA checkpoint resume validation — October 2026
+
+A spatial State-Action probe was run for 25 episodes and subsequently resumed for 25 additional episodes using `--resume` and the saved `episode_25.pt` checkpoint.
+
+Configuration: CUDA, spatial architecture, 150 maximum learner steps, batch size 32, minimum replay size 1,000, target synchronization every 10 episodes, replay capacity 10,000 and `bootstrap_truncation=True`.
+
+The resumed execution successfully saved `episode_50.pt` in the original run directory and completed training and final diagnostics.
+
+### Resumed training segment
+
+- Additional episodes: 25
+- Training time: 26.50 seconds (1.06 seconds per episode)
+- Outcomes: 3 wins, 4 draws, 1 loss, 17 truncations
+- Average reward: 0.0147
+- Average loss: 0.00033706
+- Final epsilon: 0.8061
+- Final replay size: 6,602 transitions
+
+### Greedy evaluation of the restored and updated agent
+
+| Metric | Before resumed training | After resumed training |
+| --- | ---: | ---: |
+| Wins | 1 | 6 |
+| Draws | 18 | 30 |
+| Losses | 2 | 0 |
+| Truncated | 19 | 4 |
+| Balanced score | 0.250 | 0.525 |
+| Mate-in-one accuracy | 0/4 | 0/4 |
+
+Both greedy evaluations used 40 games, balanced between White and Black.
+
+The final diagnostic game ended in stalemate after 141 plies. The agent achieved substantial material advantage and promoted a pawn, but failed to convert the position into a win. Repeated rook moves were observed.
+
+### Scope of validation
+
+This experiment demonstrates successful practical checkpoint continuation with accumulated replay state, epsilon and episode numbering. It does not establish exact numerical equivalence with uninterrupted 50-episode training or statistically reliable improvement in chess strength.

@@ -197,4 +197,12 @@ Both DQN agent classes expose compatible `state_dict()` / `load_state_dict()` st
 
 `ReplayBuffer.state_dict()` stores capacity, transitions and priorities and can load older replay states without priorities by assigning default priority `1.0`.
 
-`checkpoint.py` composes agent state and replay-buffer state into a training checkpoint and optionally stores metadata. Current checkpointing does not include RNG state or a global lifetime episode counter.
+`checkpoint.py` composes agent state and replay-buffer state into a training checkpoint and optionally stores metadata. 
+
+Training checkpoints also persist Python, NumPy, PyTorch CPU and, when available, CUDA RNG states. RNG restoration is optional in the shared checkpoint loader.
+
+The experimental State-Action probe uses this infrastructure to support explicit checkpoint resume. Probe checkpoint metadata includes the cumulative completed-episode count, architecture, training configuration and terminal-transition labels aligned with replay-buffer order.
+
+On resume, the probe validates checkpoint metadata, restores the agent and replay buffer, reconstructs terminal labels and preserves the restored training RNG state across the initial evaluation. It then resumes training using the saved cumulative episode count. Subsequent checkpoints are written to the original run directory.
+
+The implementation supports practical training continuation. Exact numerical equivalence between an uninterrupted run and a split resumed run remains unverified.
