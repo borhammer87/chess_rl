@@ -947,15 +947,25 @@ def main() -> None:
         )
         print(f"Checkpoint saved: {path}")
 
+    saved_rng_state = None
+
     if resume_metadata is not None:
         load_training_checkpoint(
             str(args.resume),
             agent,
             replay_buffer,
-            restore_rng_state=False,
+            restore_rng_state=True,
         )
         terminal_tracker.load_state_dict(
             resume_metadata["terminal_tracker"]
+        )
+
+        saved_rng_state = (
+            random.getstate(),
+            np.random.get_state(),
+            torch.get_rng_state().clone(),
+            torch.cuda.get_rng_state_all()
+            if torch.cuda.is_available() else None,
         )
 
     print_probe_configuration(
@@ -1017,17 +1027,17 @@ def main() -> None:
         f"{initial_evaluation.truncated_average_absolute_material_balance}"
     )
 
-    print("\nTraining...")
+    if saved_rng_state is None:
+        set_random_seed(training_seed)
+    else:
+        python_rng, numpy_rng, torch_rng, cuda_rng = saved_rng_state
 
-    set_random_seed(training_seed)
+        random.setstate(python_rng)
+        np.random.set_state(numpy_rng)
+        torch.set_rng_state(torch_rng)
 
-    if resume_metadata is not None:
-        load_training_checkpoint(
-            str(args.resume),
-            agent,
-            replay_buffer,
-            restore_rng_state=True,
-        )
+        if cuda_rng is not None:
+            torch.cuda.set_rng_state_all(cuda_rng)
 
     sample_observer = PrioritizedSampleObserver(replay_buffer)
     replay_buffer.sample_prioritized = sample_observer.sample_prioritized

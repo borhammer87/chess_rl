@@ -962,7 +962,7 @@ def test_resume_validation_checks_architecture_and_metadata(
 def test_probe_resume_continues_in_original_directory(
     tmp_path, monkeypatch
 ):
-
+    import random
 
     class StopAfterCheckpoint(Exception):
         pass
@@ -970,7 +970,8 @@ def test_probe_resume_continues_in_original_directory(
     run_dir = tmp_path / "checkpoints" / "state_action_probe" / "run_1"
     run_dir.mkdir(parents=True)
     previous_checkpoint = run_dir / "episode_25.pt"
-
+    random.seed(98765)
+    expected_rng_state = random.getstate()
     save_training_checkpoint(
         str(previous_checkpoint),
         StateActionDQNAgent(spatial=True),
@@ -990,7 +991,16 @@ def test_probe_resume_continues_in_original_directory(
         },
     )
 
+    original_load = probe.load_training_checkpoint
+    load_calls = []
 
+    def tracked_load(*args, **kwargs):
+        load_calls.append(kwargs.get("restore_rng_state"))
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(
+        probe, "load_training_checkpoint", tracked_load
+    )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
@@ -1026,7 +1036,7 @@ def test_probe_resume_continues_in_original_directory(
         assert kwargs["initial_episode"] == 25
         assert kwargs["checkpoint_frequency"] == 25
         assert kwargs["agent"].epsilon == 1.0
-
+        assert random.getstate() == expected_rng_state
         kwargs["agent"].epsilon = 0.42
         add_transition(kwargs["replay_buffer"])
         kwargs["progress_callback"](
@@ -1039,7 +1049,7 @@ def test_probe_resume_continues_in_original_directory(
 
     with pytest.raises(StopAfterCheckpoint):
         probe.main()
-
+    assert load_calls == [True]
     next_checkpoint = run_dir / "episode_50.pt"
     assert next_checkpoint.is_file()
     assert previous_checkpoint.is_file()
