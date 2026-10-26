@@ -1,6 +1,6 @@
 
 import chess
-from chess_rl.utils.action_encoder import decode_legal_action
+from chess_rl.utils.action_encoder import decode_legal_action, encode_move
 from chess_rl.utils.action_selection import evaluate_state_action_greedy_choice
 from chess_rl.utils.board_encoder import encode_board
 import torch
@@ -53,7 +53,43 @@ def evaluate_mate_position(board, network):
     chosen_move = decode_legal_action(action, legal_moves)
     mate_moves = find_mate_in_one_moves(board)
 
-    return chosen_move, chosen_move in mate_moves, best_q, q_gap
+    with torch.no_grad():
+        scores = network.evaluate_action_ids(
+            state,
+            [encode_move(move) for move in legal_moves],
+        )
+
+    mate_set = set(mate_moves)
+
+    mate_q = max(
+        (float(scores[i].item())
+         for i, move in enumerate(legal_moves)
+         if move in mate_set),
+        default=None,
+    )
+
+    non_mate_q = max(
+        (float(scores[i].item())
+         for i, move in enumerate(legal_moves)
+         if move not in mate_set),
+        default=None,
+    )
+
+    mate_advantage = (
+        mate_q - non_mate_q
+        if mate_q is not None and non_mate_q is not None
+        else None
+    )
+
+    return (
+        chosen_move,
+        chosen_move in mate_set,
+        best_q,
+        q_gap,
+        mate_q,
+        non_mate_q,
+        mate_advantage,
+    )
 
 
 def run_mate_in_one_probe(network):
@@ -63,17 +99,29 @@ def run_mate_in_one_probe(network):
 
     for name, fen in MATE_POSITIONS.items():
         board = chess.Board(fen)
-        move, is_mate, best_q, q_gap = evaluate_mate_position(
-            board, network
-        )
+        (
+            move,
+            is_mate,
+            best_q,
+            q_gap,
+            mate_q,
+            non_mate_q,
+            mate_advantage,
+        ) = evaluate_mate_position(board, network)
 
         correct += is_mate
         status = "PASS" if is_mate else "FAIL"
         gap_text = "N/A" if q_gap is None else f"{q_gap:.4f}"
 
+        def format_q(value):
+            return "N/A" if value is None else f"{value:.4f}"
+
         print(
             f"{name}: {status} | move={move.uci()} "
-            f"| Q={best_q:.4f} | Q gap={gap_text}"
+            f"| Q={best_q:.4f} | Q gap={gap_text} "
+            f"| mate Q={format_q(mate_q)} "
+            f"| best non-mate Q={format_q(non_mate_q)} "
+            f"| mate advantage={format_q(mate_advantage)}"
         )
 
     print(f"Mate-in-one accuracy: {correct}/{total} ({correct / total:.1%})")

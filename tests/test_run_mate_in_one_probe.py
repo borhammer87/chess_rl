@@ -83,14 +83,23 @@ def test_evaluate_mate_position_detects_greedy_checkmate():
     original_fen = board.fen()
     original_history = list(board.move_stack)
 
-    move, is_mate, best_q, q_gap = evaluate_mate_position(
-        board, FakeNetwork()
-    )
+    (
+        move,
+        is_mate,
+        best_q,
+        q_gap,
+        mate_q,
+        non_mate_q,
+        advantage,
+    ) = evaluate_mate_position(board, FakeNetwork())
 
     assert move == mating_move
     assert is_mate is True
     assert best_q == 1.0
     assert q_gap == 1.0
+    assert mate_q == 1.0
+    assert non_mate_q == 0.0
+    assert advantage == 1.0
     assert board.fen() == original_fen
     assert board.move_stack == original_history
 
@@ -103,7 +112,15 @@ def test_run_mate_in_one_probe_summarizes_results(monkeypatch, capsys):
 
     def fake_evaluate(board, network):
         visited_colors.append(board.turn)
-        return chess.Move.from_uci("a2a3"), next(outcomes), 0.5, 0.1
+        return (
+            chess.Move.from_uci("a2a3"),
+            next(outcomes),
+            0.5,
+            0.1,
+            0.4,
+            0.5,
+            -0.1,
+        )
 
     monkeypatch.setattr(probe, "evaluate_mate_position", fake_evaluate)
 
@@ -114,6 +131,9 @@ def test_run_mate_in_one_probe_summarizes_results(monkeypatch, capsys):
 
     assert (correct, total) == (2, 4)
     assert "Mate-in-one accuracy: 2/4 (50.0%)" in output
+    assert "mate Q=0.4000" in output
+    assert "best non-mate Q=0.5000" in output
+    assert "mate advantage=-0.1000" in output
     assert output.count("PASS") == 2
     assert output.count("FAIL") == 2
     assert set(visited_colors) == {chess.WHITE, chess.BLACK}
@@ -163,11 +183,20 @@ def test_evaluate_mate_position_uses_network_device():
             assert state.device == self.weight.device
             return torch.zeros(len(action_ids), device=state.device)
 
-    move, is_mate, best_q, q_gap = evaluate_mate_position(
-        board, FakeNetwork()
-    )
+    (
+        move,
+        is_mate,
+        best_q,
+        q_gap,
+        mate_q,
+        non_mate_q,
+        advantage,
+    ) = evaluate_mate_position(board, FakeNetwork())
 
     assert move in board.legal_moves
     assert isinstance(is_mate, bool)
     assert best_q == 0.0
     assert q_gap == 0.0
+    assert mate_q == 0.0
+    assert non_mate_q == 0.0
+    assert advantage == 0.0

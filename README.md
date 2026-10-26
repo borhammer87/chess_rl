@@ -22,7 +22,7 @@ The repository currently keeps two model approaches in parallel: the original fi
 - Material reward shaping, a small non-terminal step penalty and a separate artificial-truncation penalty.
 - Training summaries that classify chess outcomes from the actual game result rather than from shaped reward.
 - Periodic checkpoints and replay-buffer persistence. The original DQN main workflow supports automatic resume from `checkpoints/latest.pt`.
-- The experimental State-Action probe saves checkpoints every 25 completed episodes in a unique directory per execution under `checkpoints/state_action_probe/<run_id>/`, avoiding overwrites between runs. - The experimental State-Action probe saves checkpoints every 25 completed episodes in `checkpoints/state_action_probe/<run_id>/`. It supports explicit resume with `--resume`, restoring the agent, optimizer, epsilon, replay buffer, terminal labels, RNG state and cumulative episode numbering. Resume requires matching architecture and training configuration. `--episodes` specifies additional episodes when resuming.
+- The experimental State-Action probe saves checkpoints every 25 completed episodes in a unique directory per execution under `checkpoints/state_action_probe/<run_id>/`. It supports explicit resume with `--resume`, restoring the agent, optimizer, epsilon, replay buffer, terminal labels and RNG state. Cumulative episode numbering is preserved for resumed probe runs. Resume requires matching architecture and training configuration. `--episodes` specifies additional episodes when resuming.
 
 - Balanced White/Black evaluation against `RandomAgent` and evaluation-based `checkpoints/best.pt` selection.
 - Truncation diagnostics and greedy PGN export to `checkpoints/evaluation_game.pgn`.
@@ -76,7 +76,7 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 - The balanced greedy RandomAgent score was `0.113` after both 100 and 500 training episodes, while truncation remained very high (`29/40` and `32/40` respectively).
 - The State-Action agent is not integrated into the frozen-opponent self-play path used by `main()`.
 - Board encoding omits repetition history and move counters and remains absolute rather than agent-relative.
-- Checkpoints preserve random-number-generator state or a lifetime episode counter.
+- The experimental State-Action probe persists RNG state and cumulative completed-episode metadata for explicit resume. Exact equivalence between uninterrupted and resumed training remains unverified.
 - Explicit CPU/CUDA selection is available for the experimental State-Action probe, not the original `main()` self-play workflow. A CUDA-enabled PyTorch build and compatible NVIDIA GPU are required for `--device cuda`.
 - Runtime dependencies are not declared in `pyproject.toml`.
 
@@ -103,9 +103,9 @@ A controlled experiment enabling Bellman bootstrapping for artificial
 truncations did not improve the final balanced greedy RandomAgent
 score, which remained 0.113.
 
-The next objective is to test whether State-Action DQN can learn
-a small, controlled chess-relevant state-action preference before
-committing additional resources to full-game training.
+The controlled capture-learning experiments have been completed, including an original-versus-spatial State-Action comparison. The spatial model has also undergone an initial 100-episode full-game probe.
+
+The next objective is to validate spatial State-Action learning across multiple seeds and isolate the effects of architecture and truncation bootstrapping before committing to longer training runs.
 
 See `DIAGNOSTICS.md` for the evidence and active hypotheses.
 
