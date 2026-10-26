@@ -150,11 +150,12 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Add periodic State-Action probe checkpoints using existing agent and replay-buffer serialization
 - [x] Isolate probe checkpoints in unique per-execution directories to prevent overwriting previous runs
 - [x] Add integration testing for checkpoint creation and restoration
-- [ ] Implement explicit checkpoint resume for the State-Action probe
-- [ ] Define and test reproducibility guarantees for resumed experiments
+if training history requires it
+- [x] Implement explicit checkpoint resume for the State-Action probe, including configuration validation, replay restoration and cumulative episode numbering
+- [ ] Define and test exact reproducibility guarantees for resumed experiments against uninterrupted training
 - [ ] Declare runtime/development dependencies in project metadata or an equivalent reproducible environment specification
-- [ ] Consider RNG-state persistence if exact resume reproducibility becomes a requirement
-- [ ] Consider a lifetime episode counter if training history requires it
+- [x] Persist Python, NumPy, PyTorch CPU and CUDA RNG states in checkpoints and restore them when explicitly requested
+- [x] Track cumulative completed episodes in State-Action probe checkpoint metadata for resumed training
 - [x] Add explicit CPU/CUDA selection for the experimental State-Action probe and CUDA-aware timing
 - [x] Validate neural updates on an RTX 4060 Laptop GPU and perform an initial 10-episode CPU/CUDA comparison
 - [ ] Benchmark CPU/CUDA under more closely matched update counts if precise performance estimates become necessary

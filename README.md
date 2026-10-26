@@ -76,7 +76,7 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 - The balanced greedy RandomAgent score was `0.113` after both 100 and 500 training episodes, while truncation remained very high (`29/40` and `32/40` respectively).
 - The State-Action agent is not integrated into the frozen-opponent self-play path used by `main()`.
 - Board encoding omits repetition history and move counters and remains absolute rather than agent-relative.
-- Checkpoints do not preserve random-number-generator state or a lifetime episode counter.
+- Checkpoints preserve random-number-generator state or a lifetime episode counter.
 - Explicit CPU/CUDA selection is available for the experimental State-Action probe, not the original `main()` self-play workflow. A CUDA-enabled PyTorch build and compatible NVIDIA GPU are required for `--device cuda`.
 - Runtime dependencies are not declared in `pyproject.toml`.
 
