@@ -171,6 +171,39 @@ def run_mate_in_one_probe(network):
     print(f"Mate-in-one accuracy: {correct}/{total} ({correct / total:.1%})")
     return correct, total
 
+def run_mate_learning_probe(
+    seed: int = 12345,
+    updates: int = 50,
+):
+    """Test whether the spatial network learns terminal mate moves."""
+    if updates < 1:
+        raise ValueError("Updates must be positive.")
+
+    torch.manual_seed(seed)
+    agent = StateActionDQNAgent(spatial=True, device="cpu")
+
+    positions = [
+        chess.Board(fen)
+        for fen in MATE_POSITIONS.values()
+    ]
+
+    print(f"Mate learning probe - seed: {seed}")
+    print("\nBefore training:")
+    initial = run_mate_in_one_probe(agent.policy_net)
+
+    losses = [
+        train_mate_batch(agent, positions)
+        for _ in range(updates)
+    ]
+
+    print(f"\nTraining updates: {updates}")
+    print(f"First loss: {losses[0]:.6f}")
+    print(f"Final loss: {losses[-1]:.6f}")
+
+    print("\nAfter training:")
+    final = run_mate_in_one_probe(agent.policy_net)
+
+    return initial, final
 
 def main():
     """Evaluate an untrained spatial State-Action DQN."""

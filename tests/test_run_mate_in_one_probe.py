@@ -254,3 +254,42 @@ def test_train_mate_batch_rejects_empty_positions():
 
     with pytest.raises(ValueError, match="cannot be empty"):
         train_mate_batch(FakeAgent(), [])
+
+def test_run_mate_learning_probe_trains_and_evaluates(
+    monkeypatch, capsys
+):
+    from scripts import run_mate_in_one_probe as probe
+
+    calls = {"training": 0, "evaluation": 0}
+
+    class FakeAgent:
+        def __init__(self, spatial, device):
+            assert spatial is True
+            assert device == "cpu"
+            self.policy_net = object()
+
+    def fake_train(agent, positions):
+        calls["training"] += 1
+        assert len(positions) == 4
+        return 0.125
+
+    def fake_evaluate(network):
+        calls["evaluation"] += 1
+        return (calls["evaluation"], 4)
+
+    monkeypatch.setattr(probe, "StateActionDQNAgent", FakeAgent)
+    monkeypatch.setattr(probe, "train_mate_batch", fake_train)
+    monkeypatch.setattr(probe, "run_mate_in_one_probe", fake_evaluate)
+
+    initial, final = probe.run_mate_learning_probe(
+        seed=12345,
+        updates=3,
+    )
+
+    assert initial == (1, 4)
+    assert final == (2, 4)
+    assert calls == {"training": 3, "evaluation": 2}
+
+    output = capsys.readouterr().out
+    assert "Training updates: 3" in output
+    assert "Final loss: 0.125000" in output
