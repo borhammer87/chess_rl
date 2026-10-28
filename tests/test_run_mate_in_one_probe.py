@@ -4,6 +4,7 @@ import chess
 from scripts.run_mate_in_one_probe import (
     MATE_POSITIONS,
     find_mate_in_one_moves,
+    build_mate_transitions,
 )
 
 import torch
@@ -200,3 +201,27 @@ def test_evaluate_mate_position_uses_network_device():
     assert mate_q == 0.0
     assert non_mate_q == 0.0
     assert advantage == 0.0
+
+def test_build_mate_transitions_are_real_terminal_wins():
+    for fen in MATE_POSITIONS.values():
+        board = chess.Board(fen)
+        original_fen = board.fen()
+
+        transitions = build_mate_transitions(board)
+        mate_moves = find_mate_in_one_moves(board)
+
+        assert len(transitions) == len(mate_moves)
+        assert transitions
+
+        assert {t.action for t in transitions} == {
+            encode_move(move) for move in mate_moves
+        }
+
+        for transition in transitions:
+            assert transition.reward == 1.0
+            assert transition.done is True
+            assert transition.next_legal_actions == []
+            assert transition.state.shape == (18, 8, 8)
+            assert transition.next_state.shape == (18, 8, 8)
+
+        assert board.fen() == original_fen

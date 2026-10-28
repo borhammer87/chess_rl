@@ -19,6 +19,31 @@ def find_mate_in_one_moves(board: chess.Board) -> list[chess.Move]:
 
     return mates
 
+def build_mate_transitions(board: chess.Board):
+    """Build real terminal transitions for immediate checkmates."""
+    from chess_rl.utils.replay_buffer import Transition
+
+    transitions = []
+    state = encode_board(board)
+
+    for move in find_mate_in_one_moves(board):
+        next_board = board.copy()
+        next_board.push(move)
+
+        assert next_board.is_checkmate()
+
+        transitions.append(
+            Transition(
+                state=state.clone(),
+                action=encode_move(move),
+                reward=1.0,
+                next_state=encode_board(next_board),
+                done=True,
+                next_legal_actions=[],
+            )
+        )
+
+    return transitions
 
 MATE_POSITIONS = {
     "fools_mate_black": (
