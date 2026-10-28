@@ -5,6 +5,7 @@ from scripts.run_mate_in_one_probe import (
     MATE_POSITIONS,
     find_mate_in_one_moves,
     build_mate_transitions,
+    train_mate_batch,
 )
 
 import torch
@@ -225,3 +226,31 @@ def test_build_mate_transitions_are_real_terminal_wins():
             assert transition.next_state.shape == (18, 8, 8)
 
         assert board.fen() == original_fen
+
+def test_train_mate_batch_uses_terminal_transitions():
+    board = chess.Board(MATE_POSITIONS["fools_mate_black"])
+    captured = {}
+
+    class FakeAgent:
+        def train_step(self, transitions):
+            captured["transitions"] = transitions
+            return 0.25
+
+    loss = train_mate_batch(FakeAgent(), [board])
+
+    assert loss == 0.25
+    assert captured["transitions"]
+    assert all(t.done for t in captured["transitions"])
+    assert all(t.reward == 1.0 for t in captured["transitions"])
+    assert all(not t.next_legal_actions for t in captured["transitions"])
+
+
+def test_train_mate_batch_rejects_empty_positions():
+    import pytest
+
+    class FakeAgent:
+        def train_step(self, transitions):
+            raise AssertionError("Training must not be called.")
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        train_mate_batch(FakeAgent(), [])

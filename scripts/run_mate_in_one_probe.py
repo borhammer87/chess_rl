@@ -45,6 +45,25 @@ def build_mate_transitions(board: chess.Board):
 
     return transitions
 
+def train_mate_batch(
+    agent: StateActionDQNAgent,
+    positions: list[chess.Board],
+) -> float:
+    """Train on real terminal mate-in-one transitions."""
+    if not positions:
+        raise ValueError("Training positions cannot be empty.")
+
+    transitions = [
+        transition
+        for board in positions
+        for transition in build_mate_transitions(board)
+    ]
+
+    if not transitions:
+        raise ValueError("No mate-in-one transitions found.")
+
+    return agent.train_step(transitions)
+
 MATE_POSITIONS = {
     "fools_mate_black": (
         "rnbqkbnr/pppp1ppp/8/4p3/6P1/5P2/"
