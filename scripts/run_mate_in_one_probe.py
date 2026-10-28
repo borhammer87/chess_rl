@@ -136,12 +136,15 @@ def evaluate_mate_position(board, network):
     )
 
 
-def run_mate_in_one_probe(network):
+def run_mate_in_one_probe(network, positions=None):
     """Evaluate all mate-in-one positions and report accuracy."""
     correct = 0
-    total = len(MATE_POSITIONS)
+    if positions is None:
+        positions = MATE_POSITIONS
 
-    for name, fen in MATE_POSITIONS.items():
+    total = len(positions)
+
+    for name, fen in positions.items():
         board = chess.Board(fen)
         (
             move,
@@ -182,14 +185,27 @@ def run_mate_learning_probe(
     torch.manual_seed(seed)
     agent = StateActionDQNAgent(spatial=True, device="cpu")
 
+    held_out_name = "fools_mate_white"
+    training_fens = {
+        name: fen
+        for name, fen in MATE_POSITIONS.items()
+        if name != held_out_name
+    }
+    held_out_fens = {
+        held_out_name: MATE_POSITIONS[held_out_name]
+    }
+
     positions = [
         chess.Board(fen)
-        for fen in MATE_POSITIONS.values()
+        for fen in training_fens.values()
     ]
 
     print(f"Mate learning probe - seed: {seed}")
-    print("\nBefore training:")
-    initial = run_mate_in_one_probe(agent.policy_net)
+    print("\nTraining positions - before:")
+    run_mate_in_one_probe(agent.policy_net, training_fens)
+
+    print("\nHeld-out position - before:")
+    initial = run_mate_in_one_probe(agent.policy_net, held_out_fens)
 
     losses = [
         train_mate_batch(agent, positions)
@@ -200,8 +216,11 @@ def run_mate_learning_probe(
     print(f"First loss: {losses[0]:.6f}")
     print(f"Final loss: {losses[-1]:.6f}")
 
-    print("\nAfter training:")
-    final = run_mate_in_one_probe(agent.policy_net)
+    print("\nTraining positions - after:")
+    run_mate_in_one_probe(agent.policy_net, training_fens)
+
+    print("\nHeld-out position - after:")
+    final = run_mate_in_one_probe(agent.policy_net, held_out_fens)
 
     return initial, final
 

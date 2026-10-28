@@ -270,12 +270,18 @@ def test_run_mate_learning_probe_trains_and_evaluates(
 
     def fake_train(agent, positions):
         calls["training"] += 1
-        assert len(positions) == 4
+        assert len(positions) == 3
+        assert all(
+            board.fen() != MATE_POSITIONS["fools_mate_white"]
+            for board in positions
+        )
         return 0.125
 
-    def fake_evaluate(network):
+    def fake_evaluate(network, positions=None):
         calls["evaluation"] += 1
-        return (calls["evaluation"], 4)
+        assert positions is not None
+        assert len(positions) in (1, 3)
+        return (calls["evaluation"], len(positions))
 
     monkeypatch.setattr(probe, "StateActionDQNAgent", FakeAgent)
     monkeypatch.setattr(probe, "train_mate_batch", fake_train)
@@ -286,10 +292,27 @@ def test_run_mate_learning_probe_trains_and_evaluates(
         updates=3,
     )
 
-    assert initial == (1, 4)
-    assert final == (2, 4)
-    assert calls == {"training": 3, "evaluation": 2}
+    assert initial == (2, 1)
+    assert final == (4, 1)
+    assert calls == {"training": 3, "evaluation": 4}
 
     output = capsys.readouterr().out
     assert "Training updates: 3" in output
     assert "Final loss: 0.125000" in output
+
+def test_run_mate_in_one_probe_accepts_subset(monkeypatch):
+    from scripts import run_mate_in_one_probe as probe
+
+    visited = []
+
+    def fake_evaluate(board, network):
+        visited.append(board.fen())
+        return chess.Move.from_uci("a2a3"), True, 1.0, 0.1, 1.0, 0.0, 1.0
+
+    monkeypatch.setattr(probe, "evaluate_mate_position", fake_evaluate)
+
+    subset = {"only": MATE_POSITIONS["fools_mate_black"]}
+    assert probe.run_mate_in_one_probe(object(), subset) == (1, 1)
+    assert visited == [
+        chess.Board(subset["only"]).fen()
+    ]
