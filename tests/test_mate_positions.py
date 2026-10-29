@@ -4,7 +4,6 @@ from chess_rl.training.mate_positions import (
     generate_mate_positions,
     split_mate_positions,
 )
-from chess_rl.training.mate_positions import generate_mate_positions
 
 
 def test_generated_positions_are_valid_mates_in_one():

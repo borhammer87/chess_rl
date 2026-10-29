@@ -4,6 +4,7 @@ from chess_rl.utils.action_encoder import decode_legal_action, encode_move
 from chess_rl.utils.action_selection import evaluate_state_action_greedy_choice
 from chess_rl.utils.board_encoder import encode_board
 import torch
+from chess_rl.utils.replay_buffer import ReplayBuffer
 
 from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 
@@ -44,6 +45,31 @@ def build_mate_transitions(board: chess.Board):
         )
 
     return transitions
+
+def build_mate_replay(positions: list[chess.Board]) -> ReplayBuffer:
+    """Create a replay buffer containing genuine mate transitions."""
+    transitions = [
+        transition
+        for board in positions
+        for transition in build_mate_transitions(board)
+    ]
+
+    if not transitions:
+        raise ValueError("No mate transitions available.")
+
+    replay = ReplayBuffer(capacity=len(transitions))
+
+    for transition in transitions:
+        replay.push(
+            state=transition.state,
+            action=transition.action,
+            reward=transition.reward,
+            next_state=transition.next_state,
+            done=transition.done,
+            next_legal_actions=transition.next_legal_actions,
+        )
+
+    return replay
 
 def train_mate_batch(
     agent: StateActionDQNAgent,

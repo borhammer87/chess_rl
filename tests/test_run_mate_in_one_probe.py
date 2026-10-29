@@ -316,3 +316,36 @@ def test_run_mate_in_one_probe_accepts_subset(monkeypatch):
     assert visited == [
         chess.Board(subset["only"]).fen()
     ]
+
+def test_build_mate_replay_contains_real_terminal_wins():
+    from scripts.run_mate_in_one_probe import (
+        build_mate_replay,
+        build_mate_transitions,
+    )
+
+    positions = [
+        chess.Board(MATE_POSITIONS["fools_mate_black"]),
+        chess.Board(MATE_POSITIONS["fools_mate_white"]),
+    ]
+
+    replay = build_mate_replay(positions)
+
+    expected = sum(
+        len(build_mate_transitions(board))
+        for board in positions
+    )
+
+    assert len(replay) == expected
+
+    for transition in replay.buffer:
+        assert transition.reward == 1.0
+        assert transition.done is True
+        assert transition.next_legal_actions == []
+
+
+def test_build_mate_replay_rejects_empty_positions():
+    import pytest
+    from scripts.run_mate_in_one_probe import build_mate_replay
+
+    with pytest.raises(ValueError, match="No mate transitions"):
+        build_mate_replay([])
