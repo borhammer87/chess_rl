@@ -73,3 +73,22 @@ def generate_mate_positions(
         )
 
     return positions
+
+def split_mate_positions(
+    train_count: int = 1000,
+    test_count: int = 200,
+    seed: int = 12345,
+) -> tuple[list[chess.Board], list[chess.Board]]:
+    """Generate disjoint, reproducible train and test positions."""
+    if train_count < 0 or test_count < 0:
+        raise ValueError("Position counts cannot be negative.")
+
+    positions = generate_mate_positions(
+        train_count + test_count,
+        seed=seed,
+    )
+
+    return (
+        positions[:train_count],
+        positions[train_count:],
+    )
