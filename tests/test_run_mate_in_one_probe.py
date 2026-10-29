@@ -349,3 +349,53 @@ def test_build_mate_replay_rejects_empty_positions():
 
     with pytest.raises(ValueError, match="No mate transitions"):
         build_mate_replay([])
+
+def test_train_mate_replay_uses_sampled_minibatches():
+    from scripts.run_mate_in_one_probe import train_mate_replay
+
+    class FakeReplay:
+        def __len__(self):
+            return 100
+
+        def sample(self, batch_size):
+            assert batch_size == 4
+            return [object()] * batch_size
+
+    class FakeAgent:
+        def __init__(self):
+            self.calls = 0
+
+        def train_step(self, batch):
+            assert len(batch) == 4
+            self.calls += 1
+            return float(self.calls)
+
+    agent = FakeAgent()
+
+    losses = train_mate_replay(
+        agent,
+        FakeReplay(),
+        updates=3,
+        batch_size=4,
+    )
+
+    assert losses == [1.0, 2.0, 3.0]
+    assert agent.calls == 3
+
+
+def test_train_mate_replay_rejects_invalid_parameters():
+    import pytest
+    from scripts.run_mate_in_one_probe import train_mate_replay
+
+    class FakeReplay:
+        def __len__(self):
+            return 10
+
+    with pytest.raises(ValueError, match="Updates must be positive"):
+        train_mate_replay(object(), FakeReplay(), updates=0)
+
+    with pytest.raises(ValueError, match="Invalid batch size"):
+        train_mate_replay(
+            object(), FakeReplay(), updates=1, batch_size=11
+        )
+

@@ -71,6 +71,26 @@ def build_mate_replay(positions: list[chess.Board]) -> ReplayBuffer:
 
     return replay
 
+def train_mate_replay(
+    agent: StateActionDQNAgent,
+    replay: ReplayBuffer,
+    updates: int,
+    batch_size: int = 32,
+) -> list[float]:
+    """Train using uniformly sampled mate transitions."""
+    if updates < 1:
+        raise ValueError("Updates must be positive.")
+    if batch_size < 1 or batch_size > len(replay):
+        raise ValueError("Invalid batch size.")
+
+    losses = []
+
+    for _ in range(updates):
+        batch = replay.sample(batch_size)
+        losses.append(agent.train_step(batch))
+
+    return losses
+
 def train_mate_batch(
     agent: StateActionDQNAgent,
     positions: list[chess.Board],
@@ -267,3 +287,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
