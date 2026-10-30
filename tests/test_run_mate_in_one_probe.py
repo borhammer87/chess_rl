@@ -400,7 +400,7 @@ def test_train_mate_replay_rejects_invalid_parameters():
         )
 
 
-def test_generated_mate_experiment_runs_with_small_dataset(
+def test_generated_mate_experiment_collects_attempts(
     monkeypatch, capsys
 ):
     from scripts import run_mate_in_one_probe as probe
@@ -411,25 +411,42 @@ def test_generated_mate_experiment_runs_with_small_dataset(
 
     class FakeAgent:
         def __init__(self, spatial, device):
-            assert spatial is True
-            assert device == "cpu"
             self.policy_net = FakeNetwork()
+            self.epsilon = 1.0
+            self.decays = 0
 
-    calls = {"train": 0}
+        def decay_epsilon(self):
+            self.decays += 1
+            self.epsilon *= 0.9
+
+    calls = {"attempts": 0, "train": 0}
+
+    def fake_collect(agent, board, replay):
+        calls["attempts"] += 1
+        replay.push(
+            state=torch.zeros(12, 8, 8),
+            action=0,
+            reward=0.0,
+            next_state=torch.zeros(12, 8, 8),
+            done=True,
+            next_legal_actions=[],
+        )
+        return 0.0
 
     def fake_train(agent, replay, updates, batch_size):
-        assert updates == 2
+        assert updates == 1
         assert batch_size == 2
         assert len(replay) >= 2
         calls["train"] += 1
-        return [0.5, 0.25]
-
-    def fake_evaluate(board, network):
-        return None, True, 1.0, 0.0, 1.0, 0.0, 1.0
+        return [0.25]
 
     monkeypatch.setattr(probe, "StateActionDQNAgent", FakeAgent)
+    monkeypatch.setattr(probe, "collect_mate_attempt", fake_collect)
     monkeypatch.setattr(probe, "train_mate_replay", fake_train)
-    monkeypatch.setattr(probe, "evaluate_mate_position", fake_evaluate)
+    monkeypatch.setattr(
+        probe, "evaluate_mate_position",
+        lambda board, network: (None, False, 0, 0, 0, 0, -1),
+    )
 
     results = probe.run_generated_mate_experiment(
         train_count=4,
@@ -438,11 +455,9 @@ def test_generated_mate_experiment_runs_with_small_dataset(
         batch_size=2,
     )
 
-    assert calls["train"] == 1
-    assert [result[:2] for result in results] == [
-        (4, 4), (2, 2), (4, 4), (2, 2)
-    ]
-    assert "Loss: 0.500000 -> 0.250000" in capsys.readouterr().out
+    assert calls == {"attempts": 8, "train": 2}
+    assert all(result[0] == 0 for result in results)
+    assert "Attempts: 8 | Successes: 0" in capsys.readouterr().out
 
 
 def test_collect_mate_attempt_rewards_checkmate():

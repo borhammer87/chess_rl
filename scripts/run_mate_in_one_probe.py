@@ -103,6 +103,7 @@ def build_mate_replay(positions: list[chess.Board]) -> ReplayBuffer:
     return replay
 
 
+
 def run_generated_mate_experiment(
     seed: int = 12345,
     train_count: int = 1000,
@@ -111,7 +112,7 @@ def run_generated_mate_experiment(
     batch_size: int = 32,
     device: str = "cpu",
 ):
-    """Train on generated KQK mates and evaluate unseen positions."""
+    """Train from agent-selected mate attempts, including failures."""
     random.seed(seed)
     torch.manual_seed(seed)
 
@@ -119,10 +120,7 @@ def run_generated_mate_experiment(
         train_count, test_count, seed
     )
     agent = StateActionDQNAgent(spatial=True, device=device)
-    replay = build_mate_replay(train)
-
-    if batch_size < 1 or batch_size > len(replay):
-        raise ValueError("Invalid batch size.")
+    replay = ReplayBuffer(capacity=max(train_count * 10, batch_size))
 
     def evaluate(positions):
         agent.policy_net.eval()
@@ -139,28 +137,54 @@ def run_generated_mate_experiment(
 
     def report(label, result):
         correct, total, advantage = result
+        advantage_text = (
+            "N/A" if advantage is None else f"{advantage:.4f}"
+        )
         print(
             f"{label}: {correct}/{total} ({correct / total:.1%})"
-            f" | mean mate advantage: "
-            f"{advantage:.4f}" if advantage is not None
-            else f"{label}: {correct}/{total} ({correct / total:.1%})"
+            f" | mean mate advantage: {advantage_text}"
         )
 
     print(f"Generated mate experiment | device={device} | seed={seed}")
-    print(f"Train={len(train)} | Test={len(test)} | Replay={len(replay)}")
+    print(f"Train={len(train)} | Test={len(test)}")
 
     initial_train = evaluate(train)
     initial_test = evaluate(test)
     report("Train before", initial_train)
     report("Test before", initial_test)
 
-    losses = train_mate_replay(agent, replay, updates, batch_size)
+    if not train:
+        raise ValueError("Training positions cannot be empty.")
+
+    losses = []
+    attempts = 0
+    successes = 0
+
+    for update in range(updates):
+        positions = train.copy()
+        random.shuffle(positions)
+
+        for board in positions:
+            successes += collect_mate_attempt(agent, board, replay)
+            attempts += 1
+
+        if len(replay) >= batch_size:
+            losses.extend(
+                train_mate_replay(agent, replay, 1, batch_size)
+            )
+            agent.decay_epsilon()
 
     final_train = evaluate(train)
     final_test = evaluate(test)
     report("Train after", final_train)
     report("Test after", final_test)
-    print(f"Loss: {losses[0]:.6f} -> {losses[-1]:.6f}")
+
+    print(f"Replay: {len(replay)}")
+    print(f"Attempts: {attempts} | Successes: {int(successes)}")
+    print(f"Attempt success rate: {successes / attempts:.1%}")
+    print(f"Final epsilon: {agent.epsilon:.4f}")
+    if losses:
+        print(f"Loss: {losses[0]:.6f} -> {losses[-1]:.6f}")
 
     return initial_train, initial_test, final_train, final_test
 
