@@ -108,7 +108,7 @@ def run_generated_mate_experiment(
     seed: int = 12345,
     train_count: int = 1000,
     test_count: int = 200,
-    updates: int = 5,
+    updates: int = 100,
     batch_size: int = 32,
     device: str = "cpu",
 ):
