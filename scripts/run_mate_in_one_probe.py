@@ -5,7 +5,9 @@ from chess_rl.utils.action_selection import evaluate_state_action_greedy_choice
 from chess_rl.utils.board_encoder import encode_board
 import torch
 from chess_rl.utils.replay_buffer import ReplayBuffer
+import random
 
+from chess_rl.training.mate_positions import split_mate_positions
 from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
 
 def find_mate_in_one_moves(board: chess.Board) -> list[chess.Move]:
@@ -70,6 +72,69 @@ def build_mate_replay(positions: list[chess.Board]) -> ReplayBuffer:
         )
 
     return replay
+
+
+def run_generated_mate_experiment(
+    seed: int = 12345,
+    train_count: int = 1000,
+    test_count: int = 200,
+    updates: int = 200,
+    batch_size: int = 32,
+    device: str = "cpu",
+):
+    """Train on generated KQK mates and evaluate unseen positions."""
+    random.seed(seed)
+    torch.manual_seed(seed)
+
+    train, test = split_mate_positions(
+        train_count, test_count, seed
+    )
+    agent = StateActionDQNAgent(spatial=True, device=device)
+    replay = build_mate_replay(train)
+
+    if batch_size < 1 or batch_size > len(replay):
+        raise ValueError("Invalid batch size.")
+
+    def evaluate(positions):
+        agent.policy_net.eval()
+        correct = 0
+        advantages = []
+        for board in positions:
+            result = evaluate_mate_position(board, agent.policy_net)
+            correct += result[1]
+            if result[6] is not None:
+                advantages.append(result[6])
+        return correct, len(positions), (
+            sum(advantages) / len(advantages) if advantages else None
+        )
+
+    def report(label, result):
+        correct, total, advantage = result
+        print(
+            f"{label}: {correct}/{total} ({correct / total:.1%})"
+            f" | mean mate advantage: "
+            f"{advantage:.4f}" if advantage is not None
+            else f"{label}: {correct}/{total} ({correct / total:.1%})"
+        )
+
+    print(f"Generated mate experiment | device={device} | seed={seed}")
+    print(f"Train={len(train)} | Test={len(test)} | Replay={len(replay)}")
+
+    initial_train = evaluate(train)
+    initial_test = evaluate(test)
+    report("Train before", initial_train)
+    report("Test before", initial_test)
+
+    losses = train_mate_replay(agent, replay, updates, batch_size)
+
+    final_train = evaluate(train)
+    final_test = evaluate(test)
+    report("Train after", final_train)
+    report("Test after", final_test)
+    print(f"Loss: {losses[0]:.6f} -> {losses[-1]:.6f}")
+
+    return initial_train, initial_test, final_train, final_test
+
 
 def train_mate_replay(
     agent: StateActionDQNAgent,
@@ -286,5 +351,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--generated", action="store_true")
+    parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
+    args = parser.parse_args()
+
+    if args.generated:
+        run_generated_mate_experiment(device=args.device)
+    else:
+        main()

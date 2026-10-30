@@ -399,3 +399,47 @@ def test_train_mate_replay_rejects_invalid_parameters():
             object(), FakeReplay(), updates=1, batch_size=11
         )
 
+
+def test_generated_mate_experiment_runs_with_small_dataset(
+    monkeypatch, capsys
+):
+    from scripts import run_mate_in_one_probe as probe
+
+    class FakeNetwork:
+        def eval(self):
+            pass
+
+    class FakeAgent:
+        def __init__(self, spatial, device):
+            assert spatial is True
+            assert device == "cpu"
+            self.policy_net = FakeNetwork()
+
+    calls = {"train": 0}
+
+    def fake_train(agent, replay, updates, batch_size):
+        assert updates == 2
+        assert batch_size == 2
+        assert len(replay) >= 2
+        calls["train"] += 1
+        return [0.5, 0.25]
+
+    def fake_evaluate(board, network):
+        return None, True, 1.0, 0.0, 1.0, 0.0, 1.0
+
+    monkeypatch.setattr(probe, "StateActionDQNAgent", FakeAgent)
+    monkeypatch.setattr(probe, "train_mate_replay", fake_train)
+    monkeypatch.setattr(probe, "evaluate_mate_position", fake_evaluate)
+
+    results = probe.run_generated_mate_experiment(
+        train_count=4,
+        test_count=2,
+        updates=2,
+        batch_size=2,
+    )
+
+    assert calls["train"] == 1
+    assert [result[:2] for result in results] == [
+        (4, 4), (2, 2), (4, 4), (2, 2)
+    ]
+    assert "Loss: 0.500000 -> 0.250000" in capsys.readouterr().out
