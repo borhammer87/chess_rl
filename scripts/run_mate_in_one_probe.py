@@ -48,6 +48,35 @@ def build_mate_transitions(board: chess.Board):
 
     return transitions
 
+
+def collect_mate_attempt(
+    agent: StateActionDQNAgent,
+    board: chess.Board,
+    replay: ReplayBuffer,
+) -> float:
+    """Let the agent attempt mate in one and record the outcome."""
+    state = encode_board(board)
+    legal_moves = list(board.legal_moves)
+
+    action = agent.select_action(state, legal_moves)
+    move = decode_legal_action(action, legal_moves)
+
+    next_board = board.copy()
+    next_board.push(move)
+    reward = 1.0 if next_board.is_checkmate() else 0.0
+
+    replay.push(
+        state=state,
+        action=action,
+        reward=reward,
+        next_state=encode_board(next_board),
+        done=True,
+        next_legal_actions=[],
+    )
+
+    return reward
+
+
 def build_mate_replay(positions: list[chess.Board]) -> ReplayBuffer:
     """Create a replay buffer containing genuine mate transitions."""
     transitions = [

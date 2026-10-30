@@ -443,3 +443,49 @@ def test_generated_mate_experiment_runs_with_small_dataset(
         (4, 4), (2, 2), (4, 4), (2, 2)
     ]
     assert "Loss: 0.500000 -> 0.250000" in capsys.readouterr().out
+
+
+def test_collect_mate_attempt_rewards_checkmate():
+    from scripts.run_mate_in_one_probe import collect_mate_attempt
+    from chess_rl.utils.replay_buffer import ReplayBuffer
+
+    board = chess.Board(MATE_POSITIONS["fools_mate_black"])
+    original_fen = board.fen()
+    mating_move = chess.Move.from_uci("d8h4")
+
+    class FakeAgent:
+        def select_action(self, state, legal_moves):
+            assert mating_move in legal_moves
+            return encode_move(mating_move)
+
+    replay = ReplayBuffer(capacity=10)
+    reward = collect_mate_attempt(FakeAgent(), board, replay)
+
+    assert reward == 1.0
+    assert len(replay) == 1
+    assert replay.buffer[0].reward == 1.0
+    assert replay.buffer[0].done is True
+    assert replay.buffer[0].next_legal_actions == []
+    assert board.fen() == original_fen
+
+
+def test_collect_mate_attempt_records_failure():
+    from scripts.run_mate_in_one_probe import collect_mate_attempt
+    from chess_rl.utils.replay_buffer import ReplayBuffer
+
+    board = chess.Board(MATE_POSITIONS["fools_mate_black"])
+    wrong_move = chess.Move.from_uci("a7a6")
+
+    class FakeAgent:
+        def select_action(self, state, legal_moves):
+            assert wrong_move in legal_moves
+            return encode_move(wrong_move)
+
+    replay = ReplayBuffer(capacity=10)
+    reward = collect_mate_attempt(FakeAgent(), board, replay)
+
+    assert reward == 0.0
+    assert len(replay) == 1
+    assert replay.buffer[0].reward == 0.0
+    assert replay.buffer[0].done is True
+    assert replay.buffer[0].next_legal_actions == []
