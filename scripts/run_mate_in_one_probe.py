@@ -108,7 +108,7 @@ def run_generated_mate_experiment(
     seed: int = 12345,
     train_count: int = 1000,
     test_count: int = 200,
-    updates: int = 200,
+    updates: int = 5,
     batch_size: int = 32,
     device: str = "cpu",
 ):
@@ -160,7 +160,7 @@ def run_generated_mate_experiment(
     attempts = 0
     successes = 0
 
-    for update in range(updates):
+    for _ in range(updates):
         positions = train.copy()
         random.shuffle(positions)
 
@@ -168,11 +168,11 @@ def run_generated_mate_experiment(
             successes += collect_mate_attempt(agent, board, replay)
             attempts += 1
 
-        if len(replay) >= batch_size:
-            losses.extend(
-                train_mate_replay(agent, replay, 1, batch_size)
-            )
-            agent.decay_epsilon()
+            if attempts % batch_size == 0:
+                losses.extend(
+                    train_mate_replay(agent, replay, 1, batch_size)
+                )
+                agent.decay_epsilon()
 
     final_train = evaluate(train)
     final_test = evaluate(test)

@@ -455,10 +455,12 @@ def test_generated_mate_experiment_collects_attempts(
         batch_size=2,
     )
 
-    assert calls == {"attempts": 8, "train": 2}
-    assert all(result[0] == 0 for result in results)
-    assert "Attempts: 8 | Successes: 0" in capsys.readouterr().out
+    output = capsys.readouterr().out
 
+    assert calls == {"attempts": 8, "train": 4}
+    assert all(result[0] == 0 for result in results)
+    assert "Final epsilon: 0.6561" in output
+    assert "Attempts: 8 | Successes: 0" in output
 
 def test_collect_mate_attempt_rewards_checkmate():
     from scripts.run_mate_in_one_probe import collect_mate_attempt
