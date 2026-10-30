@@ -568,6 +568,74 @@ Configuration: CUDA, spatial architecture, 150 maximum learner steps, batch size
 
 The resumed execution successfully saved `episode_50.pt` in the original run directory and completed training and final diagnostics.
 
+
+## Mate-in-one learning experiments — October 2026
+
+### Initial four-position experiment
+
+A small diagnostic used four predefined mate-in-one positions.
+
+Training on all four positions improved greedy mate selection from
+1/4 to 3/4. The training loss decreased from approximately 0.954
+to 0.000108.
+
+In a separate held-out experiment, the agent trained on three
+positions and was evaluated on a fourth:
+
+- Training accuracy: 1/3 -> 3/3.
+- Held-out accuracy: 0/1 -> 0/1.
+- Held-out mean mate Q advantage: -0.2656 -> -0.6738.
+- Training loss: approximately 0.837 -> 0.000076.
+
+The experiment demonstrated fitting of the small training set,
+but no successful generalization to the held-out position.
+
+### Agent-selected mate-in-one training
+
+A larger experiment used reproducibly generated king-and-queen
+versus king (KQK) positions with an immediate checkmate available.
+
+The agent selected legal actions using epsilon-greedy exploration.
+Each selected move was executed and stored as a terminal one-step
+transition:
+
+- Checkmate: reward +1.
+- Any other move: reward 0.
+
+The experiment used 1,000 training positions, 200 disjoint held-out
+positions, seed 12345, batch size 32 and CUDA.
+
+Training was performed after every 32 attempts. Each run started
+with a newly initialized agent.
+
+| Rounds | Attempts | Train accuracy | Test accuracy | Test mean mate Q advantage |
+| --- | ---: | ---: | ---: | ---: |
+| 0 | 0 | 7.6% | 4.5% | -0.1160 |
+| 5 | 5,000 | 22.2% | 14.5% | -0.0878 |
+| 20 | 20,000 | 71.9% | 64.0% | +0.1001 |
+| 50 | 50,000 | 90.4% | 83.5% | +0.2951 |
+
+Additional results:
+
+| Metric | 5 rounds | 20 rounds | 50 rounds |
+| --- | ---: | ---: | ---: |
+| Successful training attempts | 483 | 6,977 | 29,889 |
+| Attempt success rate | 9.7% | 34.9% | 59.8% |
+| Final replay size | 5,000 | 10,000 | 10,000 |
+| Final epsilon | 0.4575 | 0.1000 | 0.1000 |
+| First training loss | 0.035328 | 0.035328 | 0.035328 |
+| Final training loss | 0.103377 | 0.046998 | 0.012362 |
+
+The 50-round run achieved 167/200 correct greedy mate selections
+on held-out positions.
+
+These results demonstrate substantial learning and generalization
+within the generated KQK position distribution.
+
+They do not establish performance on other material configurations,
+general chess-playing strength, or robustness across independent seeds.
+
+
 ### Resumed training segment
 
 - Additional episodes: 25

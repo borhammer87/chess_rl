@@ -212,7 +212,40 @@ A real CUDA resume test completed successfully: 25 initial episodes followed by 
 
 **Current limitation:** practical checkpoint continuation is validated, but exact numerical equivalence between uninterrupted and resumed training has not been demonstrated.
 
-**Immediate next development task:** return to controlled State-Action learning diagnostics. Prioritize understanding why the spatial agent frequently fails to convert material advantages into wins, while retaining multi-seed evaluation as the next broader validation milestone.
+
+**Mate-in-one learning milestone (October 2026):**
+
+The spatial State-Action DQN has been trained on generated KQK
+mate-in-one positions using agent-selected actions and terminal
+rewards (+1 for checkmate, 0 otherwise).
+
+With 1,000 training positions, 200 held-out positions and seed
+12345, a 50-round CUDA experiment achieved:
+
+- Training greedy accuracy: 90.4%.
+- Held-out greedy accuracy: 83.5%.
+- Held-out mean mate Q advantage: +0.2951.
+- Total attempts: 50,000.
+- Final epsilon: 0.1.
+
+The earlier four-position experiment fitted its training examples
+but did not solve its held-out position.
+
+The larger experiment provides evidence of learning within KQK,
+not general chess strength. Multi-seed validation and evaluation
+on other position types remain pending.
+
+The current mate probe does not persist a reusable trained
+checkpoint.
+
+
+
+**Immediate next development task:** validate mate-in-one learning
+across independent seeds and determine whether the learned policy
+generalizes beyond KQK. Then assess epsilon-decay sensitivity
+and persistence of the trained mate policy before considering
+integration with full-game training.
+
 
 **Next learning-validation milestone:** run controlled multi-seed spatial-versus-standard comparisons with matching training settings and the existing RandomAgent benchmark.
 

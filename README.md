@@ -139,3 +139,26 @@ The probe prints the effective architecture, truncation-bootstrapping setting, r
 This diagnostic workflow is separate from the original DQNCNN self-play main() workflow. Other experiment parameters remain defined in the script.
 
 The 100-episode spatial result and its limitations are recorded in TRAINING_STATUS.md and DIAGNOSTICS.md.
+
+
+## Experimental mate-in-one learning
+
+The repository includes a diagnostic experiment for training the
+spatial State-Action DQN to select immediate checkmates in generated
+king-and-queen versus king positions.
+
+The agent selects legal moves, receives reward +1 for checkmate
+and 0 otherwise, and learns from terminal one-step transitions.
+
+Run the experiment with:
+
+```powershell
+python scripts/run_mate_in_one_probe.py --generated --device cuda
+```
+
+The current script defaults to 100 training rounds. The documented
+50-round experiment achieved 83.5% greedy accuracy on 200 held-out
+KQK positions.
+
+This is a specialized learning diagnostic, not a general chess
+strength benchmark.

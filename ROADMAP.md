@@ -136,6 +136,16 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Add experimental destination-square features and a spatial Q-head for terminal capture training
 - [x] Complete spatial non-terminal legal-next-action maxima and policy/target integration tests
 - [x] Run initial 100-episode spatial full-game CPU probe against RandomAgent
+
+- [x] Implement reproducible KQK mate-in-one position generation
+- [x] Implement agent-selected mate-in-one attempts with terminal rewards
+- [x] Validate mate-in-one learning over 5, 20 and 50 training rounds
+- [x] Reach 83.5% held-out greedy accuracy in the 50-round KQK experiment
+- [ ] Validate mate-in-one learning across independent seeds
+- [ ] Evaluate mate selection on more diverse material configurations
+- [ ] Compare epsilon-decay schedules under controlled conditions
+- [ ] Add reusable checkpoint persistence for the mate-learning experiment
+- [ ] Determine whether mate-learning experience can benefit full-game training
 - [ ] Repeat spatial evaluation across seeds and isolate architecture from truncation-bootstrapping settings
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau

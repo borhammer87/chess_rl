@@ -507,3 +507,39 @@ architecture-only comparison.
 **Next question:** Does the improvement persist across independent seeds,
 and how much comes from spatial features versus truncation bootstrapping?
 First improve diagnostic configurability to make these comparisons repeatable.
+
+
+## Mate-in-one learning diagnosis — October 2026
+
+**Question:** Can the spatial State-Action DQN learn to select
+immediate checkmates from its own actions and rewards?
+
+**Observed evidence:**
+
+- The four-position diagnostic fitted its training examples but
+  failed to solve the held-out position.
+- In the larger KQK experiment, greedy held-out accuracy increased
+  from 4.5% before training to 83.5% after 50 rounds.
+- Held-out mean mate Q advantage increased from -0.1160 to +0.2951.
+- Training accuracy reached 90.4%, compared with 83.5% on test.
+
+**Interpretation:**
+
+The spatial State-Action DQN can learn useful action preferences
+from agent-selected terminal experiences with both successful
+and unsuccessful attempts.
+
+The results support generalization within the sampled KQK
+distribution, but not generalization to other types of chess
+positions.
+
+The remaining train-test gap and single-seed evaluation prevent
+stronger conclusions about robustness.
+
+**Next diagnostic question:**
+
+Does the learned mate-selection ability remain reliable across
+independent seeds and previously unseen position distributions?
+
+A subsequent experiment should also examine the effect of a slower
+epsilon-decay schedule while keeping other training settings fixed.
