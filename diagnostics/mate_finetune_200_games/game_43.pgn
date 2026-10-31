@@ -1,0 +1,9 @@
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "DQN"]
+[Black "RandomAgent"]
+[Result "1-0"]
+
+1. d3 Nc6 2. Nd2 g6 3. d4 h5 4. Nb3 Rh6 5. Bxh6 d6 6. Nc1 Nb8 7. Nd3 Na6 8. Nf4 g5 9. b3 h4 10. Ne6 Bxh6 11. Nxd8 g4 12. Ne6 Bxe6 13. f4 Nb8 14. f5 f6 15. fxe6 b5 16. Qd2 Bf8 17. Qa5 Na6 18. Qd2 c5 19. Qa5 Nb8 20. Qxa7 g3 21. Qxa8 Kd8 22. Qxb8# 1-0
