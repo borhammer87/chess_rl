@@ -1,0 +1,9 @@
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "RandomAgent"]
+[Black "DQN"]
+[Result "0-1"]
+
+1. f3 Nf6 2. h3 Ng4 3. d3 Nh2 4. Bd2 Nxf3+ 5. exf3 e5 6. Qe2 Ke7 7. Bb4+ Ke8 8. Bd6 Bxd6 9. g4 Ke7 10. Qd2 g6 11. b4 Qe8 12. c3 Qd8 13. c4 Qe8 14. Qd1 Qd8 15. b5 Qe8 16. Ne2 Qd8 17. Qa4 Qe8 18. c5 Qd8 19. g5 Qe8 20. Kf2 Qd8 21. Kg3 Qg8 22. Qa3 Na6 23. f4 Nb8 24. Rg1 Na6 25. h4 Nb8 26. Kh2 Na6 27. h5 Nb8 28. Kh1 gxh5 29. fxe5 h4 30. Nc1 Qxg5 31. Qb2 Qxg1+ 32. Kxg1 f6 33. Nb3 fxe5 34. Qc2 Na6 35. cxd6+ Kxd6 36. Qd1 Nb8 37. N3d2 Na6 38. Bh3 Nb8 39. Qc2 Rg8+ 40. Bg4 Rxg4+ 41. Kh1 Rc4 42. Ne4+ Rxe4 43. Nc3 Ke7 44. Kg2 Kf7 45. Qa4 Rxa4 46. Re1 Rc4 47. Rf1+ Ke6 48. Kh1 Rxc3 49. Kg1 e4 50. Kh2 Ke7 51. a3 Rxa3 52. Rf5 Ra2+ 53. Kg1 exd3 54. Rf3 d2 55. Rh3 d1=Q# 0-1
