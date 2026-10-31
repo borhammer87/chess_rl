@@ -728,6 +728,12 @@ def parse_args(args=None):
         help="Checkpoint to resume from.",
     )
 
+    parser.add_argument(
+        "--mate-csv",
+        type=Path,
+        default=None,
+        help="CSV with mate-in-one positions to seed a new replay.",
+    )
     return parser.parse_args(args)
 
 def validate_resume_checkpoint(
@@ -868,6 +874,35 @@ class TrainingProfiler:
         print(f"Other training work: {other_seconds:.2f}s")
         print(f"Total training: {total_seconds:.2f}s")
 
+def seed_mate_replay(path, replay_buffer, tracker):
+    """Preload mate transitions without performing training updates."""
+    from scripts.inject_mate_replay import load_mate_examples
+
+    transitions, unique_positions = load_mate_examples(path)
+
+    if len(transitions) >= replay_buffer.buffer.maxlen:
+        raise ValueError(
+            "Mate transitions must fit below replay capacity."
+        )
+
+    for transition in transitions:
+        replay_buffer.push(
+            transition.state,
+            transition.action,
+            transition.reward,
+            transition.next_state,
+            transition.done,
+            transition.next_legal_actions,
+        )
+
+        stored = replay_buffer.buffer[-1]
+        tracker.labels[id(stored)] = (stored, "win")
+
+    print(
+        f"Seeded replay: {unique_positions} positions, "
+        f"{len(transitions)} mate transitions"
+    )
+
 def main() -> None:
     """
     Run a short CPU training probe for the State-Action DQN.
@@ -893,7 +928,10 @@ def main() -> None:
         "bootstrap_truncation": bootstrap_truncation,
         "replay_capacity": 10_000,
     }
-
+    if args.resume is not None and args.mate_csv is not None:
+        raise ValueError(
+            "--mate-csv cannot be used with --resume"
+        )
     resume_metadata = None
     if args.resume is not None:
         resume_metadata = validate_resume_checkpoint(
@@ -924,6 +962,12 @@ def main() -> None:
     terminal_tracker = TerminalTransitionTracker(
     replay_buffer=replay_buffer,
     )
+    if args.mate_csv is not None:
+        seed_mate_replay(
+            args.mate_csv,
+            replay_buffer,
+            terminal_tracker,
+        )
     if args.resume is None:
         run_id = f"{datetime.now():%Y%m%d-%H%M%S}-{uuid4().hex[:8]}"
         checkpoint_dir = Path("checkpoints") / "state_action_probe" / run_id

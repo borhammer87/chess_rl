@@ -1,0 +1,9 @@
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "DQN"]
+[Black "RandomAgent"]
+[Result "*"]
+
+1. g3 c6 2. Nh3 b5 3. Ng1 Ba6 4. Nh3 Nf6 5. Ng1 h5 6. Nh3 Rh7 7. f4 Rh8 8. Rg1 Qa5 9. Rh1 Rh6 10. Rg1 Qb6 11. Rh1 Qf2+ 12. Kxf2 Ng4+ 13. Kf3 d5 14. Rg1 h4 15. Kxg4 g6 16. Kf3 e5 17. Rg2 exf4 18. gxf4 Be7 19. Rg3 Nd7 20. Rg5 Bc8 21. Rg3 c5 22. Rg5 Rh5 23. Rxh5 Ba6 24. Rh6 c4 25. Rh5 Ne5+ 26. Rxe5 Rd8 27. Rxe7+ Kxe7 28. Qe1 Bb7 29. Qg3 Kd6 30. Qg5 Rg8 31. Qg3 a5 32. Qg5 Rd8 33. Qxd8+ Kc6 34. Qa8 Kd6 35. Qg8 Kd7 36. Qg7 Ba6 37. Kg2 g5 38. f5 d4 39. Qh6 f6 40. Qg7+ Kc8 41. Qh6 c3 42. Qg7 b4 43. Qa7 cxb2 44. Qc7+ Kxc7 45. Kf3 bxa1=R 46. Nf2 Kb6 47. Ng4 Ka7 48. Nxf6 Bc8 49. Nd7 Ba6 50. Ne5 b3 51. Nc6+ Ka8 52. Kg2 bxa2 53. Ne7 Bb5 54. Ng8 h3+ 55. Kg3 axb1=Q 56. Nh6 Ra3+ 57. Bxa3 Bd7 58. Nf7 Qe1+ 59. Kf3 Qxe2+ 60. Kxe2 Ba4 61. Bc1 Kb7 62. Nh6 Kb6 63. Ng8 Kc6 64. Nh6 Bb3 65. Ng8 Kc5 66. Nh6 Kb6 67. Ng8 a4 68. Nh6 Bf7 69. Ng8 Ka5 70. Nh6 Bb3 71. Ng8 g4 72. Nh6 Bc4+ 73. Kd1 Kb4 74. Ng8 Bb3 75. Nh6 d3 76. Ng8 Bd5 77. Ke1 Bc4 78. Nh6 Bb3 79. Ng8 Bxc2 80. Nh6 g3 81. Ng8 gxh2 82. Nh6 Kb5 83. Bxh3 h1=N 84. Bg2 Ng3 85. Bc6+ Kb4 86. Ba8 Bb3 87. Bb7 Ba2 88. Ng8 Kc5 89. Nh6 Ne2 90. Kf1 Bb3 91. Bc6 Bc4 92. Ba8 Bf7 93. Bb7 Kb4 94. Bc6 Kc5 95. Ba8 Ng3+ 96. Kg2 Bh5 97. Kxg3 Bf3 98. Kxf3 Kb4 99. Bb7 Kb3 100. Ke3 Kc4 101. Bc6 Kb3 102. Kf3 Ka2 103. Ke3 Kb3 104. Kf3 Kc4 105. Ke3 Kc5 106. Ba8 Kb4 107. Bb7 a3 108. Bc6 Kc4 109. Ba8 Kb4 110. Bb7 Kc5 111. Bc6 Kb4 112. Ba8 Kb5 113. Bb7 Kc4 114. Bc6 Kb3 115. Ba8 a2 116. Bb7 a1=N 117. Bc6 Kc4 118. Ba8 Kc5 119. Bb7 Kb4 120. Bc6 Kc4 121. Ba8 Kc5 122. Bb7 Kd6 123. Kf3 Ke7 124. Kg2 Nc2 125. Ng8+ Kf7 126. Bc6 Na3 127. Ba8 Nb5 128. Bb7 Nc7 129. Bc6 Nb5 130. Bxb5 Kf8 131. Bc6 Kxg8 132. Ba8 Kh8 133. Bb7 Kg8 134. Bc6 Kh7 135. Ba8 Kg8 136. Bb7 Kg7 137. Bc6 Kg8 138. Ba8 Kf8 139. Bb7 Ke8 140. Bc6+ Kd8 141. Ba8 Ke7 142. Bb7 Kd6 143. Bc6 Kc7 144. Ba8 Kd6 145. Bb7 Ke5 146. Bc6 Kf6 147. Ba8 Ke7 148. Bb7 Kf7 149. Bc6 Ke7 150. Ba8 Kf8 *
