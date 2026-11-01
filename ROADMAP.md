@@ -145,7 +145,19 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [ ] Evaluate mate selection on more diverse material configurations
 - [ ] Compare epsilon-decay schedules under controlled conditions
 - [ ] Add reusable checkpoint persistence for the mate-learning experiment
-- [ ] Determine whether mate-learning experience can benefit full-game training
+
+- [x] Implement mate-in-one CSV extraction and replay seeding
+      for fresh full-game spatial DQN training
+- [x] Run a 50-episode CUDA training experiment with
+      199 seeded mate positions and 295 transitions
+- [x] Audit mate conversion across 50 greedy games
+      (2/121 opportunities converted)
+- [x] Diagnose mate-selection accuracy on seeded and
+      encountered positions (29/199 and 2/89)
+- [ ] Establish actual sampling frequency of seeded mate
+      transitions during full-game training
+- [ ] Compare mate sampling and reward-incentive alternatives
+      using controlled experiments
 - [ ] Repeat spatial evaluation across seeds and isolate architecture from truncation-bootstrapping settings
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau

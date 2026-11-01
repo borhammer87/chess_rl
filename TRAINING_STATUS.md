@@ -664,3 +664,128 @@ The final diagnostic game ended in stalemate after 141 plies. The agent achieved
 ### Scope of validation
 
 This experiment demonstrates successful practical checkpoint continuation with accumulated replay state, epsilon and episode numbering. It does not establish exact numerical equivalence with uninterrupted 50-episode training or statistically reliable improvement in chess strength.
+
+
+---
+
+## Mate replay seeding and full-game evaluation — November 2026
+
+### Experimental setup
+
+A newly initialized spatial State-Action DQN was trained against
+RandomAgent for 50 episodes on CUDA.
+
+Unlike the earlier mate fine-tuning experiment, this run did not
+pretrain the network on mate positions. Instead, the replay buffer
+was initialized with verified mate-in-one transitions before
+ordinary full-game training began.
+
+Configuration:
+
+- Architecture: spatial State-Action DQN.
+- Training episodes: 50.
+- Maximum learner decisions per episode: 150.
+- Batch size: 32.
+- Minimum replay size: 1,000.
+- Replay capacity: 10,000.
+- Target synchronization: every 10 episodes.
+- Truncation bootstrapping: enabled.
+- Initialization seed: 12345.
+- Evaluation seed: 54321.
+- Training seed: 67890.
+- Initial mate positions: 199 unique positions.
+- Initial mate transitions: 295.
+- No fixed mate sampling quota.
+
+Checkpoint:
+
+`checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt`
+
+### Training results
+
+| Metric | Result |
+| --- | ---: |
+| Wins | 6 |
+| Draws | 6 |
+| Losses | 1 |
+| Truncated | 37 |
+| Average plies | 278.04 |
+| Average reward | -0.0135 |
+| Average loss | 0.00160964 |
+| Final epsilon | 0.7981 |
+| Final replay size | 7,238 |
+| Training time | 43.93 seconds |
+
+Final replay diagnostics:
+
+- Non-terminal Bellman transitions: 6,930.
+- Terminal Bellman transitions: 308.
+- Observed PER selections: 199,648.
+- Observed selections labelled as wins: 20,096 (10.07%).
+
+The 10.07% figure is an observed sampling share, not an
+enforced mate sampling quota. It must not be interpreted as
+the percentage of sampled mate-in-one examples.
+
+### Final greedy evaluation
+
+Across 40 balanced games against RandomAgent:
+
+| Metric | Initial | Final |
+| --- | ---: | ---: |
+| Wins | 0 | 3 |
+| Draws | 1 | 24 |
+| Losses | 11 | 0 |
+| Truncated | 28 | 13 |
+| Balanced score | 0.0125 | 0.375 |
+
+The four predefined mate-in-one probe positions yielded:
+
+- Before training: 1/4 correct (25%).
+- After training: 0/4 correct (0%).
+
+### Independent 50-game mate audit
+
+A separate greedy evaluation saved 50 PGN games, alternating
+the DQN's color.
+
+Only positions where the DQN was to move were counted as
+mate-in-one opportunities.
+
+- Mate opportunities: 121.
+- Converted: 2.
+- Missed: 119.
+- Conversion rate: 1.65%.
+
+The agent repeatedly missed available checkmates and continued
+playing, including positions with substantial material advantage.
+
+### Seeded versus encountered position diagnosis
+
+The final checkpoint was evaluated on the original seed CSV
+and on unique DQN-to-move mate positions from the 50 PGN games.
+
+| Metric | Seeded positions | Game positions |
+| --- | ---: | ---: |
+| Unique mate positions | 199 | 89 |
+| Correct mate selections | 29 | 2 |
+| Accuracy | 14.57% | 2.25% |
+| Mean mate Q advantage | -0.035213 | -0.053080 |
+
+Positions were deduplicated by piece placement, side to move,
+castling rights and en-passant square, ignoring move counters.
+
+The 89 game positions have not been established as disjoint
+from the 199 seeded positions.
+
+### Experimental conclusion
+
+Replay seeding did not produce reliable mate-in-one selection
+after 50 episodes. Accuracy remained low even on the seeded
+positions, and mean mate Q advantage was negative in both sets.
+
+The experiment does not isolate the effect of replay seeding:
+a matched 50-episode unseeded control is still needed.
+
+No reward or replay-sampling modification was introduced
+as a consequence of these measurements.

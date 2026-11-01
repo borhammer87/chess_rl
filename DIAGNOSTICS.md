@@ -543,3 +543,66 @@ independent seeds and previously unseen position distributions?
 
 A subsequent experiment should also examine the effect of a slower
 epsilon-decay schedule while keeping other training settings fixed.
+
+
+## Full-game mate learning diagnosis — November 2026
+
+**Question:** Does seeding a fresh full-game spatial DQN replay
+with mate-in-one examples produce reliable mate selection?
+
+**Measured evidence:**
+
+- The replay was initialized with 295 mate transitions from
+  199 unique positions, without mate-only pretraining.
+- After 50 training episodes, the checkpoint selected mate in
+  29/199 seeded positions (14.57%).
+- On 89 unique DQN-to-move mate positions encountered in
+  greedy games, it selected mate in 2/89 (2.25%).
+- Mean mate Q advantage was negative in both sets:
+  - Seeded positions: -0.035213.
+  - Game positions: -0.053080.
+- The 50-game evaluation recorded 121 mate opportunities,
+  of which only 2 were converted.
+- The final greedy diagnostic game showed repeated moves
+  and ended in a draw by fivefold repetition.
+
+**Interpretation:**
+
+The network has not learned a reliable preference for
+immediate checkmate, even on positions represented in
+the initial replay.
+
+Poor generalization alone cannot explain the low accuracy
+on seeded positions.
+
+The observed 10.07% PER selection share for transitions
+labelled as wins does not establish how often the original
+seeded mate transitions were sampled.
+
+The game-position set has not been proven disjoint from
+the seeded-position set. The measured difference is
+therefore not a clean held-out generalization estimate.
+
+The result does not establish whether the main limitation
+is insufficient mate sampling, reward design, credit
+assignment, model representation or optimization.
+
+**Active alternatives for the next controlled experiment:**
+
+1. Increase or guarantee sampling of verified mate-in-one
+   experiences during training.
+2. Revisit the penalty for excessively long or artificially
+   truncated games.
+3. Revisit material-based reward shaping.
+
+No alternative has yet been selected.
+
+**Next diagnostic question:**
+
+How often are the verified seeded mate transitions actually
+sampled during optimization, and how does their sampling
+frequency relate to the persistent negative mate Q advantage?
+
+Prefer a measurement or a controlled single-variable
+experiment before changing replay sampling and rewards
+simultaneously.

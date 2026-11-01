@@ -29,7 +29,25 @@ State-Action DQN path.
 
 The current development focus is not adding basic DQN functionality.
 
-The active objective is to evaluate the promising 100-episode spatial State-Action result with controlled, multi-seed comparisons. The diagnostic probe supports architecture, episode count and CPU/CUDA device selection. CUDA training has been validated with real neural updates, but chess-playing strength remains unproven.
+
+The active objective is to diagnose why the experimental spatial
+State-Action DQN fails to convert available checkmates during
+full-game greedy evaluation.
+
+A fresh 50-episode CUDA training run initialized replay with
+295 verified mate transitions from 199 unique positions,
+without mate-only pretraining. Final greedy evaluation scored
+0.375 over 40 games, but a separate 50-game audit converted
+only 2 of 121 available mates.
+
+The checkpoint subsequently selected mate in 29/199 seeded
+positions and 2/89 unique game positions. Mean mate Q
+advantage was negative in both datasets.
+
+The current task is to evaluate competing explanations
+involving mate replay sampling and reward incentives,
+without changing multiple training mechanisms at once.
+
 
 ---
 
@@ -280,3 +298,39 @@ strong chess play. Repetitive move sequences remain in the diagnostic game.
 The original non-spatial 100-episode baseline ended at score 0.1125, but the
 spatial run also enabled truncation bootstrapping, so it is **not** a strict
 one-variable architecture A/B comparison.
+
+
+## Current milestone — November 2026
+
+Completed:
+
+- Added mate-in-one CSV extraction and replay initialization
+  to the experimental full-game training workflow.
+- Completed a fresh 50-episode CUDA run with mate replay seeding.
+- Evaluated the checkpoint in 40 balanced greedy games.
+- Audited mate opportunities across 50 additional greedy games.
+- Measured mate-selection accuracy and Q advantage on seeded
+  and encountered positions.
+
+Current evidence:
+
+- Seeded positions: 29/199 mate selections (14.57%).
+- Unique game positions: 2/89 mate selections (2.25%).
+- Independent 50-game audit: 2/121 mates converted.
+- Repetitive play remains observable.
+
+The mate-generalization diagnostic was executed locally,
+but its script is not present in the repository ZIP
+inspected for this documentation update.
+
+Immediate next task:
+
+Choose the next controlled experiment after reviewing
+mate-transition sampling and the existing reward structure.
+
+Candidate changes include a fixed mate sampling proportion
+or a stronger long-game/truncation penalty. No choice has
+yet been approved.
+
+See `DIAGNOSTICS.md` for interpretation and
+`TRAINING_STATUS.md` for measured results.
