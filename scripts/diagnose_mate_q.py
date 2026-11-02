@@ -15,7 +15,9 @@ from scripts.diagnose_mate_generalization import (
 )
 
 from chess_rl.env.chess_env import ChessEnv
-from chess_rl.training.episodes import material_reward, reward_for_color
+from chess_rl.training.episodes import STEP_PENALTY, material_reward, reward_for_color
+from chess_rl.utils.board_encoder import encode_board
+from chess_rl.utils.action_encoder import get_legal_actions
 from scripts.run_mate_in_one_probe import evaluate_mate_actions
 
 
@@ -30,7 +32,42 @@ def move_outcome(board, move):
         "terminal_draw" if info["result"] == "1/2-1/2" else
         "other_terminal"
     )
-    return category, next_board, reward, info
+    return category, env.board.copy(stack=True), reward, info
+
+
+def expected_alternative_target(board, move, target_net, gamma):
+    """Exact expectation under uniform RandomAgent, outside artificial horizons.
+
+    Accept an already selected move; never evaluate current-policy Q values.
+    Immediate terminals have zero opponent replies and no reply fraction.
+    """
+    if not 0 <= gamma <= 1:
+        raise ValueError("gamma must be between zero and one")
+    category, after_move, reward, _ = move_outcome(board, move)
+    replies = list(after_move.legal_moves) if category == "non_terminal" else []
+    outcomes = [move_outcome(after_move, reply)[:3] for reply in replies]
+    if not replies:
+        outcomes = [(category, after_move, reward)]
+    targets, terminal_count = [], 0
+    target_net.eval()
+    with torch.no_grad():
+        for category, next_board, reward in outcomes:
+            done = category != "non_terminal"
+            terminal_count += int(done)
+            target = reward_for_color(reward, board.turn)
+            target += material_reward(board, next_board, board.turn)
+            if not done:
+                state = encode_board(next_board).to(next(target_net.parameters()).device)
+                future = target_net.evaluate_legal_action_maxes(
+                    state.unsqueeze(0), [get_legal_actions(next_board)]
+                )[0].item()
+                target += STEP_PENALTY + gamma * future
+            targets.append(target)
+    return {
+        "alternative_expected_target": sum(targets) / len(targets),
+        "opponent_reply_count": len(replies),
+        "opponent_terminal_fraction": terminal_count / len(replies) if replies else None,
+    }
 
 
 def analyze_position(board, network):

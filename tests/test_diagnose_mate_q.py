@@ -175,8 +175,8 @@ def test_outcome_preserves_history_for_fivefold_draw():
     before = board.fen(), list(board.move_stack)
     category, next_board, reward, info = move_outcome(board, chess.Move.from_uci("f6g8"))
     assert reward == 0.0
-    assert not next_board.move_stack
-    assert not next_board.is_game_over()
+    assert next_board.move_stack == board.move_stack + [chess.Move.from_uci("f6g8")]
+    assert next_board.is_game_over()
     assert category == "terminal_draw"
     assert info["termination"] == "FIVEFOLD_REPETITION"
     assert (board.fen(), list(board.move_stack)) == before
@@ -317,3 +317,153 @@ def test_cli_reads_real_files_and_checkpoint_without_training(tmp_path, monkeypa
     with pytest.raises(SystemExit):
         main([str(checkpoint), str(games), "--seed-csv", str(csv_path),
               "--output-csv", str(csv_path)])
+
+
+from scripts.diagnose_mate_q import expected_alternative_target
+
+
+class TargetValues(torch.nn.Module):
+    def __init__(self, expected_boards, values):
+        super().__init__()
+        self.weight = torch.nn.Parameter(torch.zeros(1))
+        self.expected_boards = expected_boards
+        self.values = values
+        self.calls = 0
+
+    def evaluate_legal_action_maxes(self, states, actions):
+        from chess_rl.utils.action_encoder import get_legal_actions
+        board = self.expected_boards[self.calls]
+        assert not torch.is_grad_enabled()
+        assert not self.training
+        torch.testing.assert_close(states[0], encode_board(board))
+        assert actions == [get_legal_actions(board)]
+        value = self.values[self.calls]
+        self.calls += 1
+        return torch.tensor([value])
+
+
+@pytest.mark.parametrize("black", [False, True])
+def test_expected_target_uniform_replies_and_full_material_change(black):
+    # White takes a pawn; some replies recapture the rook.
+    board = chess.Board("4k3/8/8/3rp3/8/8/4R3/4K3 w - - 0 1")
+    move = chess.Move.from_uci("e2e5")
+    if black:
+        board = board.mirror()
+        move = chess.Move.from_uci("e7e4")
+    after = board.copy()
+    after.push(move)
+    successors, rewards = [], []
+    for reply in list(after.legal_moves):
+        end = after.copy()
+        end.push(reply)
+        assert not end.is_game_over()
+        successors.append(end)
+        # Pawn gain is +.01; recapture loses our rook (-.05).
+        rewards.append(0.01 - (0.05 if reply.to_square == move.to_square else 0.0))
+    assert min(rewards) == pytest.approx(-0.04)
+    values = [i / 8 for i in range(len(successors))]
+    net = TargetValues(successors, values)
+    before = board.fen(), list(board.move_stack)
+    result = expected_alternative_target(board, move, net, 0.9)
+    expected = sum(r - 0.0005 + 0.9 * q for r, q in zip(rewards, values)) / len(values)
+    assert result["alternative_expected_target"] == pytest.approx(expected)
+    assert result["opponent_reply_count"] == len(values)
+    assert result["opponent_terminal_fraction"] == 0
+    assert net.calls == len(values)
+    assert (board.fen(), list(board.move_stack)) == before
+
+
+@pytest.mark.parametrize("black", [False, True])
+def test_expected_target_mixed_mating_and_nonterminal_replies(black):
+    board = chess.Board()
+    for uci in ("f2f3", "e7e5"):
+        board.push_uci(uci)
+    move = chess.Move.from_uci("g2g4")
+    if black:
+        board = board.mirror()
+        move = chess.Move.from_uci("g7g5")
+    after = board.copy()
+    after.push(move)
+    ends = []
+    for reply in list(after.legal_moves):
+        end = after.copy()
+        end.push(reply)
+        ends.append(end)
+    terminal = [end for end in ends if end.is_game_over()]
+    live = [end for end in ends if not end.is_game_over()]
+    assert len(terminal) == 1 and terminal[0].is_checkmate()
+    net = TargetValues(live, [0.5] * len(live))
+    result = expected_alternative_target(board, move, net, 0.9)
+    assert result["alternative_expected_target"] == pytest.approx(
+        (-1 + len(live) * (-0.0005 + 0.9 * 0.5)) / len(ends)
+    )
+    assert result["opponent_terminal_fraction"] == pytest.approx(1 / len(ends))
+    assert net.calls == len(live)
+
+
+@pytest.mark.parametrize("black", [False, True])
+def test_expected_immediate_terminal_has_no_bootstrap(black):
+    board = capture_mate_board(black)
+    move = chess.Move.from_uci("h4f2" if black else "h5f7")
+    net = TargetValues([], [])
+    result = expected_alternative_target(board, move, net, 0.99)
+    assert result == dict(alternative_expected_target=1.01,
+                          opponent_reply_count=0, opponent_terminal_fraction=None)
+    assert net.calls == 0
+
+
+def test_expected_reply_preserves_repetition_history():
+    board = chess.Board()
+    cycle = ("g1f3", "g8f6", "f3g1", "f6g8")
+    for uci in cycle * 3 + cycle[:2]:
+        board.push_uci(uci)
+    before = board.fen(), list(board.move_stack)
+    move = chess.Move.from_uci("f3g1")
+    after = board.copy()
+    after.push(move)
+    live = []
+    for reply in list(after.legal_moves):
+        end = after.copy()
+        end.push(reply)
+        if not end.is_game_over():
+            live.append(end)
+    n = after.legal_moves.count()
+    assert len(live) == n - 1
+    net = TargetValues(live, [0.0] * len(live))
+    result = expected_alternative_target(board, move, net, 0.99)
+    assert result["opponent_terminal_fraction"] == pytest.approx(1 / n)
+    assert result["alternative_expected_target"] == pytest.approx(-0.0005 * (n - 1) / n)
+    assert (board.fen(), list(board.move_stack)) == before
+
+
+def test_expected_target_does_not_evaluate_policy_or_train(monkeypatch):
+    from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
+    agent = StateActionDQNAgent(spatial=True)
+    def fail(*args, **kwargs):
+        pytest.fail("Unexpected policy evaluation or training")
+    monkeypatch.setattr(agent, "train_step", fail)
+    monkeypatch.setattr(agent, "update_target", fail)
+    monkeypatch.setattr(agent.optimizer, "step", fail)
+    monkeypatch.setattr(agent.policy_net, "evaluate_action_ids", fail)
+    monkeypatch.setattr(agent.policy_net, "evaluate_legal_action_maxes", fail)
+    before = [{k: v.clone() for k,v in net.state_dict().items()}
+              for net in (agent.policy_net, agent.target_net)]
+    board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
+    result = expected_alternative_target(board, chess.Move.from_uci("f7f6"), agent.target_net, 0.99)
+    assert result["opponent_reply_count"] > 0
+    for net, saved in zip((agent.policy_net, agent.target_net), before):
+        assert all(torch.equal(v, saved[k]) for k,v in net.state_dict().items())
+        assert all(p.grad is None for p in net.parameters())
+
+
+def test_expected_immediate_draw():
+    board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
+    result = expected_alternative_target(board, chess.Move.from_uci("f7e6"), TargetValues([], []), 0.99)
+    assert result == dict(alternative_expected_target=0.0,
+                          opponent_reply_count=0, opponent_terminal_fraction=None)
+
+
+@pytest.mark.parametrize("gamma", [-0.1, 1.1, float("nan")])
+def test_expected_target_rejects_invalid_gamma(gamma):
+    with pytest.raises(ValueError, match="gamma"):
+        expected_alternative_target(chess.Board(), chess.Move.from_uci("e2e4"), TargetValues([], []), gamma)
