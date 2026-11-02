@@ -659,3 +659,57 @@ def test_bellman_summary_handles_csv_strings_missing_values_and_signs(capsys):
     assert "no_alternative: n=1" in text
     assert "E[y]=N/A(n=0)" in text
     assert "not printed" not in text
+
+
+
+def test_existing_fen_with_omitted_ep_keeps_original_board_and_q(tmp_path, monkeypatch):
+    import chess.pgn
+    import scripts.diagnose_mate_q as diagnostic
+    # Scholar's mate remains available after a double pawn move without legal EP.
+    board = capture_mate_board()
+    board.pop()
+    board.push_uci("a7a5")
+    assert find_mate_in_one_moves(board)
+    assert board.ep_square == chess.A6 and not board.has_legal_en_passant()
+    assert chess.Board(board.fen()).ep_square is None
+    game = chess.pgn.Game.from_board(board)
+    board.push_uci("h5f7")
+    game = chess.pgn.Game.from_board(board)
+    game.headers["White"] = "DQN"
+    games = tmp_path / "games"
+    games.mkdir()
+    (games / "game.pgn").write_text(str(game), encoding="utf-8")
+    originals = list(diagnostic.game_positions(games))
+    source = originals[-1]
+    assert source.ep_square == chess.A6
+    path = tmp_path / "detail.csv"
+    row = write_existing_detail(path, source, "h5h4")
+    later = source.copy()
+    later.fullmove_number += 10
+    def fail(*args, **kwargs):
+        pytest.fail("Must not evaluate existing Q values")
+    monkeypatch.setattr(diagnostic, "evaluate_mate_actions", fail)
+    def expected(actual, move, net, gamma):
+        assert actual is source
+        assert actual.ep_square == chess.A6
+        assert actual.move_stack == source.move_stack
+        return dict(alternative_expected_target=0.3, opponent_reply_count=1,
+                    opponent_terminal_fraction=0.0)
+    monkeypatch.setattr(diagnostic, "expected_alternative_target", expected)
+    records = enrich_existing_detail(path, [source, later], [source, later], None, 0.99)
+    for record in records:
+        assert record["mate_q"] == row["mate_q"]
+        assert record["alternative_q"] == row["alternative_q"]
+        assert record["alternative_q_minus_target"] == pytest.approx(0.5)
+
+
+def test_existing_fen_rejects_distinct_original_keys_with_same_serialization(tmp_path):
+    board = chess.Board()
+    board.push_uci("e2e4")
+    without_ep = chess.Board(board.fen())
+    assert board.fen() == without_ep.fen()
+    assert position_key(board) != position_key(without_ep)
+    path = tmp_path / "detail.csv"
+    write_existing_detail(path, board, "e7e5")
+    with pytest.raises(ValueError, match="Ambiguous detail FEN"):
+        enrich_existing_detail(path, [board, without_ep], [board], None, 0.99)

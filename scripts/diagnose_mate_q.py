@@ -185,7 +185,7 @@ def enrich_existing_detail(path, seeded, games, target_net, gamma, sample_size=2
         rows = list(csv.DictReader(handle))
     indexed = {}
     for row in rows:
-        key = (row["dataset"], position_key(chess.Board(row["fen"])))
+        key = (row["dataset"], row["fen"])
         if key[0] not in ("seeded", "games") or key in indexed:
             raise ValueError("Unknown dataset or duplicate detail position")
         indexed[key] = row
@@ -195,14 +195,22 @@ def enrich_existing_detail(path, seeded, games, target_net, gamma, sample_size=2
         unique = {}
         for board in positions:
             unique.setdefault(position_key(board), board)
-        detail_keys = {key for dataset, key in indexed if dataset == label}
-        if not detail_keys <= unique.keys():
-            raise ValueError(f"Detail positions missing from {label} inputs")
-        selected = select_positions((unique[key] for key in detail_keys), sample_size)
+        by_fen = {}
+        for board in unique.values():
+            by_fen.setdefault(board.fen(), []).append(board)
+        matched = []
+        for dataset, fen in indexed:
+            if dataset != label:
+                continue
+            candidates = by_fen.get(fen, [])
+            if not candidates:
+                raise ValueError(f"Detail FEN missing from {label} first occurrences: {fen}")
+            if len(candidates) != 1:
+                raise ValueError(f"Ambiguous detail FEN in {label}: {fen}")
+            matched.append(candidates[0])
+        selected = select_positions(matched, sample_size)
         for board in selected:
-            record = dict(indexed[(label, position_key(board))])
-            if record["fen"] != board.fen():
-                raise ValueError("Detail FEN differs from first source occurrence")
+            record = dict(indexed[(label, board.fen())])
             # Retain all existing fields verbatim, including recorded Q values.
             record.update(alternative_expected_target=None,
                           alternative_q_minus_target=None,
