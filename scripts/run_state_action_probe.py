@@ -203,6 +203,26 @@ def analyze_observed_per_samples(
         share = count / total if total else 0.0
         print(f"{category}: count={count} - share={share:.6f}")
 
+    if observer.seeded_ids:
+        share = (
+            observer.seeded_selections / total if total else 0.0
+        )
+        batch_share = (
+            observer.batches_with_seeded / observer.total_batches
+            if observer.total_batches else 0.0
+        )
+        print(
+            "Seeded mate PER selections "
+            f"- count: {observer.seeded_selections} "
+            f"- share: {share:.6f} "
+            f"- unique: {len(observer.seeded_seen)}"
+            f"/{len(observer.seeded_ids)} "
+            f"- batches containing mates: "
+            f"{observer.batches_with_seeded}/{observer.total_batches} "
+            f"({batch_share:.2%})"
+        )
+
+
 def print_diagnostic_pgn(path: Path) -> None:
     """Include a complete diagnostic game in the console log."""
     print("\n--- BEGIN DIAGNOSTIC PGN ---")
@@ -1210,25 +1230,6 @@ def main() -> None:
     )    
 
     print("\nAnalyzing final replay diversity...")
-
-    if observer.seeded_ids:
-        share = (
-            observer.seeded_selections / total if total else 0.0
-        )
-        batch_share = (
-            observer.batches_with_seeded / observer.total_batches
-            if observer.total_batches else 0.0
-        )
-        print(
-            "Seeded mate PER selections "
-            f"- count: {observer.seeded_selections} "
-            f"- share: {share:.6f} "
-            f"- unique: {len(observer.seeded_seen)}"
-            f"/{len(observer.seeded_ids)} "
-            f"- batches containing mates: "
-            f"{observer.batches_with_seeded}/{observer.total_batches} "
-            f"({batch_share:.2%})"
-        )
 
 
     analyze_replay_diversity(

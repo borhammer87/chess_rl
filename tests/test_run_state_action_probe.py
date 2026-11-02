@@ -1104,11 +1104,12 @@ def test_resume_validation_rejects_changed_training_config(
         )
 
 
-def test_observer_counts_only_seeded_mate_transitions(monkeypatch):
+
+def test_observer_counts_only_seeded_mate_transitions(monkeypatch, capsys):
     buffer = ReplayBuffer(capacity=4)
-    add_transition(buffer, done=True)
+    add_transition(buffer, done=False)
     seeded = buffer.buffer[-1]
-    add_transition(buffer, done=True)
+    add_transition(buffer, done=False)
     ordinary = buffer.buffer[-1]
 
     def fake_sample(*, batch_size, alpha, beta):
@@ -1130,3 +1131,15 @@ def test_observer_counts_only_seeded_mate_transitions(monkeypatch):
     assert observer.seeded_seen == {id(seeded)}
     assert observer.batches_with_seeded == 1
     assert observer.total_batches == 1
+
+    probe.analyze_observed_per_samples(
+        observer,
+        probe.TerminalTransitionTracker(buffer),
+    )
+    
+    output = capsys.readouterr().out
+
+    assert "Seeded mate PER selections" in output
+    assert "count: 2" in output
+    assert "unique: 1/1" in output
+    assert "batches containing mates: 1/1" in output
