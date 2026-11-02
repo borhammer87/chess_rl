@@ -1102,3 +1102,31 @@ def test_resume_validation_rejects_changed_training_config(
             "spatial",
             {"batch_size": 64, "max_agent_steps": 150},
         )
+
+
+def test_observer_counts_only_seeded_mate_transitions(monkeypatch):
+    buffer = ReplayBuffer(capacity=4)
+    add_transition(buffer, done=True)
+    seeded = buffer.buffer[-1]
+    add_transition(buffer, done=True)
+    ordinary = buffer.buffer[-1]
+
+    def fake_sample(*, batch_size, alpha, beta):
+        return (
+            [seeded, ordinary, seeded],
+            [0, 1, 0],
+            torch.ones(3),
+        )
+
+    monkeypatch.setattr(buffer, "sample_prioritized", fake_sample)
+
+    observer = probe.PrioritizedSampleObserver(
+        buffer, seeded_ids={id(seeded)}
+    )
+    result = observer.sample_prioritized(3, 0.6, 0.4)
+
+    assert len(result[0]) == 3
+    assert observer.seeded_selections == 2
+    assert observer.seeded_seen == {id(seeded)}
+    assert observer.batches_with_seeded == 1
+    assert observer.total_batches == 1

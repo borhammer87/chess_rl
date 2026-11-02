@@ -137,29 +137,39 @@ class TerminalTransitionTracker:
 
         self.get_final_labels()
 
+
 class PrioritizedSampleObserver:
     """Record actual PER selections without changing sampling."""
 
-    def __init__(self, replay_buffer: ReplayBuffer) -> None:
+    def __init__(self, replay_buffer, seeded_ids=None):
         self.original_sample = replay_buffer.sample_prioritized
-        self.sampled_transitions: list[Transition] = []
+        self.sampled_transitions = []
+        self.seeded_ids = set(seeded_ids or ())
+        self.seeded_selections = 0
+        self.seeded_seen = set()
+        self.batches_with_seeded = 0
+        self.total_batches = 0
 
-    def sample_prioritized(
-        self,
-        batch_size: int,
-        alpha: float,
-        beta: float,
-    ) -> tuple[list[Transition], list[int], torch.Tensor]:
+    def sample_prioritized(self, batch_size, alpha, beta):
         result = self.original_sample(
             batch_size=batch_size,
             alpha=alpha,
             beta=beta,
         )
-
         transitions, _, _ = result
         self.sampled_transitions.extend(transitions)
 
+        selected = [
+            id(transition)
+            for transition in transitions
+            if id(transition) in self.seeded_ids
+        ]
+        self.seeded_selections += len(selected)
+        self.seeded_seen.update(selected)
+        self.batches_with_seeded += bool(selected)
+        self.total_batches += 1
         return result
+
 
 
 def analyze_observed_per_samples(
@@ -1083,7 +1093,17 @@ def main() -> None:
         if cuda_rng is not None:
             torch.cuda.set_rng_state_all(cuda_rng)
 
-    sample_observer = PrioritizedSampleObserver(replay_buffer)
+
+    seeded_ids = (
+        {id(transition) for transition in replay_buffer.buffer}
+        if args.mate_csv is not None
+        else set()
+    )
+    sample_observer = PrioritizedSampleObserver(
+        replay_buffer, seeded_ids=seeded_ids
+    )
+
+
     replay_buffer.sample_prioritized = sample_observer.sample_prioritized
 
     profiler = TrainingProfiler()
@@ -1190,6 +1210,26 @@ def main() -> None:
     )    
 
     print("\nAnalyzing final replay diversity...")
+
+    if observer.seeded_ids:
+        share = (
+            observer.seeded_selections / total if total else 0.0
+        )
+        batch_share = (
+            observer.batches_with_seeded / observer.total_batches
+            if observer.total_batches else 0.0
+        )
+        print(
+            "Seeded mate PER selections "
+            f"- count: {observer.seeded_selections} "
+            f"- share: {share:.6f} "
+            f"- unique: {len(observer.seeded_seen)}"
+            f"/{len(observer.seeded_ids)} "
+            f"- batches containing mates: "
+            f"{observer.batches_with_seeded}/{observer.total_batches} "
+            f"({batch_share:.2%})"
+        )
+
 
     analyze_replay_diversity(
         replay_buffer=replay_buffer,
