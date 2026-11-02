@@ -247,8 +247,11 @@ MATE_POSITIONS = {
 
 
 
-def evaluate_mate_position(board, network):
-    """Evaluate whether the network chooses an immediate checkmate."""
+def evaluate_mate_actions(board, network):
+    """Return greedy diagnostics and best (move, Q) pairs for both groups.
+
+    Missing groups return None. Ties preserve legal-move order.
+    """
     legal_moves = list(board.legal_moves)
     state = encode_board(board).to(next(network.parameters()).device)
 
@@ -269,20 +272,32 @@ def evaluate_mate_position(board, network):
 
     mate_set = set(mate_moves)
 
-    mate_q = max(
-        (float(scores[i].item())
+    best_mate = max(
+        ((move, float(scores[i].item()))
          for i, move in enumerate(legal_moves)
          if move in mate_set),
+        key=lambda pair: pair[1],
         default=None,
     )
 
-    non_mate_q = max(
-        (float(scores[i].item())
+    best_non_mate = max(
+        ((move, float(scores[i].item()))
          for i, move in enumerate(legal_moves)
          if move not in mate_set),
+        key=lambda pair: pair[1],
         default=None,
     )
 
+    return chosen_move, chosen_move in mate_set, best_q, q_gap, best_mate, best_non_mate
+
+
+def evaluate_mate_position(board, network):
+    """Evaluate whether the network chooses an immediate checkmate."""
+    chosen_move, is_mate, best_q, q_gap, best_mate, best_non_mate = (
+        evaluate_mate_actions(board, network)
+    )
+    mate_q = best_mate[1] if best_mate is not None else None
+    non_mate_q = best_non_mate[1] if best_non_mate is not None else None
     mate_advantage = (
         mate_q - non_mate_q
         if mate_q is not None and non_mate_q is not None
@@ -291,7 +306,7 @@ def evaluate_mate_position(board, network):
 
     return (
         chosen_move,
-        chosen_move in mate_set,
+        is_mate,
         best_q,
         q_gap,
         mate_q,
