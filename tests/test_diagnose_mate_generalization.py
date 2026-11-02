@@ -63,8 +63,12 @@ def test_diagnose_deduplicates_positions(monkeypatch):
         ),
     )
 
-    total, correct, advantages = diagnose(
-        None, [board, board.copy()]
-    )
+    result = diagnose(None, [board, board.copy()])
 
-    assert (total, correct, advantages) == (1, 1, [0.5])
+    assert result == (
+        1,
+        1,
+        [0.5],
+        [1.0],
+        [0.5],
+    )

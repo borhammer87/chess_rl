@@ -53,6 +53,8 @@ def diagnose(network, positions):
     seen = set()
     opportunities = converted = 0
     advantages = []
+    mate_values = []
+    non_mate_values = []
 
     for board in positions:
         key = position_key(board)
@@ -63,17 +65,20 @@ def diagnose(network, positions):
         if not find_mate_in_one_moves(board):
             continue
 
-        _, correct, _, _, _, _, advantage = evaluate_mate_position(
-            board, network
+        _, correct, _, _, mate_q, non_mate_q, advantage = (
+            evaluate_mate_position(board, network)
         )
         opportunities += 1
         converted += int(correct)
 
         if advantage is not None:
             advantages.append(advantage)
+        if mate_q is not None:
+            mate_values.append(mate_q)
+        if non_mate_q is not None:
+            non_mate_values.append(non_mate_q)
 
-    return opportunities, converted, advantages
-
+    return opportunities, converted, advantages, mate_values, non_mate_values
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -89,17 +94,21 @@ def main():
     )
     agent.policy_net.eval()
 
+    def mean(values):
+        return sum(values) / len(values) if values else None
+
     for label, positions in (
         ("Seeded positions", seeded_positions(args.seed_csv)),
         ("Game positions", game_positions(args.games_directory)),
     ):
-        total, correct, advantages = diagnose(agent.policy_net, positions)
-        mean_advantage = (
-            sum(advantages) / len(advantages) if advantages else None
+        total, correct, advantages, mate_values, non_mate_values = (
+            diagnose(agent.policy_net, positions)
         )
         print(
             f"{label}: {correct}/{total} mates selected "
-            f"| mean Q advantage: {mean_advantage}"
+            f"| mean Q advantage: {mean(advantages)} "
+            f"| mean mate Q: {mean(mate_values)} "
+            f"| mean best non-mate Q: {mean(non_mate_values)}"
         )
 
 
