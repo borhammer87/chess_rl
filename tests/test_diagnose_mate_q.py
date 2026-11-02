@@ -296,6 +296,14 @@ def test_cli_reads_real_files_and_checkpoint_without_training(tmp_path, monkeypa
     agent = StateActionDQNAgent(spatial=True)
     save_training_checkpoint(str(checkpoint), agent, ReplayBuffer(10))
     original_bytes = checkpoint.read_bytes()
+    source = board.copy()
+    source.pop()
+    row = analyze_position(source, agent.policy_net)
+    detail = tmp_path / "existing.csv"
+    export_csv(detail, [dict(row, dataset=label, overlap=True) for label in ("seeded", "games")])
+    from chess_rl.models.spatial_state_action_dqn import SpatialStateActionDQN
+    monkeypatch.setattr(SpatialStateActionDQN, "evaluate_action_ids",
+                        lambda *args: pytest.fail("Must reuse existing Q values"))
 
     def fail(*args, **kwargs):
         pytest.fail("Diagnostic must not train or synchronize weights")
@@ -303,11 +311,13 @@ def test_cli_reads_real_files_and_checkpoint_without_training(tmp_path, monkeypa
     monkeypatch.setattr(StateActionDQNAgent, "update_target", fail)
     output = tmp_path / "output.csv"
     main([str(checkpoint), str(games), "--seed-csv", str(csv_path), str(csv_path),
-          "--output-csv", str(output)])
+          "--existing-detail", str(detail), "--gamma", "0.99", "--output-csv", str(output)])
     console = capsys.readouterr().out
     assert "Overlap: 1" in console
-    assert "seeded: input=2 duplicates=1 skipped=0 analyzed=1" in console
-    assert "games: input=1" in console
+    assert "seeded: sampled=1" in console
+    assert "E[y]=" in console
+    assert "artificial truncation excluded" in console
+    assert "games: sampled=1" in console
     assert board.board_fen() not in console
     assert checkpoint.read_bytes() == original_bytes
     with output.open(newline="", encoding="utf-8") as handle:
@@ -316,7 +326,7 @@ def test_cli_reads_real_files_and_checkpoint_without_training(tmp_path, monkeypa
     assert all(r["overlap"] == "True" for r in rows)
     with pytest.raises(SystemExit):
         main([str(checkpoint), str(games), "--seed-csv", str(csv_path),
-              "--output-csv", str(csv_path)])
+              "--existing-detail", str(detail), "--gamma", "0.99", "--output-csv", str(csv_path)])
 
 
 from scripts.diagnose_mate_q import expected_alternative_target
@@ -467,3 +477,185 @@ def test_expected_immediate_draw():
 def test_expected_target_rejects_invalid_gamma(gamma):
     with pytest.raises(ValueError, match="gamma"):
         expected_alternative_target(chess.Board(), chess.Move.from_uci("e2e4"), TargetValues([], []), gamma)
+
+
+@pytest.mark.parametrize("training", [False, True])
+@pytest.mark.parametrize("raises", [False, True])
+def test_expected_target_restores_mode_even_on_error(training, raises, monkeypatch):
+    net = TargetValues([], [])
+    net.train(training)
+    def evaluate(*args):
+        assert not net.training
+        if raises:
+            raise RuntimeError("inference failed")
+        return torch.tensor([0.5])
+    monkeypatch.setattr(net, "evaluate_legal_action_maxes", evaluate)
+    board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
+    if raises:
+        with pytest.raises(RuntimeError, match="inference failed"):
+            expected_alternative_target(board, chess.Move.from_uci("f7f6"), net, 0.99)
+    else:
+        expected_alternative_target(board, chess.Move.from_uci("f7f6"), net, 0.99)
+    assert net.training is training
+
+
+from scripts.diagnose_mate_q import select_positions, enrich_existing_detail
+from scripts.diagnose_mate_generalization import position_key
+
+
+def test_hash_sample_is_deterministic_nested_and_deduplicated():
+    boards = []
+    board = chess.Board()
+    for _ in range(35):
+        boards.append(board.copy())
+        board.push(next(iter(board.legal_moves)))
+    unique_count = len({position_key(b) for b in boards})
+    selected = select_positions(boards)
+    assert len(selected) == min(25, unique_count)
+    assert [position_key(b) for b in selected] == [
+        position_key(b) for b in select_positions(list(reversed(boards)) + boards)
+    ]
+    assert select_positions(boards, 5) == select_positions(boards, 10)[:5]
+    assert len(select_positions(boards, None)) == unique_count
+    assert select_positions([]) == []
+    duplicate = boards[0].copy()
+    duplicate.fullmove_number += 50
+    assert select_positions([boards[0], duplicate], None)[0] is boards[0]
+    with pytest.raises(ValueError, match="sample_size"):
+        select_positions(boards, 0)
+
+
+def write_existing_detail(path, board, alternative="f7f6", category="non_terminal"):
+    import csv
+    row = dict(fen=board.fen(), dataset="seeded", alternative_move=alternative,
+               alternative_category=category, alternative_q="0.80000000000000004" if alternative else "",
+               mate_q="0.7", q_margin="-0.1", overlap="False")
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+        writer.writerow(dict(row, dataset="games"))
+    return row
+
+
+def test_existing_detail_reuses_q_without_policy_and_preserves_inputs(tmp_path, monkeypatch):
+    import scripts.diagnose_mate_q as diagnostic
+    board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
+    path = tmp_path / "detail.csv"
+    original = write_existing_detail(path, board)
+    before = path.read_bytes(), board.fen(), list(board.move_stack)
+    def fail(*args, **kwargs):
+        pytest.fail("Must not recompute policy Q values")
+    monkeypatch.setattr(diagnostic, "evaluate_mate_actions", fail)
+    monkeypatch.setattr(diagnostic, "analyze_position", fail)
+    net = TargetValues([], [])
+    monkeypatch.setattr(net, "evaluate_legal_action_maxes", lambda *args: torch.tensor([0.5]))
+    records = enrich_existing_detail(path, [board, board.copy()], [board], net, 0.9)
+    assert len(records) == 2
+    for record in records:
+        assert record["alternative_expected_target"] == pytest.approx(-0.0005 + 0.9 * 0.5)
+        assert record["alternative_q_minus_target"] == pytest.approx(0.3505)
+        for key, value in original.items():
+            if key != "dataset":
+                assert record[key] == value
+    assert (path.read_bytes(), board.fen(), list(board.move_stack)) == before
+
+
+def test_existing_detail_retains_source_history(tmp_path, monkeypatch):
+    board = chess.Board()
+    for uci in ("g1f3", "g8f6", "f3g1", "f6g8"):
+        board.push_uci(uci)
+    path = tmp_path / "detail.csv"
+    write_existing_detail(path, board, "g1f3")
+    def expected(source, move, target_net, gamma):
+        assert source.move_stack == board.move_stack
+        return dict(alternative_expected_target=0.2, opponent_reply_count=20,
+                    opponent_terminal_fraction=0.0)
+    monkeypatch.setattr("scripts.diagnose_mate_q.expected_alternative_target", expected)
+    assert len(enrich_existing_detail(path, [board], [board], None, 0.99)) == 2
+
+
+@pytest.mark.parametrize("alternative,category", [("", "no_alternative"), ("f7e6", "terminal_draw")])
+def test_existing_detail_keeps_terminal_and_absent_alternatives(tmp_path, alternative, category):
+    board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
+    path = tmp_path / "detail.csv"
+    write_existing_detail(path, board, alternative, category)
+    records = enrich_existing_detail(path, [board], [board], TargetValues([], []), 0.99)
+    for record in records:
+        assert record["opponent_terminal_fraction"] is None
+        assert record["opponent_reply_count"] == (0 if alternative else None)
+        assert record["alternative_expected_target"] == (0.0 if alternative else None)
+
+
+def test_existing_detail_rejects_mismatched_sources_and_illegal_moves(tmp_path):
+    board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
+    path = tmp_path / "detail.csv"
+    write_existing_detail(path, board)
+    with pytest.raises(ValueError, match="missing"):
+        enrich_existing_detail(path, [], [board], None, 0.99)
+    changed = board.copy()
+    changed.fullmove_number += 1
+    with pytest.raises(ValueError, match="FEN"):
+        enrich_existing_detail(path, [changed], [board], None, 0.99)
+    write_existing_detail(path, board, "a1a2")
+    with pytest.raises(ValueError, match="Illegal"):
+        enrich_existing_detail(path, [board], [board], None, 0.99)
+
+
+
+def test_existing_detail_limits_each_dataset_and_expands_nested(tmp_path, monkeypatch):
+    import csv
+    boards = []
+    for opening in list(chess.Board().legal_moves):
+        board = chess.Board()
+        board.push(opening)
+        for reply in list(board.legal_moves)[:2]:
+            end = board.copy()
+            end.push(reply)
+            boards.append(end)
+    assert len({position_key(b) for b in boards}) == 40
+    path = tmp_path / "detail.csv"
+    rows = [dict(dataset=label, fen=b.fen(), alternative_move=next(iter(b.legal_moves)).uci(),
+                 alternative_q="0.8", alternative_category="non_terminal")
+            for label in ("seeded", "games") for b in boards]
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    monkeypatch.setattr("scripts.diagnose_mate_q.expected_alternative_target",
+                        lambda *args: dict(alternative_expected_target=0.5,
+                                           opponent_reply_count=1, opponent_terminal_fraction=0.0))
+    small = enrich_existing_detail(path, boards, boards, None, 0.99)
+    large = enrich_existing_detail(path, boards, boards, None, 0.99, sample_size=30)
+    assert len(small) == 50 and len(large) == 60
+    for label in ("seeded", "games"):
+        first = [r["fen"] for r in small if r["dataset"] == label]
+        expanded = [r["fen"] for r in large if r["dataset"] == label]
+        assert len(first) == 25
+        assert first == expanded[:25]
+
+
+@pytest.mark.parametrize("extra", [[], ["--gamma", "0.99"], ["--existing-detail", "detail.csv"]])
+def test_bellman_cli_requires_gamma_and_existing_detail(extra):
+    with pytest.raises(SystemExit) as error:
+        main(["checkpoint.pt", "games", "--seed-csv", "seed.csv", *extra])
+    assert error.value.code == 2
+
+
+def test_bellman_summary_handles_csv_strings_missing_values_and_signs(capsys):
+    base = dict(dataset="seeded", fen="not printed", mate_selected="False",
+                mate_q="0.8", alternative_q="0.9", q_margin="-0.1",
+                seeded_error="-0.2", seeded_absolute_error="0.2", game_mate_reward="1.0",
+                alternative_category="non_terminal", alternative_expected_target=0.7,
+                alternative_q_minus_target=0.2, opponent_terminal_fraction=0.5)
+    absent = dict(base, alternative_category="no_alternative", alternative_q="", q_margin="",
+                  alternative_expected_target=None, alternative_q_minus_target=None,
+                  opponent_terminal_fraction=None)
+    print_summary([base, absent], {"seeded": {"sampled": 2}}, 0)
+    text = capsys.readouterr().out
+    assert "E[y]=0.700000(n=1)" in text
+    assert "Qalt-E[y]=0.200000(n=1)" in text
+    assert "mates=0" in text
+    assert "no_alternative: n=1" in text
+    assert "E[y]=N/A(n=0)" in text
+    assert "not printed" not in text

@@ -2,6 +2,11 @@
 
 import argparse
 import csv
+import hashlib
+import json
+import math
+
+import chess
 from itertools import chain
 from pathlib import Path
 
@@ -49,20 +54,24 @@ def expected_alternative_target(board, move, target_net, gamma):
     if not replies:
         outcomes = [(category, after_move, reward)]
     targets, terminal_count = [], 0
-    target_net.eval()
-    with torch.no_grad():
-        for category, next_board, reward in outcomes:
-            done = category != "non_terminal"
-            terminal_count += int(done)
-            target = reward_for_color(reward, board.turn)
-            target += material_reward(board, next_board, board.turn)
-            if not done:
-                state = encode_board(next_board).to(next(target_net.parameters()).device)
-                future = target_net.evaluate_legal_action_maxes(
-                    state.unsqueeze(0), [get_legal_actions(next_board)]
-                )[0].item()
-                target += STEP_PENALTY + gamma * future
-            targets.append(target)
+    was_training = target_net.training
+    try:
+        target_net.eval()
+        with torch.no_grad():
+            for category, next_board, reward in outcomes:
+                done = category != "non_terminal"
+                terminal_count += int(done)
+                target = reward_for_color(reward, board.turn)
+                target += material_reward(board, next_board, board.turn)
+                if not done:
+                    state = encode_board(next_board).to(next(target_net.parameters()).device)
+                    future = target_net.evaluate_legal_action_maxes(
+                        state.unsqueeze(0), [get_legal_actions(next_board)]
+                    )[0].item()
+                    target += STEP_PENALTY + gamma * future
+                targets.append(target)
+    finally:
+        target_net.train(was_training)
     return {
         "alternative_expected_target": sum(targets) / len(targets),
         "opponent_reply_count": len(replies),
@@ -151,6 +160,71 @@ def analyze_sets(network, seeded, games):
     return records, counts, len(overlap)
 
 
+def select_positions(positions, sample_size=25):
+    """Stable hash order, first occurrence per key; None selects all."""
+    if sample_size is not None and sample_size <= 0:
+        raise ValueError("sample_size must be positive or None")
+    unique = {}
+    for board in positions:
+        unique.setdefault(position_key(board), board)
+    def rank(key):
+        serialized = json.dumps(key, separators=(",", ":"))
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest(), serialized
+    return [unique[key] for key in sorted(unique, key=rank)[:sample_size]]
+
+
+def enrich_existing_detail(path, seeded, games, target_net, gamma, sample_size=25):
+    """Reuse recorded Q values; reconstruct history from original inputs.
+
+    The CSV does not certify checkpoint identity. The caller must supply the
+    checkpoint that produced it. No policy network is accepted or evaluated.
+    """
+    if not 0 <= gamma <= 1:
+        raise ValueError("gamma must be between zero and one")
+    with path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    indexed = {}
+    for row in rows:
+        key = (row["dataset"], position_key(chess.Board(row["fen"])))
+        if key[0] not in ("seeded", "games") or key in indexed:
+            raise ValueError("Unknown dataset or duplicate detail position")
+        indexed[key] = row
+    result = []
+    for label, positions in (("seeded", seeded), ("games", games)):
+        # Match only positions included in the earlier mate diagnostic.
+        unique = {}
+        for board in positions:
+            unique.setdefault(position_key(board), board)
+        detail_keys = {key for dataset, key in indexed if dataset == label}
+        if not detail_keys <= unique.keys():
+            raise ValueError(f"Detail positions missing from {label} inputs")
+        selected = select_positions((unique[key] for key in detail_keys), sample_size)
+        for board in selected:
+            record = dict(indexed[(label, position_key(board))])
+            if record["fen"] != board.fen():
+                raise ValueError("Detail FEN differs from first source occurrence")
+            # Retain all existing fields verbatim, including recorded Q values.
+            record.update(alternative_expected_target=None,
+                          alternative_q_minus_target=None,
+                          opponent_reply_count=None, opponent_terminal_fraction=None)
+            uci = record["alternative_move"]
+            if not uci:
+                if record["alternative_category"] != "no_alternative" or record["alternative_q"]:
+                    raise ValueError("Inconsistent missing alternative")
+            else:
+                move = chess.Move.from_uci(uci)
+                category, after, _, _ = move_outcome(board, move)
+                if category != record["alternative_category"] or after.is_checkmate():
+                    raise ValueError("Detail alternative classification mismatch")
+                q = float(record["alternative_q"])
+                if not math.isfinite(q):
+                    raise ValueError("Alternative Q must be finite")
+                record.update(expected_alternative_target(board, move, target_net, gamma))
+                record["alternative_q_minus_target"] = q - record["alternative_expected_target"]
+            result.append(record)
+    return result
+
+
 def print_summary(records, counts, overlap):
     """Print aggregate estimates, never implying Q is an observed return."""
     print("Q values are network estimates, not observed returns.")
@@ -158,24 +232,37 @@ def print_summary(records, counts, overlap):
     print(f"Overlap: {overlap} unique analyzed mate positions")
     for label, count in counts.items():
         rows = [r for r in records if r["dataset"] == label]
-        print(f"{label}: input={count['total']} duplicates={count['duplicates']} "
-              f"skipped={count['skipped']} analyzed={count['analyzed']} "
-              f"exclusive={count['analyzed'] - overlap}")
+        if "sampled" in count:
+            print(f"{label}: sampled={count['sampled']}")
+        else:
+            print(f"{label}: input={count['total']} duplicates={count['duplicates']} "
+                  f"skipped={count['skipped']} analyzed={count['analyzed']} "
+                  f"exclusive={count['analyzed'] - overlap}")
         for category in ("all", *CATEGORIES):
             group = rows if category == "all" else [
                 r for r in rows if r["alternative_category"] == category
             ]
             def mean(field):
-                values = [r[field] for r in group if r[field] is not None]
+                values = [float(r[field]) for r in group if r.get(field) not in (None, "")]
                 return f"{sum(values) / len(values):.6f}(n={len(values)})" if values else "N/A(n=0)"
-            margins = [r["q_margin"] for r in group if r["q_margin"] is not None]
+            margins = [float(r["q_margin"]) for r in group if r.get("q_margin") not in (None, "")]
             signs = [sum(v > 0 for v in margins), sum(v == 0 for v in margins),
                      sum(v < 0 for v in margins)]
-            print(f"  {category}: n={len(group)} mates={sum(r['mate_selected'] for r in group)} "
+            print(f"  {category}: n={len(group)} mates={sum(r.get('mate_selected') in (True, 'True') for r in group)} "
                   f"Qmate={mean('mate_q')} Qalt={mean('alternative_q')} "
                   f"margin={mean('q_margin')} signs(+/0/-)={signs} "
                   f"error={mean('seeded_error')} MAE={mean('seeded_absolute_error')} "
                   f"game_reward={mean('game_mate_reward')}")
+            if any("alternative_expected_target" in r for r in records):
+                residuals = [r["alternative_q_minus_target"] for r in group
+                             if r["alternative_q_minus_target"] is not None]
+                signs = [sum(v > 0 for v in residuals), sum(v == 0 for v in residuals),
+                         sum(v < 0 for v in residuals)]
+                print(f"    E[y]={mean('alternative_expected_target')} "
+                      f"Qalt-E[y]={mean('alternative_q_minus_target')} "
+                      f"signs(+/0/-)={signs} "
+                      f"mean_reply_terminal_fraction={mean('opponent_terminal_fraction')}")
+
 
 
 def export_csv(path, records):
@@ -192,26 +279,44 @@ def main(argv=None):
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("games_directory", type=Path)
     parser.add_argument("--seed-csv", type=Path, nargs="+", required=True)
+    parser.add_argument("--existing-detail", type=Path, required=True)
+    parser.add_argument("--gamma", type=float, required=True)
+    parser.add_argument("--sample-size", type=int, default=25,
+                        help="Positions per dataset; 0 selects all")
     parser.add_argument("--output-csv", type=Path)
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cpu")
     args = parser.parse_args(argv)
-    for path in [args.checkpoint, *args.seed_csv]:
+    if not 0 <= args.gamma <= 1 or args.sample_size < 0:
+        parser.error("gamma must be in [0, 1] and sample-size must be non-negative")
+    for path in [args.checkpoint, args.existing_detail, *args.seed_csv]:
         if not path.is_file():
             parser.error(f"Input file does not exist: {path}")
     if not args.games_directory.is_dir() or not any(args.games_directory.glob("*.pgn")):
         parser.error("Games directory must contain PGN files")
     if args.output_csv and args.output_csv.resolve() in {
-        p.resolve() for p in [args.checkpoint, *args.seed_csv, *args.games_directory.glob("*.pgn")]
+        p.resolve() for p in [args.checkpoint, args.existing_detail, *args.seed_csv, *args.games_directory.glob("*.pgn")]
     }:
         parser.error("Output must differ from input files")
     agent = StateActionDQNAgent(spatial=True, device=args.device)
     load_training_checkpoint(str(args.checkpoint), agent, ReplayBuffer(capacity=10_000))
-    records, counts, overlap = analyze_sets(
-        agent.policy_net,
-        chain.from_iterable(seeded_positions(path) for path in args.seed_csv),
-        game_positions(args.games_directory),
-    )
-    print_summary(records, counts, overlap)
+    try:
+        records = enrich_existing_detail(
+            args.existing_detail,
+            chain.from_iterable(seeded_positions(path) for path in args.seed_csv),
+            game_positions(args.games_directory), agent.target_net, args.gamma,
+            sample_size=args.sample_size or None,
+        )
+    except (ValueError, KeyError) as error:
+        parser.error(str(error))
+    print(f"Checkpoint: {args.checkpoint} | existing detail: {args.existing_detail}")
+    print(f"gamma={args.gamma} (explicit CLI value, not stored in checkpoint)")
+    print("Uniform RandomAgent expectation; artificial truncation excluded.")
+    print("CSV checkpoint identity is user-supplied, not independently verified.")
+    print(f"SHA-256 sample per dataset: {args.sample_size or 'all'}; first occurrence retained.")
+    keys = {label: {position_key(chess.Board(r["fen"])) for r in records
+                    if r["dataset"] == label} for label in ("seeded", "games")}
+    counts = {label: {"sampled": len(value)} for label, value in keys.items()}
+    print_summary(records, counts, len(keys["seeded"] & keys["games"]))
     if args.output_csv:
         export_csv(args.output_csv, records)
         print(f"Detail CSV: {args.output_csv}")
