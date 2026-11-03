@@ -326,12 +326,18 @@ def analyze_greedy_pgn(
             move
         )
 
-def analyze_replay_learning_signal(
+def calculate_replay_learning_signal(
     agent: StateActionDQNAgent,
     replay_buffer: ReplayBuffer,
     batch_size: int = 256,
-) -> None:
-    """Summarize Bellman targets and TD errors in the final replay."""
+    *,
+    terminal_labels: dict[int, str] | None = None,
+) -> dict:
+    """Return CPU columns in replay order; signed TD is target minus Q.
+
+    Categories are unknown without tracker labels. With validated tracker
+    labels, unlabelled non-terminal transitions are ``non_terminal``.
+    """
     transitions = list(
         replay_buffer.buffer
     )
@@ -465,6 +471,36 @@ def analyze_replay_learning_signal(
         dtype=torch.bool,
     )
 
+    return {
+        "index": torch.arange(len(transitions)),
+        "reward": rewards,
+        "q": q_values,
+        "target": targets,
+        "td_error": targets - q_values,
+        "abs_td_error": abs_td_errors,
+        "done": done_mask,
+        "category": [
+            terminal_labels.get(
+                id(transition), None if transition.done else "non_terminal"
+            ) if terminal_labels is not None else None
+            for transition in transitions
+        ],
+    }
+
+
+def analyze_replay_learning_signal(
+    agent: StateActionDQNAgent,
+    replay_buffer: ReplayBuffer,
+    batch_size: int = 256,
+) -> None:
+    """Summarize Bellman targets and TD errors in the final replay."""
+    signal = calculate_replay_learning_signal(agent, replay_buffer, batch_size)
+    rewards = signal["reward"]
+    targets = signal["target"]
+    q_values = signal["q"]
+    abs_td_errors = signal["abs_td_error"]
+    done_mask = signal["done"]
+
     def print_stats(
         label: str,
         values: torch.Tensor,
@@ -478,7 +514,7 @@ def analyze_replay_learning_signal(
         )
 
     print(
-        f"Replay transitions: {len(transitions)} "
+        f"Replay transitions: {len(rewards)} "
         f"- non-terminal: {(~done_mask).sum().item()} "
         f"- terminal: {done_mask.sum().item()}"
     )

@@ -555,6 +555,142 @@ def test_replay_learning_signal_uses_agent_device(capsys):
     output = capsys.readouterr().out
     assert "TD" in output
 
+
+@pytest.fixture
+def learning_signal_case():
+    class DiagnosticNetwork(torch.nn.Module):
+        def __init__(self, values):
+            super().__init__()
+            self.values = torch.nn.Parameter(torch.tensor(values))
+            self.calls = []
+
+        def evaluate_state_action_pairs(self, states, actions):
+            assert not torch.is_grad_enabled()
+            self.calls.append(list(actions))
+            return self.values[actions]
+
+        def evaluate_legal_action_maxes(self, states, legal_actions):
+            assert not torch.is_grad_enabled()
+            self.calls.append(legal_actions)
+            return torch.stack([self.values[actions].max() for actions in legal_actions])
+
+    agent = SimpleNamespace(
+        policy_net=DiagnosticNetwork([0.25, 0.5, 2.0]),
+        target_net=DiagnosticNetwork([100.0, 2.0, 3.0]),
+        device=torch.device("cpu"), gamma=0.99,
+    )
+    replay = ReplayBuffer(capacity=3)
+    state = torch.zeros((18, 8, 8))
+    for action, reward, done, legal in (
+        (0, 1.0, True, []),
+        (1, 0.0, False, [1]),
+        (2, -0.1, False, [1, 2]),
+    ):
+        replay.push(state.clone(), action, reward, state.clone(), done, legal)
+    tracker = TerminalTransitionTracker(replay)
+    tracker.load_state_dict({"terminal_labels": ["win", None, "truncated"]})
+    return agent, replay, tracker
+
+
+@pytest.mark.parametrize("batch_size", [1, 2, 256])
+def test_calculate_learning_signal_targets_and_categories(learning_signal_case, batch_size):
+    agent, replay, tracker = learning_signal_case
+    result = probe.calculate_replay_learning_signal(
+        agent, replay, batch_size, terminal_labels=tracker.get_final_labels()
+    )
+    assert result["index"].tolist() == [0, 1, 2]
+    assert result["category"] == ["win", "non_terminal", "truncated"]
+    assert result["done"].tolist() == [True, False, False]
+    torch.testing.assert_close(result["reward"], torch.tensor([1.0, 0.0, -0.1]))
+    torch.testing.assert_close(result["q"], torch.tensor([0.25, 0.5, 2.0]))
+    torch.testing.assert_close(result["target"], torch.tensor([1.0, 1.98, 2.87]))
+    torch.testing.assert_close(result["td_error"], torch.tensor([0.75, 1.48, 0.87]))
+    torch.testing.assert_close(result["abs_td_error"], result["td_error"].abs())
+    assert result["target"][0] == result["reward"][0]
+    assert [a for call in agent.policy_net.calls for a in call] == [0, 1, 2]
+    assert [a for call in agent.target_net.calls for a in call] == [[1], [1, 2]]
+    assert all(not v.requires_grad and v.device.type == "cpu"
+               for v in result.values() if isinstance(v, torch.Tensor))
+
+
+def test_calculate_learning_signal_negative_td_and_unknown_category(learning_signal_case):
+    agent, replay, _ = learning_signal_case
+    replay.buffer[0].reward = -1.0
+    result = probe.calculate_replay_learning_signal(agent, replay)
+    assert result["category"] == [None, None, None]
+    assert result["td_error"][0].item() == -1.25
+    assert result["abs_td_error"][0].item() == 1.25
+
+
+def test_calculate_learning_signal_rejects_invalid_replay(learning_signal_case):
+    agent, replay, _ = learning_signal_case
+    replay.buffer[1].next_legal_actions = []
+    with pytest.raises(ValueError, match="Non-terminal transition must have legal next actions"):
+        probe.calculate_replay_learning_signal(agent, replay)
+    with pytest.raises(ValueError, match="Cannot analyze an empty replay buffer"):
+        probe.calculate_replay_learning_signal(agent, ReplayBuffer(capacity=1))
+
+
+@pytest.mark.parametrize("training", [True, False])
+def test_calculate_learning_signal_preserves_state(learning_signal_case, training):
+    import random
+    import numpy as np
+
+    agent, replay, _ = learning_signal_case
+    agent.policy_net.train(training)
+    agent.target_net.train(not training)
+    networks = (agent.policy_net, agent.target_net)
+    weights = [network.values.detach().clone() for network in networks]
+    priorities = tuple(replay.priorities)
+    states = [(t.state.clone(), t.next_state.clone()) for t in replay.buffer]
+    rng = (random.getstate(), np.random.get_state(), torch.get_rng_state().clone())
+    probe.calculate_replay_learning_signal(agent, replay)
+    assert agent.policy_net.training == training
+    assert agent.target_net.training == (not training)
+    for network, before in zip(networks, weights):
+        assert torch.equal(network.values, before)
+        assert network.values.grad is None
+    assert tuple(replay.priorities) == priorities
+    for transition, (state, next_state) in zip(replay.buffer, states):
+        assert torch.equal(transition.state, state)
+        assert torch.equal(transition.next_state, next_state)
+    assert random.getstate() == rng[0]
+    np_after = np.random.get_state()
+    assert np_after[0] == rng[1][0]
+    assert np.array_equal(np_after[1], rng[1][1])
+    assert np_after[2:] == rng[1][2:]
+    assert torch.equal(torch.get_rng_state(), rng[2])
+
+
+def test_analyze_learning_signal_preserves_output_and_return(learning_signal_case, capsys, monkeypatch):
+    agent, replay, _ = learning_signal_case
+    replay.buffer.pop()
+    replay.buffer.pop()
+    original = probe.calculate_replay_learning_signal
+    calls = []
+
+    def calculate(*args):
+        calls.append(args)
+        return original(*args)
+
+    monkeypatch.setattr(probe, "calculate_replay_learning_signal", calculate)
+    assert probe.analyze_replay_learning_signal(agent, replay) is None
+    assert len(calls) == 1
+    assert agent.policy_net.calls == [[0]]
+    assert agent.target_net.calls == []
+    assert capsys.readouterr().out == (
+        "Replay transitions: 1 - non-terminal: 0 - terminal: 1\n"
+        "Reward: mean=1.000000 - std=0.000000 - min=1.000000 - max=1.000000\n"
+        "Bellman target: mean=1.000000 - std=0.000000 - min=1.000000 - max=1.000000\n"
+        "Q(s,a): mean=0.250000 - std=0.000000 - min=0.250000 - max=0.250000\n"
+        "|TD error|: mean=0.750000 - std=0.000000 - min=0.750000 - max=0.750000\n"
+        "\nTerminal transitions:\n"
+        "Reward: mean=1.000000 - std=0.000000 - min=1.000000 - max=1.000000\n"
+        "Bellman target: mean=1.000000 - std=0.000000 - min=1.000000 - max=1.000000\n"
+        "Q(s,a): mean=0.250000 - std=0.000000 - min=0.250000 - max=0.250000\n"
+        "|TD error|: mean=0.750000 - std=0.000000 - min=0.750000 - max=0.750000\n"
+    )
+
 def test_probe_main_passes_device_to_agent(monkeypatch):
     from scripts import run_state_action_probe as probe
 
