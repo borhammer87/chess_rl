@@ -377,6 +377,10 @@ def test_expected_target_uniform_replies_and_full_material_change(black):
     result = expected_alternative_target(board, move, net, 0.9)
     expected = sum(r - 0.0005 + 0.9 * q for r, q in zip(rewards, values)) / len(values)
     assert result["alternative_expected_target"] == pytest.approx(expected)
+    assert result["alternative_expected_reward"] == pytest.approx(sum(rewards) / len(rewards) - 0.0005)
+    assert result["alternative_expected_bootstrap"] == pytest.approx(0.9 * sum(values) / len(values))
+    assert result["alternative_expected_target"] == pytest.approx(
+        result["alternative_expected_reward"] + result["alternative_expected_bootstrap"])
     assert result["opponent_reply_count"] == len(values)
     assert result["opponent_terminal_fraction"] == 0
     assert net.calls == len(values)
@@ -408,6 +412,10 @@ def test_expected_target_mixed_mating_and_nonterminal_replies(black):
         (-1 + len(live) * (-0.0005 + 0.9 * 0.5)) / len(ends)
     )
     assert result["opponent_terminal_fraction"] == pytest.approx(1 / len(ends))
+    assert result["alternative_expected_reward"] == pytest.approx((-1 - len(live) * 0.0005) / len(ends))
+    assert result["alternative_expected_bootstrap"] == pytest.approx(len(live) * 0.9 * 0.5 / len(ends))
+    assert result["alternative_expected_target"] == pytest.approx(
+        result["alternative_expected_reward"] + result["alternative_expected_bootstrap"])
     assert net.calls == len(live)
 
 
@@ -418,6 +426,7 @@ def test_expected_immediate_terminal_has_no_bootstrap(black):
     net = TargetValues([], [])
     result = expected_alternative_target(board, move, net, 0.99)
     assert result == dict(alternative_expected_target=1.01,
+                          alternative_expected_reward=1.01, alternative_expected_bootstrap=0.0,
                           opponent_reply_count=0, opponent_terminal_fraction=None)
     assert net.calls == 0
 
@@ -470,6 +479,7 @@ def test_expected_immediate_draw():
     board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
     result = expected_alternative_target(board, chess.Move.from_uci("f7e6"), TargetValues([], []), 0.99)
     assert result == dict(alternative_expected_target=0.0,
+                          alternative_expected_reward=0.0, alternative_expected_bootstrap=0.0,
                           opponent_reply_count=0, opponent_terminal_fraction=None)
 
 
@@ -577,6 +587,7 @@ def test_existing_detail_retains_source_history(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("alternative,category", [("", "no_alternative"), ("f7e6", "terminal_draw")])
 def test_existing_detail_keeps_terminal_and_absent_alternatives(tmp_path, alternative, category):
+    import csv
     board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")
     path = tmp_path / "detail.csv"
     write_existing_detail(path, board, alternative, category)
@@ -585,6 +596,16 @@ def test_existing_detail_keeps_terminal_and_absent_alternatives(tmp_path, altern
         assert record["opponent_terminal_fraction"] is None
         assert record["opponent_reply_count"] == (0 if alternative else None)
         assert record["alternative_expected_target"] == (0.0 if alternative else None)
+        assert record["alternative_expected_reward"] == (0.0 if alternative else None)
+        assert record["alternative_expected_bootstrap"] == (0.0 if alternative else None)
+    from scripts.diagnose_mate_q import export_csv
+    output = tmp_path / "export.csv"
+    export_csv(output, records)
+    with output.open(newline="", encoding="utf-8") as handle:
+        exported = list(csv.DictReader(handle))
+    for record in exported:
+        for field in ("alternative_expected_reward", "alternative_expected_bootstrap"):
+            assert record[field] == ("0.0" if alternative else "")
 
 
 def test_existing_detail_rejects_mismatched_sources_and_illegal_moves(tmp_path):

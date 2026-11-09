@@ -54,6 +54,7 @@ def expected_alternative_target(board, move, target_net, gamma):
     if not replies:
         outcomes = [(category, after_move, reward)]
     targets, terminal_count = [], 0
+    rewards, bootstraps = [], []
     was_training = target_net.training
     try:
         target_net.eval()
@@ -63,17 +64,24 @@ def expected_alternative_target(board, move, target_net, gamma):
                 terminal_count += int(done)
                 target = reward_for_color(reward, board.turn)
                 target += material_reward(board, next_board, board.turn)
+                immediate_reward, bootstrap = target, 0.0
                 if not done:
                     state = encode_board(next_board).to(next(target_net.parameters()).device)
                     future = target_net.evaluate_legal_action_maxes(
                         state.unsqueeze(0), [get_legal_actions(next_board)]
                     )[0].item()
-                    target += STEP_PENALTY + gamma * future
+                    bootstrap = gamma * future
+                    immediate_reward += STEP_PENALTY
+                    target += STEP_PENALTY + bootstrap
                 targets.append(target)
+                rewards.append(immediate_reward)
+                bootstraps.append(bootstrap)
     finally:
         target_net.train(was_training)
     return {
         "alternative_expected_target": sum(targets) / len(targets),
+        "alternative_expected_reward": sum(rewards) / len(rewards),
+        "alternative_expected_bootstrap": sum(bootstraps) / len(bootstraps),
         "opponent_reply_count": len(replies),
         "opponent_terminal_fraction": terminal_count / len(replies) if replies else None,
     }
@@ -213,6 +221,8 @@ def enrich_existing_detail(path, seeded, games, target_net, gamma, sample_size=2
             record = dict(indexed[(label, board.fen())])
             # Retain all existing fields verbatim, including recorded Q values.
             record.update(alternative_expected_target=None,
+                          alternative_expected_reward=None,
+                          alternative_expected_bootstrap=None,
                           alternative_q_minus_target=None,
                           opponent_reply_count=None, opponent_terminal_fraction=None)
             uci = record["alternative_move"]
