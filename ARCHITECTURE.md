@@ -206,3 +206,27 @@ The experimental State-Action probe uses this infrastructure to support explicit
 On resume, the probe validates checkpoint metadata, restores the agent and replay buffer, reconstructs terminal labels and preserves the restored training RNG state across the initial evaluation. It then resumes training using the saved cumulative episode count. Subsequent checkpoints are written to the original run directory.
 
 The implementation supports practical training continuation. Exact numerical equivalence between an uninterrupted run and a split resumed run remains unverified.
+
+## Experimental mate diagnostics
+
+The repository provides separate diagnostic utilities for the spatial State-Action DQN.
+
+- `scripts/inject_mate_replay.py` constructs verified mate-in-one replay transitions from CSV positions.
+- `scripts/diagnose_mate_generalization.py` extracts and associates mate positions from seeded data and recorded games.
+- `scripts/diagnose_mate_q.py` evaluates mate-action and non-mating-alternative Q estimates. Its Bellman enrichment uses uniform RandomAgent replies and the target network, without artificial truncation.
+- `scripts/diagnose_mate_replay.py` matches generated mate transitions against stored replay content and summarizes replay Q, Bellman targets and TD errors by outcome category.
+- `scripts/run_state_action_probe.py` provides the reusable `calculate_replay_learning_signal()` helper for replay-level learning-signal calculations.
+
+The Bellman enrichment exposes:
+
+- `alternative_expected_reward`: expected immediate reward across opponent replies.
+- `alternative_expected_bootstrap`: expected discounted target-network continuation value.
+- `alternative_expected_target`: their sum, preserving the existing target semantics.
+
+Terminal replies have zero bootstrap.
+
+The replay matcher compares complete encoded transition content. Matching does not establish historical provenance or sampling frequency.
+
+The diagnostic utilities distinguish stored-action Q estimates from maximum mating-action Q estimates and do not treat target-network predictions as observed returns.
+
+These tools do not modify the training algorithm, reward function or replay-sampling policy.

@@ -547,62 +547,173 @@ epsilon-decay schedule while keeping other training settings fixed.
 
 ## Full-game mate learning diagnosis — November 2026
 
-**Question:** Does seeding a fresh full-game spatial DQN replay
-with mate-in-one examples produce reliable mate selection?
+### Question
 
-**Measured evidence:**
+Why does the spatial State-Action DQN frequently reject available immediate checkmates after training with verified mate-in-one replay transitions?
 
-- The replay was initialized with 295 mate transitions from
-  199 unique positions, without mate-only pretraining.
-- After 50 training episodes, the checkpoint selected mate in
-  29/199 seeded positions (14.57%).
-- On 89 unique DQN-to-move mate positions encountered in
-  greedy games, it selected mate in 2/89 (2.25%).
-- Mean mate Q advantage was negative in both sets:
-  - Seeded positions: -0.035213.
-  - Game positions: -0.053080.
-- The 50-game evaluation recorded 121 mate opportunities,
-  of which only 2 were converted.
-- The final greedy diagnostic game showed repeated moves
-  and ended in a draw by fivefold repetition.
+The investigation distinguishes:
 
-**Interpretation:**
+1. Missing or insufficient mate examples in the final replay.
+2. Incorrect valuation of mate actions.
+3. Overvaluation of non-mating alternatives.
+4. Immediate reward incentives favoring continued play.
+5. Limited transfer to positions encountered during games.
 
-The network has not learned a reliable preference for
-immediate checkmate, even on positions represented in
-the initial replay.
+### Replay evidence
 
-Poor generalization alone cannot explain the low accuracy
-on seeded positions.
+Checkpoint:
 
-The observed 10.07% PER selection share for transitions
-labelled as wins does not establish how often the original
-seeded mate transitions were sampled.
+`checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt`
 
-The game-position set has not been proven disjoint from
-the seeded-position set. The measured difference is
-therefore not a clean held-out generalization estimate.
+The checkpoint contains 7,238 replay transitions.
 
-The result does not establish whether the main limitation
-is insufficient mate sampling, reward design, credit
-assignment, model representation or optimization.
+Content-based matching against the generated mate examples found:
 
-**Active alternatives for the next controlled experiment:**
+- 199 unique seeded positions.
+- 295 generated terminal mate transitions.
+- 295/295 generated transitions matched exactly in the final replay.
+- 295 distinct compatible replay indices.
+- All 295 compatible transitions were terminal and labelled as wins.
+- 301 total win-labelled transitions, including six not compatible with the generated examples.
+- No ambiguous matches involving the generated examples.
 
-1. Increase or guarantee sampling of verified mate-in-one
-   experiences during training.
-2. Revisit the penalty for excessively long or artificially
-   truncated games.
-3. Revisit material-based reward shaping.
+Thus, 295/301 (98.01%) of win-labelled replay transitions were compatible with the generated mate transitions.
 
-No alternative has yet been selected.
+Content equality does not independently establish transition provenance.
 
-**Next diagnostic question:**
+The presence of these examples in the final replay does not establish their historical PER sampling frequency.
 
-How often are the verified seeded mate transitions actually
-sampled during optimization, and how does their sampling
-frequency relate to the persistent negative mate Q advantage?
+### Replay learning-signal evidence
 
-Prefer a measurement or a controlled single-variable
-experiment before changing replay sampling and rewards
-simultaneously.
+The checkpoint was evaluated with explicit gamma=0.99.
+
+| Category | Count | Mean Q | Mean target | Mean TD |
+| --- | ---: | ---: | ---: | ---: |
+| Compatible seeded mates | 295 | 0.950013 | 1.000000 | +0.049987 |
+| Other wins | 6 | 0.974895 | 1.013333 | +0.038439 |
+| Draws | 6 | 0.015330 | -0.023333 | -0.038663 |
+| Losses | 1 | -0.944042 | -1.110000 | -0.165958 |
+| Truncated | 37 | 0.305980 | 0.297198 | -0.008782 |
+| Non-terminal | 6,893 | 0.464574 | 0.504828 | +0.040254 |
+
+TD is defined as target minus Q.
+
+The 295 compatible terminal mate actions have mean Q approximately 0.95 against a terminal target of +1.
+
+This supports substantial valuation of the stored mate actions, but does not establish correct action ranking or general chess-playing strength.
+
+### Mate-selection evidence
+
+| Metric | Seeded | Games |
+| --- | ---: | ---: |
+| Unique analyzed positions | 199 | 89 |
+| Mate selected | 29 | 2 |
+| Selection accuracy | 14.57% | 2.25% |
+| Mean maximum mate Q | 0.948442 | 0.749945 |
+| Mean best non-mate Q | 0.983655 | 0.803025 |
+| Mean mate Q advantage | -0.035213 | -0.053080 |
+
+The replay diagnostic measures Q for stored actions. The position diagnostic measures the maximum Q among mating actions.
+
+These quantities must not be treated as interchangeable.
+
+The difference between the two evaluation sets is compatible with limited transfer, but independence from training has not been established.
+
+### Alternative-action Bellman evidence
+
+For non-terminal alternatives:
+
+| Metric | Seeded | Games |
+| --- | ---: | ---: |
+| Positions | 192 | 89 |
+| Q alternative > Q mate | 164 | 87 |
+| Expected Bellman target > +1 | 42 | 3 |
+| Q alternative > Q mate and target < +1 | 123 | 84 |
+| Q alternative > expected target | 169 | 62 |
+| Mean Q alternative minus target | +0.066330 | +0.024671 |
+
+The expected Bellman target enumerates legal RandomAgent replies uniformly. It excludes artificial truncation and uses the target network for non-terminal continuation values.
+
+It is an estimated learning target, not an observed return.
+
+### Immediate reward versus bootstrap
+
+The enriched Bellman diagnostic separates:
+
+`E[target] = E[immediate reward] + E[discounted bootstrap]`
+
+| Metric | Seeded | Games |
+| --- | ---: | ---: |
+| Non-terminal alternatives | 192 | 89 |
+| Mean expected immediate reward | -0.006769 | -0.002120 |
+| Mean expected bootstrap | 0.922099 | 0.780474 |
+| Mean expected target | 0.915331 | 0.778354 |
+| Expected target > +1 | 42 | 3 |
+| Positive immediate reward necessary to exceed +1 | 3 | 0 |
+
+Among the 45 non-terminal alternatives whose expected targets exceed +1, only three require a positive immediate reward to cross that threshold.
+
+In the other 42 cases, the discounted bootstrap already exceeds +1.
+
+This weakens the hypothesis that accumulating immediate material rewards is the dominant explanation for the observed preference to continue playing.
+
+It does not prove that reward shaping is optimal or that delayed victory cannot have a greater actual return in some situations.
+
+### Terminal-draw alternatives
+
+Seven seeded positions had a best non-mating alternative that immediately produced a draw.
+
+For all seven:
+
+- Expected immediate reward: 0.
+- Bootstrap: 0.
+- Expected Bellman target: 0.
+- Mean predicted alternative Q: 1.038372.
+- In six of seven positions, alternative Q exceeded mate Q.
+
+These cases provide direct evidence of incorrect action-value estimates relative to known terminal targets.
+
+They cannot be explained by future rewards accumulated after the alternative action.
+
+### Diagnostic validation and limitations
+
+The enriched CSV contains 199 seeded and 89 game positions.
+
+Its original Q fields match the earlier detail CSV exactly. The Bellman targets match the previous full diagnostic exactly, with maximum reported difference zero.
+
+The decomposition identity holds with maximum numerical error approximately 5.55e-16.
+
+Checkpoint provenance is supported by the recorded execution command, but the CSV does not independently certify checkpoint identity through metadata or a hash.
+
+The reported zero overlap between evaluation sets does not establish independence from the training replay.
+
+The diagnostic does not measure actual returns from following the alternative actions.
+
+### Current interpretation
+
+The evidence supports three distinct observations:
+
+1. Stored terminal mate actions receive Q estimates close to their targets.
+2. Non-mating alternatives are frequently ranked above mating actions and often have Q estimates above their expected Bellman targets.
+3. Mate Q estimates are substantially lower on encountered game positions than on seeded positions.
+
+The immediate reward component does not appear to be the dominant cause of alternatives exceeding the +1 target threshold.
+
+The current leading investigation concerns action-value calibration, action ranking and possible limitations in generalization.
+
+These are not yet established as a single causal mechanism.
+
+### Next diagnostic question
+
+Which mechanism is responsible for the incorrect ranking of mating versus non-mating actions?
+
+Prioritize a small, controlled diagnostic that distinguishes:
+
+- incorrect valuation of terminal alternatives;
+- bootstrap-related value-estimation errors;
+- insufficient learning of relative action preferences;
+- transfer limitations across different position distributions.
+
+Do not change rewards, PER, network architecture and training duration simultaneously.
+
+A new training experiment should be justified by a specific diagnostic prediction.

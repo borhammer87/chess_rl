@@ -789,3 +789,96 @@ a matched 50-episode unseeded control is still needed.
 
 No reward or replay-sampling modification was introduced
 as a consequence of these measurements.
+
+## Mate replay and Bellman diagnostics — November 2026
+
+Reference checkpoint:
+
+`checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt`
+
+Explicit diagnostic discount factor: gamma=0.99.
+
+### Final replay content matching
+
+The final replay contained 7,238 transitions.
+
+Matching generated mate transitions by complete encoded content produced:
+
+| Measurement | Result |
+| --- | ---: |
+| Unique seeded positions | 199 |
+| Generated mate transitions | 295 |
+| Matched generated transitions | 295 |
+| Distinct compatible replay transitions | 295 |
+| Compatible terminal wins | 295 |
+| Other win-labelled transitions | 6 |
+| Total win-labelled transitions | 301 |
+| Compatible share of win-labelled transitions | 98.01% |
+
+Two duplicate-content groups were found elsewhere in the replay, with no ambiguous matching of the generated examples.
+
+Compatibility is not proof of original transition provenance.
+
+### Replay Q and TD measurements
+
+| Category | N | Mean Q | Mean target | Mean signed TD | Mean absolute TD |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Compatible seeded mates | 295 | 0.950013 | 1.000000 | +0.049987 | 0.063679 |
+| Other wins | 6 | 0.974895 | 1.013333 | +0.038439 | 0.044325 |
+| Draws | 6 | 0.015330 | -0.023333 | -0.038663 | 0.051669 |
+| Losses | 1 | -0.944042 | -1.110000 | -0.165958 | 0.165958 |
+| Truncated | 37 | 0.305980 | 0.297198 | -0.008782 | 0.028827 |
+| Non-terminal | 6,893 | 0.464574 | 0.504828 | +0.040254 | 0.047123 |
+
+Signed TD = target - Q.
+
+### Mate-selection and alternative-action measurements
+
+| Measurement | Seeded | Games |
+| --- | ---: | ---: |
+| Analyzed mate positions | 199 | 89 |
+| Mate selected | 29 | 2 |
+| Mean maximum mate Q | 0.948442 | 0.749945 |
+| Mean best alternative Q | 0.983655 | 0.803025 |
+| Mean mate Q advantage | -0.035213 | -0.053080 |
+| Non-terminal alternatives | 192 | 89 |
+| Non-terminal alternative target > +1 | 42 | 3 |
+| Non-terminal alternative Q > target | 169 | 62 |
+| Non-terminal Q alternative > Q mate, target < +1 | 123 | 84 |
+
+Seven seeded alternatives ended immediately in draws, with mean Q 1.038372 and expected terminal target zero.
+
+### Expected Bellman target decomposition
+
+| Measurement | Seeded | Games |
+| --- | ---: | ---: |
+| Non-terminal alternatives | 192 | 89 |
+| Mean expected immediate reward | -0.006769 | -0.002120 |
+| Minimum expected immediate reward | -0.090500 | -0.080500 |
+| Maximum expected immediate reward | +0.106470 | +0.049000 |
+| Positive / negative / zero expected rewards | 31 / 161 / 0 | 13 / 76 / 0 |
+| Mean discounted bootstrap | 0.922099 | 0.780474 |
+| Bootstrap minimum | 0.661515 | 0.529685 |
+| Bootstrap maximum | 1.154014 | 1.036922 |
+| Mean expected Bellman target | 0.915331 | 0.778354 |
+| Expected target > +1 | 42 | 3 |
+| Positive immediate reward necessary to cross +1 | 3 | 0 |
+
+Validation:
+
+- 199 seeded and 89 game positions retained.
+- Original Q fields unchanged.
+- Maximum difference from previous Bellman targets: 0.
+- Maximum target decomposition error: approximately 5.55e-16.
+
+The expected target is based on uniform RandomAgent replies and target-network estimates. It is not an observed return.
+
+The CSV does not independently certify checkpoint identity.
+
+### Diagnostic artifacts
+
+- `diagnostics/mate_q_detail.csv`
+- `diagnostics/mate_bellman_detail_0.csv`
+- `diagnostics/mate_bellman_components_0.csv`
+
+See `DIAGNOSTICS.md` for interpretation and remaining hypotheses.

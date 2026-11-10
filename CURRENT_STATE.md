@@ -30,23 +30,30 @@ State-Action DQN path.
 The current development focus is not adding basic DQN functionality.
 
 
-The active objective is to diagnose why the experimental spatial
-State-Action DQN fails to convert available checkmates during
-full-game greedy evaluation.
+The active development focus is the experimental spatial State-Action DQN and its failure to select available immediate checkmates reliably during full-game evaluation.
 
-A fresh 50-episode CUDA training run initialized replay with
-295 verified mate transitions from 199 unique positions,
-without mate-only pretraining. Final greedy evaluation scored
-0.375 over 40 games, but a separate 50-game audit converted
-only 2 of 121 available mates.
+A 50-episode CUDA training experiment initialized replay with 295 verified mate transitions generated from 199 unique positions.
 
-The checkpoint subsequently selected mate in 29/199 seeded
-positions and 2/89 unique game positions. Mean mate Q
-advantage was negative in both datasets.
+The final checkpoint selected mate in:
 
-The current task is to evaluate competing explanations
-involving mate replay sampling and reward incentives,
-without changing multiple training mechanisms at once.
+- 29/199 seeded positions (14.57%).
+- 2/89 unique positions encountered during greedy games (2.25%).
+
+The final replay contained 7,238 transitions. Content-based matching identified 295 transitions compatible with the generated terminal mate examples.
+
+Their mean Q was 0.950013 against a terminal target of +1.
+
+The subsequent Bellman analysis found that non-mating alternatives frequently receive Q estimates above their expected targets. Seven alternatives ending immediately in draws received mean Q approximately 1.038 despite terminal targets of zero.
+
+Expected immediate rewards were slightly negative on average in both evaluation datasets. Only three of 45 non-terminal alternatives with expected Bellman targets above +1 required positive immediate reward to cross that threshold.
+
+The reward-accumulation hypothesis is therefore weakened as the primary explanation for the observed failures.
+
+The next objective is to design a controlled investigation of action-value calibration, incorrect action ranking and possible generalization limitations before changing training mechanisms.
+
+No reward, PER or architecture modification has been approved.
+
+See `DIAGNOSTICS.md` for the detailed evidence and `TRAINING_STATUS.md` for measured results.
 
 
 ---
@@ -299,38 +306,44 @@ The original non-spatial 100-episode baseline ended at score 0.1125, but the
 spatial run also enabled truncation bootstrapping, so it is **not** a strict
 one-variable architecture A/B comparison.
 
-
 ## Current milestone — November 2026
 
 Completed:
 
-- Added mate-in-one CSV extraction and replay initialization
-  to the experimental full-game training workflow.
-- Completed a fresh 50-episode CUDA run with mate replay seeding.
-- Evaluated the checkpoint in 40 balanced greedy games.
-- Audited mate opportunities across 50 additional greedy games.
-- Measured mate-selection accuracy and Q advantage on seeded
-  and encountered positions.
+- Mate-in-one CSV extraction and replay initialization.
+- Fresh 50-episode CUDA spatial State-Action training experiment.
+- Balanced greedy evaluation and independent mate-opportunity audit.
+- Seeded versus encountered mate-position Q diagnosis.
+- Exact-content matching of generated mate transitions against final replay.
+- Replay category Q, Bellman-target and TD-error analysis.
+- Expected Bellman analysis of the best non-mating alternatives.
+- Decomposition of alternative targets into expected immediate reward and discounted bootstrap.
+- Validation that the enriched Bellman targets match the previous diagnostic results.
 
 Current evidence:
 
-- Seeded positions: 29/199 mate selections (14.57%).
-- Unique game positions: 2/89 mate selections (2.25%).
-- Independent 50-game audit: 2/121 mates converted.
-- Repetitive play remains observable.
+- 295/295 generated mate transitions are compatible with final replay content.
+- Mean stored mate-action Q: 0.950013; terminal target: +1.
+- Mate-selection accuracy: 29/199 seeded and 2/89 game positions.
+- Non-mating alternatives are frequently preferred over mating actions.
+- Seven immediate-draw alternatives have mean Q 1.038372 despite target zero.
+- Expected immediate rewards are slightly negative on average.
+- Only 3/45 alternatives with expected targets above +1 require positive immediate reward to cross the threshold.
 
-The mate-generalization diagnostic was executed locally,
-but its script is not present in the repository ZIP
-inspected for this documentation update.
+Current interpretation:
+
+The evidence favors investigating incorrect action-value estimation and action ranking before modifying material reward shaping.
+
+Generalization limitations remain plausible but have not been isolated through an independent held-out comparison.
+
+Current validation:
+
+Codex reported 486 passing tests after the Bellman-component implementation. This count has not been independently rerun for the present documentation update.
 
 Immediate next task:
 
-Choose the next controlled experiment after reviewing
-mate-transition sampling and the existing reward structure.
+Design the smallest controlled diagnostic that distinguishes terminal-action misvaluation, bootstrap estimation errors and incorrect relative ranking of mating versus non-mating actions.
 
-Candidate changes include a fixed mate sampling proportion
-or a stronger long-game/truncation penalty. No choice has
-yet been approved.
+Do not begin another training experiment or modify rewards, PER or architecture until a specific hypothesis and comparison have been selected.
 
-See `DIAGNOSTICS.md` for interpretation and
-`TRAINING_STATUS.md` for measured results.
+See `DIAGNOSTICS.md` for interpretation, `TRAINING_STATUS.md` for experimental measurements and `ROADMAP.md` for pending milestones.

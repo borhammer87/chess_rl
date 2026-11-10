@@ -524,3 +524,49 @@ Restart training from saved network weights only, create a separate checkpoint f
 
 ### Consequences
 The experimental probe supports practical training continuation, validated by automated tests and a successful 25 + 25 episode CUDA run. Older checkpoints without the required training configuration are rejected for resume. Exact equivalence with uninterrupted training remains a separate, unverified reproducibility requirement.
+
+## D-028 — Defer reward and replay changes until mate action-value errors are isolated
+
+### Status
+
+Accepted — November 2026.
+
+### Decision
+
+Retain the current material shaping, step penalty, PER configuration and spatial State-Action architecture while investigating the failure to select immediate checkmates.
+
+Prioritize a controlled diagnosis of action-value estimation and relative action ranking before introducing further training changes.
+
+### Motivation
+
+The November 2026 mate diagnostics established that:
+
+- All 295 generated mate transitions have exact-content matches in the final replay.
+- Compatible terminal mate actions have mean Q approximately 0.95 against target +1.
+- Non-mating alternatives frequently outrank mating actions.
+- Seven alternatives ending immediately in draws have mean Q approximately 1.038 despite target zero.
+- Expected immediate rewards are slightly negative on average.
+- Only three of 45 alternatives with expected Bellman targets above +1 require positive immediate reward to cross that threshold.
+
+These findings weaken immediate material-reward accumulation as the dominant explanation for the observed action preferences.
+
+They do not establish a unique cause or demonstrate that the reward design is optimal.
+
+### Alternatives considered
+
+- Increase mate-example sampling through PER.
+- Change material-based reward shaping.
+- Increase penalties for long or truncated games.
+- Increase training duration immediately.
+- Modify network architecture.
+- Continue with a controlled action-value diagnostic before changing training.
+
+### Consequences
+
+No training or reward change is introduced by this decision.
+
+Future modifications should target a specific measured failure and use controlled comparisons.
+
+The next investigation will focus on terminal-action valuation, bootstrap estimation and relative ranking of mating versus non-mating actions.
+
+This decision may be revisited if subsequent evidence demonstrates that reward incentives materially contribute to the observed failure.

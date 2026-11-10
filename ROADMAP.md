@@ -154,10 +154,28 @@ This roadmap distinguishes implemented milestones from validation that is still 
       (2/121 opportunities converted)
 - [x] Diagnose mate-selection accuracy on seeded and
       encountered positions (29/199 and 2/89)
-- [ ] Establish actual sampling frequency of seeded mate
-      transitions during full-game training
-- [ ] Compare mate sampling and reward-incentive alternatives
-      using controlled experiments
+- [x] Match generated mate transitions against final replay content
+      and distinguish content compatibility from proven provenance
+- [x] Compare replay Q, Bellman targets and TD errors for compatible
+      mate transitions and other replay outcome categories
+- [x] Diagnose the relative Q ranking of mating and non-mating actions
+      on seeded and encountered mate positions
+- [x] Compute expected Bellman targets for non-mating alternatives
+      under uniform RandomAgent replies
+- [x] Separate expected immediate reward from discounted bootstrap
+      without changing the original Bellman target
+- [x] Validate the Bellman-component decomposition against the
+      previous full diagnostic
+- [ ] Establish the historical sampling frequency of individual
+      seeded mate transitions during optimization
+- [ ] Investigate terminal-action Q misvaluation and incorrect
+      relative ranking of mating versus non-mating actions
+- [ ] Distinguish bootstrap estimation errors from immediate-reward
+      incentives using a controlled comparison
+- [ ] Evaluate mate selection on genuinely independent held-out
+      position distributions
+- [ ] Decide whether reward shaping, PER or optimization changes
+      are justified by the diagnostic evidence
 - [ ] Repeat spatial evaluation across seeds and isolate architecture from truncation-bootstrapping settings
 - [ ] Diagnose the remaining cause of persistent greedy truncation and the
   100-to-500-episode learning plateau
