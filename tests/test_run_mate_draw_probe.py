@@ -1,8 +1,112 @@
 import chess
+import csv
 import pytest
 import torch
 
 from scripts import run_mate_draw_probe as probe
+
+
+def control_csv(tmp_path, rows=None):
+    row = dict(fen="2k5/2p2q2/1pK5/1P6/8/8/8/8 b - - 43 83",
+               mate_move="f7f3", alternative_move="f7b3", alternative_category="terminal_draw")
+    path = tmp_path / "control.csv"
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerows([row] if rows is None else rows)
+    return path, row
+
+
+def test_control_original_actions_and_single_inference_pass(tmp_path, monkeypatch, capsys):
+    path, row = control_csv(tmp_path)
+    pairs = probe.load_diagnostic_control(path)
+    pair = pairs[0]
+    assert pair["mate_move"].uci() == row["mate_move"]
+    assert pair["stalemate_move"].uci() == row["alternative_move"]
+    assert len(pair["board"].piece_map()) != 3
+    def forbidden(*args):
+        pytest.fail("Control must never use KQK canonicalization")
+    monkeypatch.setattr(probe, "canonical_kqk_key", forbidden)
+    policy = FixedPolicy({probe.encode_move(pair["mate_move"]): .75,
+                          probe.encode_move(pair["stalemate_move"]): .25})
+    policy.child.eval()
+    before = pair["board"].fen(), list(pair["board"].move_stack), policy.weight.clone(), torch.get_rng_state()
+    metrics = probe.evaluate_terminal_pairs(pairs, policy, control=True)
+    assert metrics["families"] is None
+    assert metrics["q_mate"] == .75 and metrics["margin"] == .5
+    assert metrics["details"][0]["q_mate"] == .75
+    assert metrics["details"][0]["greedy_mate"] == 1
+    probe.print_metrics("diagnostic_control", metrics)
+    assert "families=N/A" in capsys.readouterr().out
+    assert len(policy.calls) == 2
+    assert policy.training and not policy.child.training
+    assert torch.equal(policy.weight, before[2]) and policy.weight.grad is None
+    assert torch.equal(torch.get_rng_state(), before[3])
+    assert (pair["board"].fen(), list(pair["board"].move_stack)) == before[:2]
+
+
+@pytest.mark.parametrize("invalid", ["fen", "illegal", "wrong_result", "duplicate", "empty", "columns"])
+def test_invalid_control_csv_fails_before_loading_or_updates(tmp_path, monkeypatch, invalid):
+    path, row = control_csv(tmp_path)
+    rows = [row]
+    if invalid == "fen":
+        row["fen"] = "invalid"
+    elif invalid == "illegal":
+        row["mate_move"] = "a1a2"
+    elif invalid == "wrong_result":
+        row["mate_move"] = row["alternative_move"]
+    elif invalid == "duplicate":
+        rows.append(dict(row, fen=row["fen"].replace("43 83", "0 1")))
+    elif invalid == "empty":
+        row["alternative_category"] = "non_terminal"
+    control_csv(tmp_path, rows)
+    if invalid == "columns":
+        path.write_text("fen\ninvalid\n")
+    with pytest.raises(ValueError):
+        probe.load_diagnostic_control(path)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Invalid CSV must fail before model loading or updates")
+    monkeypatch.setattr(probe, "load_adjustment_agent", forbidden)
+    monkeypatch.setattr(probe, "run_adjustment", forbidden)
+    with pytest.raises(SystemExit):
+        probe.main(["--checkpoint", "unused.pt", "--updates", "100", "--control-csv", str(path)])
+
+
+def test_control_milestones_and_training_isolation(tmp_path):
+    from types import SimpleNamespace
+    path, _ = control_csv(tmp_path)
+    control = probe.load_diagnostic_control(path)
+    pair = probe.find_terminal_pair(chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"))
+    calls = []
+    policy = FixedPolicy({})
+    agent = SimpleNamespace(policy_net=policy, train_step=lambda batch: calls.append(batch))
+    results = probe.run_adjustment(agent, [pair], [], 100, diagnostic_control=control)
+    assert list(results) == [0, 10, 100] and len(calls) == 100
+    assert all(batch is calls[0] for batch in calls)
+    assert len(calls[0]) == 2
+    assert all(torch.equal(t.state, probe.encode_board(pair["board"])) for t in calls[0])
+    assert all(not torch.equal(t.state, probe.encode_board(control[0]["board"])) for t in calls[0])
+    assert len(policy.calls) == 12  # 2 calls per position, two sets, three milestones.
+    for groups in results.values():
+        assert set(groups) == {"adjustment", "evaluation", "diagnostic_control"}
+        assert len(groups["diagnostic_control"]["details"]) == 1
+
+
+def test_control_evaluation_cli_and_exception_restore(tmp_path, monkeypatch, capsys):
+    path, _ = control_csv(tmp_path)
+    policy = FixedPolicy({}).eval()
+    monkeypatch.setattr(probe, "load_policy", lambda path: policy)
+    probe.main(["--candidates", "0", "--checkpoint", "unused.pt", "--control-csv", str(path)])
+    output = capsys.readouterr().out
+    assert "step=0 diagnostic_control: positions=1 families=N/A" in output
+    assert "diagnostic_control case=1" in output
+    assert not policy.training
+    def fail(*args):
+        raise RuntimeError("inference failed")
+    monkeypatch.setattr(policy, "evaluate_action_ids", fail)
+    with pytest.raises(RuntimeError, match="inference failed"):
+        probe.evaluate_terminal_pairs(probe.load_diagnostic_control(path), policy, control=True)
+    assert not policy.training
 
 
 @pytest.mark.parametrize("black", [False, True])

@@ -1,5 +1,6 @@
 """Identify KQK pairs; optionally evaluate or adjust an independent checkpoint copy."""
 import argparse
+import csv
 import hashlib
 from pathlib import Path
 
@@ -89,10 +90,42 @@ def load_policy(path):
     return policy
 
 
-def evaluate_terminal_pairs(pairs, policy):
+def load_diagnostic_control(path):
+    """Read fixed terminal actions, rejecting invalid or duplicate controls."""
+    pairs, seen = [], set()
+    with open(path, newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        required = {"fen", "mate_move", "alternative_move", "alternative_category"}
+        if not required.issubset(reader.fieldnames or []):
+            raise ValueError("Control CSV missing required columns")
+        for row in reader:
+            if row["alternative_category"] != "terminal_draw":
+                continue
+            try:
+                board = chess.Board(row["fen"])
+                pair = find_terminal_pair(board)
+                mate = chess.Move.from_uci(row["mate_move"])
+                draw = chess.Move.from_uci(row["alternative_move"])
+                if pair is None or mate not in pair["mate_moves"] or draw not in pair["stalemate_moves"]:
+                    raise ValueError("Expected legal mate and stalemate actions")
+                key = " ".join(board.fen(en_passant="fen").split()[:4])
+                if key in seen:
+                    raise ValueError("Duplicate control position")
+                seen.add(key)
+                pair.update(mate_move=mate, stalemate_move=draw)
+                pairs.append(pair)
+            except (ValueError, TypeError, AttributeError) as error:
+                raise ValueError(f"Invalid control CSV row {reader.line_num}: {error}") from error
+    if not pairs:
+        raise ValueError("Control CSV contains no terminal_draw controls")
+    return pairs
+
+
+def evaluate_terminal_pairs(pairs, policy, *, control=False):
     """Score the fixed pair and separately evaluate greedy over all legal moves."""
     values = {key: [] for key in ("q_mate", "q_stalemate", "mae_mate", "mae_stalemate", "margin")}
     counts = dict(positive=0, negative=0, zero=0, greedy_mate=0)
+    details = []
     modes = [(module, module.training) for module in policy.modules()]
     try:
         policy.eval()
@@ -111,12 +144,19 @@ def evaluate_terminal_pairs(pairs, policy):
                 for key, value in zip(values, (q_mate, q_draw, abs(q_mate - 1), abs(q_draw), margin)):
                     values[key].append(value)
                 counts["positive" if margin > 0 else "negative" if margin < 0 else "zero"] += 1
-                counts["greedy_mate"] += int(action in {encode_move(m) for m in pair["mate_moves"]})
+                greedy_mate = int(action in {encode_move(m) for m in pair["mate_moves"]})
+                counts["greedy_mate"] += greedy_mate
+                if control:
+                    details.append(dict(fen=board.fen(), mate_move=selected[0].uci(),
+                                        stalemate_move=selected[1].uci(),
+                                        **{key: items[-1] for key, items in values.items()},
+                                        greedy_mate=greedy_mate))
     finally:
         for module, training in modes:
             module.training = training
     n = len(pairs)
-    return dict(positions=n, families=len({canonical_kqk_key(p["board"]) for p in pairs}),
+    return dict(positions=n, families=None if control else len({canonical_kqk_key(p["board"]) for p in pairs}),
+                **({"details": details} if control else {}),
                 **{key: sum(items) / n if n else None for key, items in values.items()},
                 **counts, **{key + "_percent": 100 * count / n if n else None
                              for key, count in counts.items()})
@@ -156,7 +196,7 @@ def terminal_pair_batch(pairs):
     return batch
 
 
-def run_adjustment(agent, adjustment, evaluation, updates):
+def run_adjustment(agent, adjustment, evaluation, updates, diagnostic_control=None):
     """Fixed budget; held-out metrics never control updates or model selection."""
     if updates < 0:
         raise ValueError("updates must be non-negative")
@@ -177,6 +217,9 @@ def run_adjustment(agent, adjustment, evaluation, updates):
                 measurements[step] = {
                     name: evaluate_terminal_pairs(subset, agent.policy_net)
                     for name, subset in (("adjustment", adjustment), ("evaluation", evaluation))}
+                if diagnostic_control is not None:
+                    measurements[step]["diagnostic_control"] = evaluate_terminal_pairs(
+                        diagnostic_control, agent.policy_net, control=True)
     finally:
         for module, training in modes:
             module.training = training
@@ -187,7 +230,9 @@ def print_metrics(name, metrics):
     print(name + ": " + " ".join(
         f"{key}={value:.6f}" if isinstance(value, float) else
         f"{key}={value}" if value is not None else f"{key}=N/A"
-        for key, value in metrics.items()))
+        for key, value in metrics.items() if key != "details"))
+    for index, detail in enumerate(metrics.get("details", []), 1):
+        print_metrics(f"{name} case={index}", detail)
 
 
 def main(argv=None):
@@ -195,15 +240,20 @@ def main(argv=None):
     parser.add_argument("--candidates", type=int, default=100)
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--control-csv", type=Path,
+                        help="Diagnostic terminal_draw pairs, evaluated separately from KQK")
     parser.add_argument("--updates", type=int, default=0,
                         help="Explicit adjustment budget (default: evaluation only); measurements at 0, 10, 100")
     args = parser.parse_args(argv)
     if args.updates < 0 or (args.updates and args.checkpoint is None):
         parser.error("--updates must be non-negative and positive budgets require --checkpoint")
+    if args.control_csv is not None and args.checkpoint is None:
+        parser.error("--control-csv requires --checkpoint")
     try:
+        control = load_diagnostic_control(args.control_csv) if args.control_csv is not None else None
         pairs, counts = generate_terminal_pairs(args.candidates, args.seed)
         adjustment, evaluation = split_terminal_pairs(pairs, args.seed)
-    except ValueError as error:
+    except (ValueError, OSError, csv.Error) as error:
         parser.error(str(error))
     print(f"seed={args.seed} selection=lexicographic UCI")
     print(" ".join(f"{key}={value}" for key, value in counts.items()))
@@ -225,7 +275,8 @@ def main(argv=None):
                 agent = load_adjustment_agent(args.checkpoint)
                 print(f"updates={args.updates} batch_size={2 * len(adjustment)} gamma=0.99 "
                       "measurements=0,10,100 (within budget); no checkpoint saving")
-                measurements = run_adjustment(agent, adjustment, evaluation, args.updates)
+                measurements = run_adjustment(agent, adjustment, evaluation, args.updates,
+                                              **({"diagnostic_control": control} if control is not None else {}))
             except ValueError as error:
                 parser.error(str(error))
             for step, groups in measurements.items():
@@ -236,6 +287,8 @@ def main(argv=None):
         for name, subset in (("adjustment", adjustment), ("evaluation", evaluation)):
             metrics = evaluate_terminal_pairs(subset, policy)
             print_metrics(name, metrics)
+        if control is not None:
+            print_metrics("step=0 diagnostic_control", evaluate_terminal_pairs(control, policy, control=True))
 
 
 if __name__ == "__main__":
