@@ -253,3 +253,138 @@ def test_checkpoint_cli_optional_and_empty(monkeypatch, capsys):
     assert len(calls) == 1
     assert "checkpoint=fixture.pt" in output
     assert "q_mate=N/A" in output and "greedy_mate_percent=N/A" in output
+
+
+@pytest.mark.parametrize("black", [False, True])
+def test_terminal_batch_balanced_verified_and_preserves_history(black):
+    board = chess.Board("7k/8/6K1/8/8/8/5Q2/8 w - - 0 1")
+    board.push_uci("f2f7")
+    board.push(chess.Move.null())
+    if black:
+        board = board.mirror()
+    before = board.fen(), list(board.move_stack)
+    pair = probe.find_terminal_pair(board)
+    batch = probe.terminal_pair_batch([pair])
+    assert [t.reward for t in batch] == [1., 0.]
+    for transition, field in zip(batch, ("mate_move", "stalemate_move")):
+        successor = board.copy(stack=True)
+        successor.push(pair[field])
+        assert transition.done and transition.next_legal_actions == []
+        assert transition.action == probe.encode_move(pair[field])
+        assert torch.equal(transition.state, probe.encode_board(board))
+        assert torch.equal(transition.next_state, probe.encode_board(successor))
+    assert (board.fen(), list(board.move_stack)) == before
+    pair["mate_move"] = pair["stalemate_move"]
+    with pytest.raises(ValueError, match="terminal result"):
+        probe.terminal_pair_batch([pair])
+    pair["mate_move"] = chess.Move.from_uci("a1a2")
+    with pytest.raises(ValueError, match="legal"):
+        probe.terminal_pair_batch([pair])
+
+
+def assert_nested_equal(first, second):
+    if isinstance(first, torch.Tensor):
+        assert torch.equal(first, second)
+    elif isinstance(first, dict):
+        assert first.keys() == second.keys()
+        for key in first:
+            assert_nested_equal(first[key], second[key])
+    elif isinstance(first, (list, tuple)):
+        assert len(first) == len(second)
+        for a, b in zip(first, second):
+            assert_nested_equal(a, b)
+    else:
+        assert first == second
+
+
+def test_adjustment_loads_full_adam_preserves_rng_and_never_saves(tmp_path, monkeypatch):
+    import random
+    import numpy as np
+    agent = probe.StateActionDQNAgent(spatial=True, lr=.0002)
+    pair = probe.find_terminal_pair(chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"))
+    batch = probe.terminal_pair_batch([pair])
+    agent.train_step(batch)  # Populate every Adam moment and step with synthetic data.
+    state = agent.state_dict()
+    path = tmp_path / "synthetic.pt"
+    torch.save(dict(metadata=dict(architecture="spatial"), agent=state,
+                    replay="must not restore", rng_state="must not restore"), path)
+    original = path.read_bytes()
+    before = random.getstate(), np.random.get_state(), torch.get_rng_state().clone()
+    def forbidden(*args, **kwargs):
+        pytest.fail("Unexpected save or terminal bootstrap")
+    monkeypatch.setattr(torch, "save", forbidden)
+    restored = probe.load_adjustment_agent(path)
+    assert_nested_equal(state["policy_net"], restored.policy_net.state_dict())
+    assert_nested_equal(state["optimizer"], restored.optimizer.state_dict())
+    assert restored.optimizer.state_dict()["state"]
+    monkeypatch.setattr(restored.target_net, "evaluate_legal_action_maxes", forbidden)
+    target_before = {k: v.clone() for k, v in restored.target_net.state_dict().items()}
+    probe.run_adjustment(restored, [pair], [], 1)
+    assert_nested_equal(target_before, restored.target_net.state_dict())
+    assert any(not torch.equal(v, restored.policy_net.state_dict()[k])
+               for k, v in state["policy_net"].items())
+    assert path.read_bytes() == original
+    assert random.getstate() == before[0]
+    assert_nested_equal(np.random.get_state()[0], before[1][0])
+    assert np.array_equal(np.random.get_state()[1], before[1][1])
+    assert np.random.get_state()[2:] == before[1][2:]
+    assert torch.equal(torch.get_rng_state(), before[2])
+
+
+@pytest.mark.parametrize("updates, milestones", [(0, [0]), (10, [0, 10]), (11, [0, 10]), (100, [0, 10, 100])])
+def test_fixed_budget_batch_isolation_and_measurements(updates, milestones, monkeypatch):
+    from types import SimpleNamespace
+    pairs, _ = probe.generate_terminal_pairs(20)
+    adjustment, evaluation = probe.split_terminal_pairs(pairs)
+    calls, measured = [], []
+    policy = FixedPolicy({})
+    policy.eval()
+    agent = SimpleNamespace(policy_net=policy, train_step=lambda batch: calls.append(batch))
+    def measure(subset, network):
+        assert network is policy
+        measured.append((len(calls), subset))
+        return {"margin": -999}  # Bad evaluation never changes the budget.
+    monkeypatch.setattr(probe, "evaluate_terminal_pairs", measure)
+    results = probe.run_adjustment(agent, adjustment, evaluation, updates)
+    assert list(results) == milestones and len(calls) == updates
+    assert measured == [(step, subset) for step in milestones for subset in (adjustment, evaluation)]
+    assert not policy.training
+    if calls:
+        assert all(batch is calls[0] for batch in calls)
+        assert len(calls[0]) == 2 * len(adjustment)
+        for pair, mate, draw in zip(adjustment, calls[0][::2], calls[0][1::2]):
+            assert torch.equal(mate.state, probe.encode_board(pair["board"]))
+            assert torch.equal(draw.state, mate.state)
+            assert (mate.reward, draw.reward) == (1., 0.)
+
+
+def test_adjustment_rejects_invalid_inputs_and_restores_mode(monkeypatch):
+    from types import SimpleNamespace
+    pair = probe.find_terminal_pair(chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"))
+    policy = FixedPolicy({}).eval()
+    def fail(*args):
+        raise RuntimeError("update failed")
+    agent = SimpleNamespace(policy_net=policy, train_step=fail)
+    for adjustment, evaluation, updates, message in (([], [], 1, "at least"),
+            ([pair], [pair], 1, "overlap"), ([pair], [], -1, "non-negative")):
+        with pytest.raises(ValueError, match=message):
+            probe.run_adjustment(agent, adjustment, evaluation, updates)
+    with pytest.raises(RuntimeError, match="update failed"):
+        probe.run_adjustment(agent, [pair], [], 1)
+    assert not policy.training
+
+
+def test_adjustment_cli_requires_explicit_budget_and_checkpoint(monkeypatch, capsys):
+    for args in (["--updates", "-1"], ["--updates", "10"]):
+        with pytest.raises(SystemExit):
+            probe.main(args)
+    sentinel = object()
+    monkeypatch.setattr(probe, "load_adjustment_agent", lambda path: sentinel)
+    calls = []
+    def run(agent, adjustment, evaluation, updates):
+        calls.append((agent, updates))
+        return {0: {"adjustment": {"positions": len(adjustment)}}}
+    monkeypatch.setattr(probe, "run_adjustment", run)
+    probe.main(["--candidates", "20", "--checkpoint", "synthetic.pt", "--updates", "10"])
+    assert calls == [(sentinel, 10)]
+    assert "step=0 adjustment" in capsys.readouterr().out

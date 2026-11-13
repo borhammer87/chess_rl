@@ -1,10 +1,12 @@
-"""Identify KQK mate/stalemate pairs without networks or training."""
+"""Identify KQK pairs; optionally evaluate or adjust an independent checkpoint copy."""
 import argparse
 import hashlib
 from pathlib import Path
 
 import chess
 import torch
+from chess_rl.agents.state_action_dqn_agent import StateActionDQNAgent
+from chess_rl.utils.replay_buffer import Transition
 
 from chess_rl.training.mate_positions import generate_mate_positions
 from chess_rl.models.spatial_state_action_dqn import SpatialStateActionDQN
@@ -120,12 +122,84 @@ def evaluate_terminal_pairs(pairs, policy):
                              for key, count in counts.items()})
 
 
+def load_adjustment_agent(path):
+    """Load spatial weights and complete Adam state, never replay or saved RNG."""
+    checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    if checkpoint.get("metadata", {}).get("architecture") != "spatial":
+        raise ValueError("Expected spatial checkpoint")
+    with torch.random.fork_rng(devices=[]):
+        agent = StateActionDQNAgent(spatial=True, device="cpu", gamma=0.99)
+    agent.policy_net.load_state_dict(checkpoint["agent"]["policy_net"], strict=True)
+    agent.target_net.load_state_dict(checkpoint["agent"]["target_net"], strict=True)
+    agent.optimizer.load_state_dict(checkpoint["agent"]["optimizer"])
+    return agent
+
+
+def terminal_pair_batch(pairs):
+    """Full balanced batch, in input order, mate then stalemate for each KQK."""
+    batch = []
+    for pair in pairs:
+        board = pair["board"]
+        canonical_kqk_key(board)
+        if board.is_game_over():
+            raise ValueError("Pair position must not already be terminal")
+        for field, reward in (("mate_move", 1.0), ("stalemate_move", 0.0)):
+            move = pair[field]
+            if move not in board.legal_moves:
+                raise ValueError("Pair actions must be legal")
+            successor = board.copy(stack=True)
+            successor.push(move)
+            if not (successor.is_checkmate() if reward else successor.is_stalemate()):
+                raise ValueError(f"Unexpected terminal result for {field}")
+            batch.append(Transition(encode_board(board), encode_move(move), reward,
+                                    encode_board(successor), True, []))
+    return batch
+
+
+def run_adjustment(agent, adjustment, evaluation, updates):
+    """Fixed budget; held-out metrics never control updates or model selection."""
+    if updates < 0:
+        raise ValueError("updates must be non-negative")
+    keys = lambda pairs: {canonical_kqk_key(p["board"]) for p in pairs}
+    if keys(adjustment) & keys(evaluation):
+        raise ValueError("Adjustment and evaluation families overlap")
+    batch = terminal_pair_batch(adjustment)
+    if not batch:
+        raise ValueError("Adjustment requires at least one pair")
+    measurements = {}
+    modes = [(module, module.training) for module in agent.policy_net.modules()]
+    try:
+        agent.policy_net.train()
+        for step in range(updates + 1):
+            if step:
+                agent.train_step(batch)
+            if step in (0, 10, 100):
+                measurements[step] = {
+                    name: evaluate_terminal_pairs(subset, agent.policy_net)
+                    for name, subset in (("adjustment", adjustment), ("evaluation", evaluation))}
+    finally:
+        for module, training in modes:
+            module.training = training
+    return measurements
+
+
+def print_metrics(name, metrics):
+    print(name + ": " + " ".join(
+        f"{key}={value:.6f}" if isinstance(value, float) else
+        f"{key}={value}" if value is not None else f"{key}=N/A"
+        for key, value in metrics.items()))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidates", type=int, default=100)
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--updates", type=int, default=0,
+                        help="Explicit adjustment budget (default: evaluation only); measurements at 0, 10, 100")
     args = parser.parse_args(argv)
+    if args.updates < 0 or (args.updates and args.checkpoint is None):
+        parser.error("--updates must be non-negative and positive budgets require --checkpoint")
     try:
         pairs, counts = generate_terminal_pairs(args.candidates, args.seed)
         adjustment, evaluation = split_terminal_pairs(pairs, args.seed)
@@ -143,16 +217,25 @@ def main(argv=None):
     if not evaluation:
         print("No family-disjoint evaluation possible: fewer than two families.")
     if args.checkpoint is not None:
-        policy = load_policy(args.checkpoint)
         print(f"checkpoint={args.checkpoint} device=cpu")
         print("Qmate/Qstalemate refer to the fixed UCI pair; greedy considers all legal actions.")
         print("Family separation does not establish independence from original training.")
+        if args.updates:
+            try:
+                agent = load_adjustment_agent(args.checkpoint)
+                print(f"updates={args.updates} batch_size={2 * len(adjustment)} gamma=0.99 "
+                      "measurements=0,10,100 (within budget); no checkpoint saving")
+                measurements = run_adjustment(agent, adjustment, evaluation, args.updates)
+            except ValueError as error:
+                parser.error(str(error))
+            for step, groups in measurements.items():
+                for name, metrics in groups.items():
+                    print_metrics(f"step={step} {name}", metrics)
+            return
+        policy = load_policy(args.checkpoint)
         for name, subset in (("adjustment", adjustment), ("evaluation", evaluation)):
             metrics = evaluate_terminal_pairs(subset, policy)
-            print(name + ": " + " ".join(
-                f"{key}={value:.6f}" if isinstance(value, float) else
-                f"{key}={value}" if value is not None else f"{key}=N/A"
-                for key, value in metrics.items()))
+            print_metrics(name, metrics)
 
 
 if __name__ == "__main__":
