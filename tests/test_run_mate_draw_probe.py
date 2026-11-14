@@ -268,6 +268,109 @@ class FixedPolicy(torch.nn.Module):
         return torch.tensor([self.scores.get(action, -2.) for action in actions])
 
 
+@pytest.mark.parametrize("margin", [-.5, 0., .5])
+@pytest.mark.parametrize("terminal", [False, True])
+def test_global_ranking_complete_mates_order_and_categories(margin, terminal):
+    pair = probe.find_terminal_pair(chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"))
+    legal = list(pair["board"].legal_moves)
+    mates = [m for m in legal if m in pair["mate_moves"]]
+    assert len(mates) > 1
+    best_mate = next(m for m in mates if m != pair["mate_move"])
+    alternative = (pair["stalemate_move"] if terminal else
+                   next(m for m in legal if probe.move_outcome(pair["board"], m)[0] == "non_terminal"))
+    policy = FixedPolicy({probe.encode_move(best_mate): 1. + margin,
+                          probe.encode_move(alternative): 1.})
+    result = probe.evaluate_global_ranking([pair], policy)
+    row = result["details"][0]
+    assert row["mate_move"] == best_mate.uci()
+    assert row["alternative_move"] == alternative.uci()
+    assert row["mate_q"] == 1. + margin and row["alternative_q"] == 1.
+    assert row["q_margin"] == margin == result["mean_margin"]
+    assert row["legal_count"] == len(legal) and row["mate_count"] == len(mates)
+    assert row["alternative_category"] == ("terminal_draw" if terminal else "non_terminal")
+    assert row["alternative_termination"] == ("STALEMATE" if terminal else None)
+    expected = best_mate if margin > 0 else alternative if margin < 0 else min(
+        [best_mate, alternative], key=legal.index)
+    assert row["greedy_move"] == expected.uci()
+    assert result["greedy_mate"] == int(expected in mates)
+    assert policy.calls == [[probe.encode_move(m) for m in legal]]
+
+
+def test_global_ranking_ties_empty_and_incomplete_mates():
+    pair = probe.find_terminal_pair(chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"))
+    legal = list(pair["board"].legal_moves)
+    policy = FixedPolicy({})
+    empty = probe.evaluate_global_ranking([], policy)
+    assert empty["positions"] == 0 and empty["details"] == []
+    assert empty["mean_margin"] is None and empty["greedy_mate_percent"] is None
+    assert policy.calls == []
+    row = probe.evaluate_global_ranking([pair], policy)["details"][0]
+    assert row["greedy_move"] == legal[0].uci() and row["q_margin"] == 0
+    assert row["mate_move"] == next(m.uci() for m in legal if m in pair["mate_moves"])
+    assert row["alternative_move"] == next(m.uci() for m in legal if m not in pair["mate_moves"])
+    pair["mate_moves"] = pair["mate_moves"][:1]
+    with pytest.raises(ValueError, match="complete"):
+        probe.evaluate_global_ranking([pair], policy)
+    assert len(policy.calls) == 1
+
+
+@pytest.mark.parametrize("fail", [False, True])
+@pytest.mark.parametrize("training", [False, True])
+def test_global_ranking_preserves_board_weights_modes_and_rng(fail, training, monkeypatch):
+    board = chess.Board("7k/8/6K1/8/8/8/5Q2/8 w - - 0 1")
+    board.push_uci("f2f7")
+    board.push(chess.Move.null())
+    pair = probe.find_terminal_pair(board)
+    policy = FixedPolicy({}).train(training)
+    policy.child.train(not training)
+    before = board.fen(), list(board.move_stack), policy.weight.clone(), torch.get_rng_state()
+    if fail:
+        def error(*args):
+            raise RuntimeError("scoring failed")
+        monkeypatch.setattr(policy, "evaluate_action_ids", error)
+        with pytest.raises(RuntimeError, match="scoring failed"):
+            probe.evaluate_global_ranking([pair], policy)
+    else:
+        probe.evaluate_global_ranking([pair], policy)
+    assert policy.training == training and policy.child.training != training
+    assert (board.fen(), list(board.move_stack)) == before[:2]
+    assert torch.equal(policy.weight, before[2]) and policy.weight.grad is None
+    assert torch.equal(torch.get_rng_state(), before[3])
+
+
+def test_global_ranking_cli_reserved_only_no_training(monkeypatch, capsys):
+    pairs, _ = probe.generate_terminal_pairs(20)
+    adjustment, evaluation = probe.split_terminal_pairs(pairs)
+    calls = []
+    def generate(count, seed):
+        assert (count, seed) == (1000, 12345)
+        return pairs, dict(pairs=len(pairs), candidates=count)
+    monkeypatch.setattr(probe, "generate_terminal_pairs", generate)
+    policy = FixedPolicy({})
+    monkeypatch.setattr(probe, "load_policy", lambda path: policy)
+    def forbidden(*args, **kwargs):
+        pytest.fail("Ranking must not train, save, or invoke fixed-pair evaluation")
+    monkeypatch.setattr(probe, "load_adjustment_agent", forbidden)
+    monkeypatch.setattr(probe, "run_adjustment", forbidden)
+    monkeypatch.setattr(probe, "evaluate_terminal_pairs", forbidden)
+    monkeypatch.setattr(torch, "save", forbidden)
+    original = probe.evaluate_global_ranking
+    def evaluate(subset, network):
+        assert list(map(id, subset)) == list(map(id, evaluation))
+        calls.append(subset)
+        return original(subset, network)
+    monkeypatch.setattr(probe, "evaluate_global_ranking", evaluate)
+    probe.main(["--global-ranking", "--checkpoint", "synthetic.pt"])
+    assert len(calls) == 1 and len(policy.calls) == len(evaluation)
+    output = capsys.readouterr().out
+    assert output.count("global_ranking case=") == len(evaluation)
+    assert "seed=12345" in output
+    for args in (["--global-ranking"], ["--global-ranking", "--checkpoint", "x", "--updates", "1"],
+                 ["--global-ranking", "--checkpoint", "x", "--control-csv", "x"]):
+        with pytest.raises(SystemExit):
+            probe.main(args)
+
+
 @pytest.mark.parametrize("black", [False, True])
 def test_fixed_pair_metrics_and_global_greedy(black):
     board = chess.Board("7k/5Q2/6K1/8/8/8/8/8 w - - 0 1")

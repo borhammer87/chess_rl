@@ -162,3 +162,32 @@ KQK positions.
 
 This is a specialized learning diagnostic, not a general chess
 strength benchmark.
+
+## Controlled KQK mate/stalemate probe
+
+Run from the repository root in the project Python environment:
+
+```powershell
+# Evaluation only; no updates (the default).
+python -m scripts.run_mate_draw_probe --candidates 1000 --seed 12345 --checkpoint checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt --control-csv diagnostics/mate_bellman_components_0.csv
+
+# Explicit 100-update adjustment of an independent in-memory copy.
+python -m scripts.run_mate_draw_probe --candidates 1000 --seed 12345 --updates 100 --checkpoint checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt --control-csv diagnostics/mate_bellman_components_0.csv
+```
+
+Without `--checkpoint`, the script only generates and partitions pairs.
+`--checkpoint` loads a spatial policy on CPU; `--updates` defaults to zero.
+A positive budget loads policy and complete Adam state into an independent
+agent and uses a full balanced batch of adjustment-only terminal transitions.
+Replay and checkpoint RNG are not restored. No checkpoint is saved or overwritten.
+
+`--control-csv` optionally loads fixed mate/stalemate actions from validated
+`terminal_draw` rows, requires a checkpoint, and reports a separate control
+with `families=N/A`. Controls never enter the training batch. Measurements are
+at 0, 10 and 100 when reached by the budget, without early stopping or selection.
+
+With 1,000 candidates and seed 12345, the split is 506 adjustment / 141 reserved
+positions. Fixed-pair preference is distinct from greedy mate selection among
+all legal actions. Family separation does not prove independence from original
+training. See TRAINING_STATUS.md for the completed run and DIAGNOSTICS.md for
+its limitations. These commands are examples, not an instruction to rerun it.

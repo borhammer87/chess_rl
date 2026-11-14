@@ -703,7 +703,7 @@ The current leading investigation concerns action-value calibration, action rank
 
 These are not yet established as a single causal mechanism.
 
-### Next diagnostic question
+### Next diagnostic question before the controlled KQK experiment
 
 Which mechanism is responsible for the incorrect ranking of mating versus non-mating actions?
 
@@ -717,3 +717,38 @@ Prioritize a small, controlled diagnostic that distinguishes:
 Do not change rewards, PER, network architecture and training duration simultaneously.
 
 A new training experiment should be justified by a specific diagnostic prediction.
+
+## Controlled mate/stalemate evidence - 14 November 2026
+
+### Observed evidence
+
+After 100 terminal-pair updates, adjustment pair preference reached 506/506
+with mate/stalemate MAE 0.001578/0.001633. On reserved KQK families, preference
+rose from 80/141 to 138/141 and mean fixed-pair margin from 0.006739 to 0.750244.
+This demonstrates discrimination capacity and transfer within this sampled KQK
+population, not independence from original training or general chess strength.
+
+Global greedy mate selection remained 109/506 on adjustment and 20/141 on
+reserved families. Reserved greedy counts were 10, 29 and 20 at steps 0, 10
+and 100 despite improving pair discrimination. No best step was selected.
+
+On seven original, non-KQK controls, mate MAE rose from 0.076913 to 0.634858;
+stalemate MAE fell from 1.038370 to 0.698013, but mean margin worsened from
+-0.021938 to -0.330662 and greedy mates fell from one to zero. These are known
+seeded cases, not an independent generalization benchmark.
+
+### Hypotheses, not established causes
+
+Specialization in KQK and interference with other material configurations are
+compatible with these results. Errors on actions outside the trained pairs may
+explain persistent global ranking failures. The run does not identify a unique
+mechanism, show reproducibility, or justify changing rewards, PER or architecture.
+
+### Current next diagnostic question
+
+Which legal non-mating actions outrank the best immediate mate on the 141
+reserved KQK positions? Measure max Q(mate) minus max Q(non-mate), alternative
+outcome category, legal/mating action counts and global greedy mate rate.
+Use the original checkpoint without training. This measures its baseline ranking;
+the adjusted weights were not saved, so it cannot inspect post-adjustment rankings.
+Full measurements and provenance are in TRAINING_STATUS.md.

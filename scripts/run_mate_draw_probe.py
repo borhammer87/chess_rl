@@ -14,6 +14,7 @@ from chess_rl.models.spatial_state_action_dqn import SpatialStateActionDQN
 from chess_rl.utils.board_encoder import encode_board
 from chess_rl.utils.action_encoder import encode_move
 from chess_rl.utils.action_selection import evaluate_state_action_greedy_choice
+from scripts.diagnose_mate_q import move_outcome
 
 
 def find_terminal_pair(board):
@@ -226,6 +227,47 @@ def run_adjustment(agent, adjustment, evaluation, updates, diagnostic_control=No
     return measurements
 
 
+def evaluate_global_ranking(pairs, policy):
+    """Score all legal actions once; retain legal-order ties and every position."""
+    records = []
+    modes = [(module, module.training) for module in policy.modules()]
+    try:
+        policy.eval()
+        with torch.no_grad():
+            for pair in pairs:
+                board = pair["board"]
+                verified = find_terminal_pair(board)
+                if verified is None or set(pair["mate_moves"]) != set(verified["mate_moves"]):
+                    raise ValueError("Expected complete legal mate set for a terminal pair")
+                legal = list(board.legal_moves)
+                mates = set(verified["mate_moves"])
+                state = encode_board(board).to(next(policy.parameters()).device)
+                scores = policy.evaluate_action_ids(state, [encode_move(m) for m in legal])
+                mate = max((i for i, m in enumerate(legal) if m in mates), key=lambda i: scores[i].item())
+                other = max((i for i, m in enumerate(legal) if m not in mates), key=lambda i: scores[i].item())
+                greedy = int(scores.argmax().item())
+                category, _, _, info = move_outcome(board, legal[other])
+                records.append(dict(
+                    fen=board.fen(), mate_move=legal[mate].uci(), mate_q=scores[mate].item(),
+                    alternative_move=legal[other].uci(), alternative_q=scores[other].item(),
+                    q_margin=scores[mate].item() - scores[other].item(),
+                    greedy_move=legal[greedy].uci(), greedy_mate=legal[greedy] in mates,
+                    legal_count=len(legal), mate_count=len(mates),
+                    alternative_category=category, alternative_termination=info["termination"]))
+    finally:
+        for module, training in modes:
+            module.training = training
+    n = len(records)
+    greedy_count = sum(r["greedy_mate"] for r in records)
+    return dict(positions=n, mean_margin=sum(r["q_margin"] for r in records) / n if n else None,
+                positive=sum(r["q_margin"] > 0 for r in records),
+                negative=sum(r["q_margin"] < 0 for r in records),
+                zero=sum(r["q_margin"] == 0 for r in records),
+                greedy_mate=greedy_count, greedy_mate_percent=100 * greedy_count / n if n else None,
+                **{category: sum(r["alternative_category"] == category for r in records)
+                   for category in ("non_terminal", "terminal_draw", "other_terminal")}, details=records)
+
+
 def print_metrics(name, metrics):
     print(name + ": " + " ".join(
         f"{key}={value:.6f}" if isinstance(value, float) else
@@ -240,11 +282,17 @@ def main(argv=None):
     parser.add_argument("--candidates", type=int, default=100)
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--checkpoint", type=Path)
+    parser.add_argument("--global-ranking", action="store_true",
+                        help="Read-only reserved KQK ranking: 1000 candidates, seed 12345")
     parser.add_argument("--control-csv", type=Path,
                         help="Diagnostic terminal_draw pairs, evaluated separately from KQK")
     parser.add_argument("--updates", type=int, default=0,
                         help="Explicit adjustment budget (default: evaluation only); measurements at 0, 10, 100")
     args = parser.parse_args(argv)
+    if args.global_ranking:
+        if args.checkpoint is None or args.updates != 0 or args.control_csv is not None:
+            parser.error("--global-ranking requires --checkpoint, zero updates and no --control-csv")
+        args.candidates, args.seed = 1000, 12345
     if args.updates < 0 or (args.updates and args.checkpoint is None):
         parser.error("--updates must be non-negative and positive budgets require --checkpoint")
     if args.control_csv is not None and args.checkpoint is None:
@@ -268,6 +316,11 @@ def main(argv=None):
         print("No family-disjoint evaluation possible: fewer than two families.")
     if args.checkpoint is not None:
         print(f"checkpoint={args.checkpoint} device=cpu")
+        if args.global_ranking:
+            print("Ranking uses best mate versus best non-mate over all legal actions; reserved positions only.")
+            print("Family separation does not establish independence from original training.")
+            print_metrics("global_ranking", evaluate_global_ranking(evaluation, load_policy(args.checkpoint)))
+            return
         print("Qmate/Qstalemate refer to the fixed UCI pair; greedy considers all legal actions.")
         print("Family separation does not establish independence from original training.")
         if args.updates:

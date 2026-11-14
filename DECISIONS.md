@@ -570,3 +570,36 @@ Future modifications should target a specific measured failure and use controlle
 The next investigation will focus on terminal-action valuation, bootstrap estimation and relative ranking of mating versus non-mating actions.
 
 This decision may be revisited if subsequent evidence demonstrates that reward incentives materially contribute to the observed failure.
+
+## D-029 - Preserve learning mechanisms while diagnosing global action ranking
+
+### Status
+
+Accepted - November 2026, following the controlled mate/stalemate experiment.
+
+### Decision
+
+Keep the current algorithm, rewards, PER and spatial architecture. Next inspect
+global legal-action ranking using the original checkpoint without training.
+
+### Motivation
+
+The existing train_step and optimizer fitted the terminal KQK pairs and improved
+pair preference on reserved families. Global greedy mate selection nevertheless
+remained low, and mate calibration deteriorated in seven non-KQK controls.
+Pair discrimination therefore does not establish correct global action ranking.
+
+### Alternatives considered
+
+Change rewards, PER, architecture or loss; extend or repeat adjustment; select
+the step with highest reserved greedy accuracy; or first inspect the competing
+legal actions. The diagnostic is preferred because current evidence does not
+isolate which learning change would address the observed ranking failures.
+
+### Consequences
+
+No new training, best-step selection or algorithm change is implied. The next
+proposal must reuse existing scoring, avoid redundant inference and distinguish
+best-mate Q from the previously measured fixed-pair Q. Original-checkpoint
+results cannot reconstruct rankings of the unsaved adjusted model. Revisit this
+decision only after specific diagnostic evidence supports a controlled change.

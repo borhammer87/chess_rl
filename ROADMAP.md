@@ -207,3 +207,11 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [ ] Longer controlled training experiments
 - [ ] Improved state representation if diagnostics justify it
 - [ ] Version 1.0 criteria and release
+
+## Controlled mate/stalemate diagnostic - November 2026
+
+- [x] Generate deterministic KQK mate/stalemate pairs and separate symmetry families.
+- [x] Evaluate original checkpoint and run the fixed 100-update terminal-pair diagnostic.
+- [x] Measure seven original controls separately at steps 0, 10 and 100.
+- [ ] Diagnose which legal alternatives outrank the best mate on 141 reserved KQK positions using the original checkpoint without training.
+- [ ] Resolve reliable global greedy mate selection; pair discrimination alone does not complete this milestone.

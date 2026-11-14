@@ -882,3 +882,66 @@ The CSV does not independently certify checkpoint identity.
 - `diagnostics/mate_bellman_components_0.csv`
 
 See `DIAGNOSTICS.md` for interpretation and remaining hypotheses.
+
+## Controlled KQK mate/stalemate adjustment - November 2026
+
+Executed on 14 November 2026, CPU, using an independent copy of
+`checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt`.
+SHA-256 before and after execution:
+`1F9FA5542584747A29DD6FA202CA0AA7C7C4A81B44BF3CD20679E02277A8F63C`.
+
+Configuration: 1,000 candidates, seed 12345, 647 valid pairs; 506 adjustment
+positions (146 families; 239 White / 267 Black), 141 evaluation positions
+(36 families; 74 White / 67 Black), and seven original diagnostic controls
+(2 White / 5 Black; families not applicable). KQK families are disjoint under
+board symmetries and attacker/defender roles; this does not establish
+independence from original checkpoint training.
+
+The full deterministic balanced batch contained 1,012 terminal transitions,
+mate +1 and stalemate 0. Exactly 100 updates reused StateActionDQNAgent.train_step
+and the saved Adam state, with gamma=0.99 and no terminal bootstrap. Replay and
+checkpoint RNG were not restored. Evaluation never selected or stopped updates.
+No adjusted weights were saved, and the original checkpoint was unchanged.
+
+Q values below refer to the fixed actions, not the maximum over all mates.
+MAE targets are +1 for mate and 0 for stalemate.
+
+| Set | Step | Mean Qmate | Mean Qstalemate | Mate MAE | Stalemate MAE | Mean margin |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| adjustment | 0 | 0.411889 | 0.409056 | 0.588111 | 0.409056 | 0.002833 |
+| evaluation | 0 | 0.403473 | 0.396734 | 0.596527 | 0.396734 | 0.006739 |
+| diagnostic_control | 0 | 1.016432 | 1.038370 | 0.076913 | 1.038370 | -0.021938 |
+| adjustment | 10 | 0.734143 | 0.261893 | 0.300852 | 0.273887 | 0.472251 |
+| evaluation | 10 | 0.697751 | 0.307283 | 0.334680 | 0.321448 | 0.390468 |
+| diagnostic_control | 10 | 0.538612 | 0.862205 | 0.501413 | 0.862205 | -0.323593 |
+| adjustment | 100 | 0.998820 | -0.001232 | 0.001578 | 0.001633 | 1.000052 |
+| evaluation | 100 | 0.887986 | 0.137742 | 0.194324 | 0.211573 | 0.750244 |
+| diagnostic_control | 100 | 0.365142 | 0.695804 | 0.634858 | 0.698013 | -0.330662 |
+
+| Set | Step | Positive margin N (%) | Negative margin N (%) | Zero N (%) | Greedy mate N (%) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| adjustment | 0 | 275 (54.347826%) | 231 (45.652174%) | 0 (0.000000%) | 30 (5.928854%) |
+| evaluation | 0 | 80 (56.737589%) | 61 (43.262411%) | 0 (0.000000%) | 10 (7.092199%) |
+| diagnostic_control | 0 | 1 (14.285714%) | 6 (85.714286%) | 0 (0.000000%) | 1 (14.285714%) |
+| adjustment | 10 | 447 (88.339921%) | 59 (11.660079%) | 0 (0.000000%) | 97 (19.169960%) |
+| evaluation | 10 | 113 (80.141844%) | 28 (19.858156%) | 0 (0.000000%) | 29 (20.567376%) |
+| diagnostic_control | 10 | 3 (42.857143%) | 4 (57.142857%) | 0 (0.000000%) | 0 (0.000000%) |
+| adjustment | 100 | 506 (100.000000%) | 0 (0.000000%) | 0 (0.000000%) | 109 (21.541502%) |
+| evaluation | 100 | 138 (97.872340%) | 3 (2.127660%) | 0 (0.000000%) | 20 (14.184397%) |
+| diagnostic_control | 100 | 3 (42.857143%) | 4 (57.142857%) | 0 (0.000000%) | 0 (0.000000%) |
+
+Step 0 reproduces the previous KQK baseline to six decimals. Compared with the
+original diagnostic CSV, the seven controls show maximum differences of about
+2.30e-5 for mate Q and 2.37e-5 for stalemate Q against printed step-0 values;
+the cause has not been isolated. Initial margin signs are unchanged.
+
+Complete output, including all 21 individual control measurements:
+[local execution log](diagnostics/mate_draw_controlled_100_20261114.log).
+The log exists locally but is ignored by Git through `.gitignore` (`*.log`).
+Its inclusion in the current project ZIP could not be verified because that ZIP
+was not available in the inspected local locations. The log was not regenerated.
+
+Pair discrimination improved on adjustment and reserved KQK families, while
+global greedy mate selection remained much lower. Control mate MAE deteriorated
+from 0.076913 to 0.634858. This single run does not establish general chess
+strength or cross-seed reproducibility; see DIAGNOSTICS.md for interpretation.

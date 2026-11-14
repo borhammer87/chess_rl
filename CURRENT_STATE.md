@@ -49,7 +49,7 @@ Expected immediate rewards were slightly negative on average in both evaluation 
 
 The reward-accumulation hypothesis is therefore weakened as the primary explanation for the observed failures.
 
-The next objective is to design a controlled investigation of action-value calibration, incorrect action ranking and possible generalization limitations before changing training mechanisms.
+The controlled KQK mate/stalemate experiment is complete. The next objective is a read-only analysis of global legal-action ranking on 141 reserved KQK positions using the original checkpoint.
 
 No reward, PER or architecture modification has been approved.
 
@@ -334,16 +334,30 @@ Current interpretation:
 
 The evidence favors investigating incorrect action-value estimation and action ranking before modifying material reward shaping.
 
-Generalization limitations remain plausible but have not been isolated through an independent held-out comparison.
+Transfer within reserved KQK families was observed, but independence from original training is unverified. Non-KQK control mate calibration deteriorated during adjustment.
 
 Current validation:
 
-Codex reported 486 passing tests after the Bellman-component implementation. This count has not been independently rerun for the present documentation update.
+Codex reported 527 passing tests after adding the seven-position diagnostic control. Tests were not rerun for this documentation-only update.
 
 Immediate next task:
 
-Design the smallest controlled diagnostic that distinguishes terminal-action misvaluation, bootstrap estimation errors and incorrect relative ranking of mating versus non-mating actions.
+Propose, then implement only after approval, a read-only ranking diagnostic on the 141 reserved KQK positions: best mate versus best non-mate, actual alternative category, legal/mating action counts and greedy mate rate, using the original checkpoint.
 
 Do not begin another training experiment or modify rewards, PER or architecture until a specific hypothesis and comparison have been selected.
 
 See `DIAGNOSTICS.md` for interpretation, `TRAINING_STATUS.md` for experimental measurements and `ROADMAP.md` for pending milestones.
+
+## Completed controlled mate/stalemate experiment - 14 November 2026
+
+Implemented deterministic pair generation, symmetry-family splitting, optional
+checkpoint evaluation, explicit full-batch adjustment using the existing agent,
+and a separate CSV-loaded diagnostic control with aggregate and individual
+measurements at steps 0, 10 and 100. Evaluation remains the default.
+
+The CPU run used 506 adjustment pairs, 141 reserved pairs and seven controls.
+At step 100, pair preference was 100% / 97.872340% on adjustment / evaluation;
+greedy mate rates were only 21.541502% / 14.184397%. Control mate MAE rose to
+0.634858 and greedy mate count fell to zero. No adjusted weights were saved.
+The general mate-selection problem remains unresolved. No algorithm, reward,
+PER or architecture change follows from this experiment.
