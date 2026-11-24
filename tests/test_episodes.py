@@ -34,6 +34,45 @@ from chess_rl.utils.replay_buffer import ReplayBuffer
 from chess_rl.utils.board_encoder import BOARD_CHANNELS
 
 
+@pytest.mark.parametrize("color", [chess.WHITE, chess.BLACK])
+@pytest.mark.parametrize("reward,done,truncated,penalty", [
+    (1.0, True, False, 0.0),
+    (-1.0, True, False, 0.0),
+    (0.0, True, False, 0.0),
+    (0.0, False, False, STEP_PENALTY),
+    (0.0, False, True, TRUNCATION_PENALTY),
+])
+def test_transition_reward_matches_previous_composition(color, reward, done, truncated, penalty):
+    previous = chess.Board()
+    for uci in ("e2e4", "d7d5"):
+        previous.push_uci(uci)
+    following = previous.copy(stack=True)
+    following.push_uci("e4d5")
+    following.push_uci("d8d5")  # Recapture: material over the complete transition is zero.
+    snapshots = [(b.fen(), list(b.move_stack)) for b in (previous, following)]
+    expected = reward_for_color(reward, color)
+    expected += material_reward(previous, following, color)
+    if truncated:
+        expected += TRUNCATION_PENALTY
+    elif not done:
+        expected += STEP_PENALTY
+    actual = episodes_module.transition_reward(previous, following, reward, color, done, truncated)
+    assert actual == expected
+    assert actual == pytest.approx((reward if color == chess.WHITE else -reward) + penalty)
+    assert snapshots == [(b.fen(), list(b.move_stack)) for b in (previous, following)]
+
+
+@pytest.mark.parametrize("color,expected", [(chess.WHITE, .01), (chess.BLACK, -.01)])
+def test_transition_reward_keeps_material_shaping_on_terminal_and_nonterminal(color, expected):
+    previous = chess.Board()
+    previous.push_uci("e2e4")
+    previous.push_uci("d7d5")
+    following = previous.copy(stack=True)
+    following.push_uci("e4d5")
+    assert episodes_module.transition_reward(previous, following, 0., color, True) == pytest.approx(expected)
+    assert episodes_module.transition_reward(previous, following, 0., color, False) == pytest.approx(expected + STEP_PENALTY)
+
+
 def test_run_single_step_returns_step_result():
     env = ChessEnv()
     agent = DQNAgent(epsilon=1.0)

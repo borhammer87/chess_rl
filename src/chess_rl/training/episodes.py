@@ -176,6 +176,28 @@ def material_reward(
         - previous_balance
     ) * MATERIAL_REWARD_SCALE
 
+def transition_reward(
+    previous_board: chess.Board,
+    next_board: chess.Board,
+    reward: float,
+    agent_color: chess.Color,
+    done: bool,
+    truncated_transition: bool = False,
+) -> float:
+    """Compose the reward across a complete same-player transition.
+
+    ``done`` means board termination, not the Bellman flag after truncation.
+    The caller supplies the White-perspective environment reward and horizon flag.
+    """
+    agent_reward = reward_for_color(reward, agent_color)
+    agent_reward += material_reward(previous_board, next_board, agent_color)
+    if truncated_transition:
+        agent_reward += TRUNCATION_PENALTY
+    elif not done:
+        agent_reward += STEP_PENALTY
+    return agent_reward
+
+
 def run_single_step(
     env: ChessEnv,
     agent: DQNAgent,
@@ -526,26 +548,15 @@ def run_dqn_vs_opponent_episode(
             total_plies += 1
             final_info = info
 
-        agent_reward = reward_for_color(
-            reward,
-            agent_color,
-        )
-
-        agent_reward += material_reward(
-            previous_board,
-            next_board,
-            agent_color,
-        )
-
         truncated_transition = (
             not done
             and agent_steps >= max_agent_steps
         )
 
-        if truncated_transition:
-            agent_reward += TRUNCATION_PENALTY
-        elif not done:
-            agent_reward += STEP_PENALTY
+        agent_reward = transition_reward(
+            previous_board, next_board, reward, agent_color,
+            done, truncated_transition,
+        )
 
         next_state = encode_board(
             next_board
