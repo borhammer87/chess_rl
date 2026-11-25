@@ -1,5 +1,27 @@
 # ROADMAP
 
+## Active sequence - demonstration-assisted DQN
+
+This sequence supersedes diagnostic next-step priorities in the historical
+phases below; unchecked historical items are deferred, not an obligation to
+complete them before ingestion.
+
+- [x] 1. Extract reusable reward composition; reported 74 specific / 551 full-suite tests.
+- [ ] 2. Human Lichess PGN ingestion, including completed non-board-terminal games.
+- [ ] 3. Lichess mate-in-one, mate-in-two and mate-in-three puzzle ingestion.
+- [ ] 4. Simplified DQfD-inspired demonstration loss on the existing spatial model.
+- [ ] 5. Prepare datasets with provenance, source separation and reproducible splits.
+- [ ] 6. Pretraining and predefined playing-strength evaluation.
+- [ ] 7. Continued RL with separate demonstrations and agent-generated experience.
+
+Maximum budget: three controlled training attempts for this new milestone,
+including pretraining/continued-RL runs, not three per stage. None has run.
+Define the attempt protocol before execution; revisit the approach after the
+budget rather than adding runs automatically. Primary success: actual playing
+strength improvement. Approximately 1200 Elo is a longer-term goal, not achieved.
+Endgame tablebase demonstrations are a later possibility, outside the first
+implementation sequence. DQfD and both ingestion paths are not implemented.
+
 This roadmap distinguishes implemented milestones from validation that is still outstanding.
 
 ## Phase 1 — Core chess/RL infrastructure
@@ -213,5 +235,5 @@ This roadmap distinguishes implemented milestones from validation that is still 
 - [x] Generate deterministic KQK mate/stalemate pairs and separate symmetry families.
 - [x] Evaluate original checkpoint and run the fixed 100-update terminal-pair diagnostic.
 - [x] Measure seven original controls separately at steps 0, 10 and 100.
-- [ ] Diagnose which legal alternatives outrank the best mate on 141 reserved KQK positions using the original checkpoint without training.
+- [x] Diagnose which legal alternatives outrank the best mate on 141 reserved KQK positions using the original checkpoint without training (10/141 greedy mates).
 - [ ] Resolve reliable global greedy mate selection; pair discrimination alone does not complete this milestone.

@@ -82,32 +82,27 @@ The balanced evaluation score is `(wins + 0.5 * draws) / episodes`; truncated ga
 
 ## Current objective
 
-The immediate development focus is diagnosing why the experimental
-State-Action policy still produces heavily truncated greedy games and weak
-separation among many top-ranked ordinary legal actions.
+Move from open-ended mate diagnostics to demonstration-assisted DQN with the
+existing Spatial State-Action architecture. The reusable reward composition is
+implemented; human PGN ingestion, puzzle ingestion and a simplified DQfD-inspired
+loss are **planned, not implemented**. No demonstration training command exists.
 
-Q-value, Bellman-target, TD-error, transition-semantics and replay-diversity
-diagnostics have not identified global value collapse, a Bellman-transition
-implementation defect or strong replay redundancy as sufficient explanations.
+Planned sources are human Lichess games (including completed resignations without
+invented terminal rewards) and Lichess mate-in-one/two/three puzzles. Preserve
+human, tactical and ordinary agent-generated experience as distinct sources.
+Endgame tablebase demonstrations may be considered later.
 
-The final 10,000-transition training replay contained 9,910 unique encoded
-states and 9,977 unique state-action pairs. The saved 150-transition greedy
-diagnostic game also contained 149 unique encoded states and 149 unique
-state-action pairs, although its action usage was substantially more
-concentrated than the training replay.
+The sequence is reward extraction, PGN ingestion, puzzle ingestion, demonstration
+loss, dataset preparation, pretraining/evaluation, then continued RL with both
+demonstrations and online experience. See [ROADMAP.md](ROADMAP.md).
+There is a maximum budget of three controlled training attempts. Actual full-game
+strength improvement is the success criterion; approximately 1200 Elo is a
+longer-term objective, not a rating achieved by this project. The detailed
+acceptance policy and limitations are in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The PER investigation has distinguished genuine chess endings
-from artificial truncations and measured their sampling exposure.
-
-A controlled experiment enabling Bellman bootstrapping for artificial
-truncations did not improve the final balanced greedy RandomAgent
-score, which remained 0.113.
-
-The controlled capture-learning experiments have been completed, including an original-versus-spatial State-Action comparison. The spatial model has also undergone an initial 100-episode full-game probe.
-
-The next objective is to validate spatial State-Action learning across multiple seeds and isolate the effects of architecture and truncation bootstrapping before committing to longer training runs.
-
-See `DIAGNOSTICS.md` for the evidence and active hypotheses.
+Historical commands below describe existing capabilities, not a request to rerun
+experiments. The completed ranking run achieved 10/141 greedy mates; specialized
+KQK pair fitting did not establish reliable global mate selection or general strength.
 
 ## Experimental spatial diagnostic probe
 

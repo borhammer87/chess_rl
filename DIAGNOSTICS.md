@@ -1,8 +1,17 @@
 # DIAGNOSTICS
 
+## Current disposition - 25 November 2026
+
+The open-ended diagnostic cycle is no longer the development plan. Its evidence
+and unresolved hypotheses are retained below; former priorities and proposed
+next diagnostics are historical, superseded by DECISIONS.md D-030.
+The next implementation is human PGN ingestion, followed by the bounded
+sequence in ROADMAP.md. Diagnostics may support the three controlled training
+attempts, but are not an additional unbounded prerequisite milestone.
+
 ## Purpose
 
-This document tracks the active investigation into why the experimental
+This document preserves the investigation into why the experimental
 State-Action DQN has not yet demonstrated reliable greedy chess play.
 
 Its purpose is not to describe the architecture or preserve every raw
@@ -13,7 +22,7 @@ experiment output. It records:
 - evidence supporting or weakening each hypothesis;
 - conclusions that are actually justified by the evidence;
 - questions that remain open;
-- the next diagnostic experiment and why it has priority.
+- historical diagnostic priorities and bounded questions supporting the active milestone.
 
 A hypothesis must not be presented as established merely because it is
 plausible.
@@ -35,7 +44,7 @@ improved greedy performance.
 
 High truncation also remained a persistent feature of evaluation.
 
-The immediate objective is to understand this behavior before scaling training
+The historical objective was to understand this behavior before scaling training
 or integrating State-Action into self-play. Experimental CUDA execution has
 now been validated; it does not resolve the learning diagnosis.
 
@@ -744,7 +753,7 @@ compatible with these results. Errors on actions outside the trained pairs may
 explain persistent global ranking failures. The run does not identify a unique
 mechanism, show reproducibility, or justify changing rewards, PER or architecture.
 
-### Current next diagnostic question
+### Historical next question (completed by global ranking)
 
 Which legal non-mating actions outrank the best immediate mate on the 141
 reserved KQK positions? Measure max Q(mate) minus max Q(non-mate), alternative
@@ -752,3 +761,28 @@ outcome category, legal/mating action counts and global greedy mate rate.
 Use the original checkpoint without training. This measures its baseline ranking;
 the adjusted weights were not saved, so it cannot inspect post-adjustment rankings.
 Full measurements and provenance are in TRAINING_STATUS.md.
+
+## Closing evidence and bounded learning hypothesis
+
+The saved global-ranking log confirms 10/141 greedy mates and mean best-mate
+minus best-non-mate Q margin -0.036466. Of 131 preferred alternatives, 122 are
+nonterminal and nine are stalemates. These results describe the original
+checkpoint, not the unsaved adjusted weights. Predicted Q is not observed return.
+
+The network can fit terminal KQK pairs and transfer some pair discrimination to
+reserved families, while global ranking remains weak and non-KQK mate values
+can deteriorate. This supports testing a broader training signal; it does not
+prove that demonstrations will improve playing strength or isolate a root cause.
+
+Planned hypothesis: human games provide broad decision examples, and mate-in-one,
+mate-in-two and mate-in-three puzzles supply targeted tactical examples. A
+simplified DQfD-inspired objective can combine existing TD learning with a
+legal-action demonstration preference term, retaining the spatial model.
+The precise loss and mixing settings require a later reviewed implementation.
+
+Success must be assessed through predefined full-game evaluation against fixed,
+meaningful opponents, with baseline comparison and held-out data. RandomAgent
+scores, lower losses or puzzle accuracy alone do not establish chess strength.
+Approximately 1200 Elo is a longer-term aspiration, not an inferred rating.
+At most three controlled training attempts are allowed before review of the
+approach; no open-ended follow-up cycle is implied. No attempts have run yet.

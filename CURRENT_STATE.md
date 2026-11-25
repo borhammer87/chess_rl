@@ -1,5 +1,42 @@
 # CURRENT STATE
 
+## Active milestone - 25 November 2026
+
+The open-ended diagnostic cycle is closed as a development priority, not as a
+claim that its causal questions are solved. The active direction is
+**demonstration-assisted DQN**, retaining Spatial State-Action DQN, encoders and
+existing reward semantics. Human PGN ingestion is the immediate next task.
+
+Implemented: global legal-action ranking diagnostic and reusable
+`transition_reward()` in `src/chess_rl/training/episodes.py`, used by the existing
+same-player episode loop without changing reward behavior. The extraction was
+reported passing **74 episode tests and 551 full-suite tests**. Those tests have
+not been rerun for this documentation review.
+
+Not implemented: human PGN ingestion, puzzle ingestion, demonstration records or
+loss, dataset preparation, demonstration pretraining, or mixed demonstration/online
+training. Existing mate-CSV utilities are not these planned ingestion modules.
+
+1. Reward composition extraction - completed (`transition_reward()`).
+2. Human PGN ingestion - next, not implemented.
+3. Lichess puzzle ingestion - planned, not implemented.
+4. Simplified DQfD-inspired demonstration loss - planned, not implemented.
+5. Training dataset preparation - planned.
+6. Pretraining and evaluation - planned.
+7. Continued reinforcement learning with demonstrations and agent-generated experiences - planned.
+
+The new milestone has a maximum of **three controlled training attempts**;
+none has been run. Define budgets, evaluation protocol and success criteria
+before each attempt. No automatic fourth attempt or unlimited diagnostic loop.
+Actual full-game playing-strength improvement is the primary criterion; puzzle
+accuracy and loss are supporting measures. Approximately **1200 Elo** is a
+longer-term objective, not a measured rating or an established result.
+
+The sections below preserve earlier functionality and evidence. Historical
+next-step instructions are superseded by this active sequence. See
+[DECISIONS.md](DECISIONS.md) D-030 for rationale and
+[ARCHITECTURE.md](ARCHITECTURE.md) for the planned ingestion contract.
+
 ## Purpose
 
 This document is the concise snapshot of the repository's current state.
@@ -30,7 +67,7 @@ State-Action DQN path.
 The current development focus is not adding basic DQN functionality.
 
 
-The active development focus is the experimental spatial State-Action DQN and its failure to select available immediate checkmates reliably during full-game evaluation.
+The active development focus is demonstration-assisted learning with the existing spatial State-Action DQN; the mate-selection failures below motivate this direction.
 
 A 50-episode CUDA training experiment initialized replay with 295 verified mate transitions generated from 199 unique positions.
 
@@ -49,7 +86,7 @@ Expected immediate rewards were slightly negative on average in both evaluation 
 
 The reward-accumulation hypothesis is therefore weakened as the primary explanation for the observed failures.
 
-The controlled KQK mate/stalemate experiment is complete. The next objective is a read-only analysis of global legal-action ranking on 141 reserved KQK positions using the original checkpoint.
+Both the controlled KQK experiment and global ranking diagnostic are complete. Human PGN ingestion is next.
 
 No reward, PER or architecture modification has been approved.
 
@@ -161,7 +198,7 @@ The State-Action DQN:
 
 but greedy evaluation remains weak and artificial truncation remains frequent.
 
-The project is therefore in a diagnostic phase.
+These observations motivated the completed diagnostic phase; development now moves to the bounded demonstration-assisted milestone.
 
 Several simple explanations have already been weakened or rejected by
 controlled measurements.
@@ -265,14 +302,14 @@ checkpoint.
 
 
 
-**Immediate next development task:** validate mate-in-one learning
+**Historical proposed task (superseded by D-030):** validate mate-in-one learning
 across independent seeds and determine whether the learned policy
 generalizes beyond KQK. Then assess epsilon-decay sensitivity
 and persistence of the trained mate policy before considering
 integration with full-game training.
 
 
-**Next learning-validation milestone:** run controlled multi-seed spatial-versus-standard comparisons with matching training settings and the existing RandomAgent benchmark.
+**Historical proposed validation (deferred under D-030):** run controlled multi-seed spatial-versus-standard comparisons with matching training settings and the existing RandomAgent benchmark.
 
 ## Development constraints
 
@@ -338,11 +375,11 @@ Transfer within reserved KQK families was observed, but independence from origin
 
 Current validation:
 
-Codex reported 527 passing tests after adding the seven-position diagnostic control. Tests were not rerun for this documentation-only update.
+The control implementation previously passed 527 tests; global ranking subsequently passed 539. The latest reward extraction was reported passing 74 specific and 551 full-suite tests. No tests were rerun for this documentation-only update.
 
 Immediate next task:
 
-Propose, then implement only after approval, a read-only ranking diagnostic on the 141 reserved KQK positions: best mate versus best non-mate, actual alternative category, legal/mating action counts and greedy mate rate, using the original checkpoint.
+Implement human PGN ingestion after approval, using the extracted reward function and the revised acceptance policy in ARCHITECTURE.md. The global ranking diagnostic has already been completed.
 
 Do not begin another training experiment or modify rewards, PER or architecture until a specific hypothesis and comparison have been selected.
 

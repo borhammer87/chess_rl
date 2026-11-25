@@ -416,6 +416,8 @@ These should be decided from future repository evidence, not inherited as alread
 ### Status
 Accepted experimentally.
 
+Diagnostic next-step priority superseded by D-030; historical evidence retained.
+
 ### Decision
 After reproducible State-Action CPU probes at 100 and 500 training episodes, do not treat longer training or explicit CUDA support as the automatic next step.
 
@@ -531,6 +533,8 @@ The experimental probe supports practical training continuation, validated by au
 
 Accepted — November 2026.
 
+Diagnostic next-step priority superseded by D-030; historical evidence retained.
+
 ### Decision
 
 Retain the current material shaping, step penalty, PER configuration and spatial State-Action architecture while investigating the failure to select immediate checkmates.
@@ -577,6 +581,8 @@ This decision may be revisited if subsequent evidence demonstrates that reward i
 
 Accepted - November 2026, following the controlled mate/stalemate experiment.
 
+Diagnostic next-step priority superseded by D-030; historical evidence retained.
+
 ### Decision
 
 Keep the current algorithm, rewards, PER and spatial architecture. Next inspect
@@ -603,3 +609,53 @@ proposal must reuse existing scoring, avoid redundant inference and distinguish
 best-mate Q from the previously measured fixed-pair Q. Original-checkpoint
 results cannot reconstruct rankings of the unsaved adjusted model. Revisit this
 decision only after specific diagnostic evidence supports a controlled change.
+
+## D-030 - Move from open-ended diagnosis to bounded demonstration-assisted DQN
+
+### Status
+
+Accepted direction - November 2026. Supersedes the diagnostic-first next-step
+requirements of D-024, D-028 and D-029; preserves their historical evidence and
+the existing architecture and reward semantics. Only reward extraction is
+implemented so far; ingestion and the demonstration loss remain planned.
+
+### Decision
+
+Retain Spatial State-Action DQN and existing encoders. Develop a simplified
+DQfD-inspired approach: existing Bellman learning plus a future demonstration
+preference loss over legal actions. Do not claim a full DQfD implementation;
+loss details, weights and sampling policy await separate design and approval.
+Follow the seven-step sequence in ROADMAP.md, beginning with human PGN ingestion.
+
+Use human Lichess games for broad play and Lichess mate-in-one/two/three puzzles
+for tactical demonstrations. Keep both distinguishable from ordinary online
+agent-generated experience. Tablebase demonstrations may be considered later.
+Accept completed human resignations, timeouts and agreed draws without assigning
+terminal rewards from headers; preserve complete two-ply transitions with board-
+based done flags. See ARCHITECTURE.md for the complete planned acceptance policy.
+
+### Motivation
+
+Repeated mate diagnostics found fitting capacity without reliable global action
+ranking or general chess strength. Broader human examples and targeted tactics
+may provide a more useful action-selection signal than further open-ended
+inspection. Existing Q(s,a) supports comparing demonstrated and alternative legal
+actions without redesigning the network. This is a testable hypothesis, not a
+claim of demonstrated strength or a uniquely established cause of previous failure.
+
+### Alternatives considered
+
+Continue unrestricted diagnostics; repeat narrow KQK fitting; redesign rewards
+or the network; implement a complete DQfD system immediately. A small staged
+approach keeps changes interpretable and avoids committing to a larger subsystem.
+
+### Consequences
+
+Maximum three controlled training attempts across this new milestone, with
+predefined budgets, data splits, baseline/opponents and evaluation criteria.
+No automatic fourth attempt. Actual playing-strength improvement is primary;
+roughly 1200 Elo is a long-term objective, not a measured result. Human moves
+are not guaranteed optimal, puzzle success does not imply game strength, and
+exact-game separation does not remove shared-opening or position overlap.
+No training, downloads or new loss implementation are authorized by this
+record alone. Existing diagnostics remain available as bounded supporting tools.

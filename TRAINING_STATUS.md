@@ -945,3 +945,48 @@ Pair discrimination improved on adjustment and reserved KQK families, while
 global greedy mate selection remained much lower. Control mate MAE deteriorated
 from 0.076913 to 0.634858. This single run does not establish general chess
 strength or cross-seed reproducibility; see DIAGNOSTICS.md for interpretation.
+
+## Global legal-action ranking - 15 November 2026 (completed)
+
+Verified from the existing [execution log](diagnostics/mate_global_ranking_20261115.log),
+without rerunning inference. One CPU evaluation used the original
+`checkpoints/state_action_probe/20261101-004640-a9ba49be/episode_50.pt`, 1,000
+candidates, seed 12345, and the same 506 adjustment / 141 reserved split.
+Only the 141 reserved positions were evaluated. The log retains 141 distinct FENs.
+
+| Measurement | Result |
+| --- | ---: |
+| Mean max-Q(mate) minus max-Q(non-mate) | -0.036466 |
+| Positive / negative / zero margins | 10 / 131 / 0 |
+| Global greedy mate | 10/141 (7.092199%) |
+| Best non-mate alternatives: nonterminal / stalemate / other terminal | 131 / 10 / 0 |
+| Alternatives outranking the best mate: nonterminal / stalemate / other | 122 / 9 / 0 |
+
+These maxima differ from fixed-pair Q measurements. The greedy rate matches the
+original baseline. No training or weight saving occurred. The execution report
+recorded equal before/after checkpoint SHA-256:
+`1F9FA5542584747A29DD6FA202CA0AA7C7C4A81B44BF3CD20679E02277A8F63C`.
+The log itself does not embed this hash; equality is recorded execution evidence,
+not a fresh hash verification in this documentation review.
+
+### Evidence and verification limits
+
+The two local November logs were read to check ranking and 100-update KQK
+measurements. Both are ignored by Git (`*.log`); inclusion in an external ZIP
+is not established. Earlier numerical experiments remain historical documented
+results; they were not independently revalidated against original raw outputs
+in this review. This includes the four-position fitting experiment, 83.5% KQK
+held-out accuracy, earlier full-game probes and replay-seeding experiments.
+They are preserved as reported evidence, not new verified measurements.
+
+Narrow mate learning did not establish general playing strength: four-position
+fitting did not solve its held-out case; the 50-round KQK result concerns its
+synthetic distribution; replay seeding still yielded 29/199 seeded and 2/89 game
+mate selections. The logged terminal-pair adjustment fitted its examples but
+reserved global greedy remained 20/141 and original-control mate MAE worsened
+to 0.634858. No adjusted weights were saved, so their rankings cannot be recovered.
+
+The completed reward extraction was reported passing 74 specific tests
+and 551 full-suite tests. The helper and regression tests exist in source;
+these counts are prior execution reports, not a fresh test run or training result.
+No demonstration-assisted training results or established Elo rating exist yet.

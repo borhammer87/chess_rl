@@ -50,29 +50,24 @@ documents are available.
 
 ## Current focus
 
-The project already contains a complete DQN training pipeline.
+Follow CURRENT_STATE.md and ROADMAP.md. The active milestone is demonstration-
+assisted DQN retaining Spatial State-Action DQN. Reward extraction is complete;
+human PGN ingestion is next. PGN/puzzle ingestion and the simplified DQfD-inspired
+loss are not implemented. Do not restart the open-ended diagnostic cycle.
 
-The current experimental focus is the State-Action DQN.
+Preserve complete same-player transitions from completed human games, including
+resignations, without inventing terminal rewards from result headers. Follow the
+full acceptance and safe-recovery policy in ARCHITECTURE.md. Keep human and tactical
+demonstrations separate from ordinary online experience.
 
-The State-Action diagnostic probe now supports validated checkpoint resume. A real 25 + 25 episode CUDA continuation succeeded, creating `episode_50.pt` in the original run directory. Agent state, replay, RNG, terminal labels and cumulative episode numbering are restored. Exact numerical equivalence with uninterrupted training remains unverified.
+The agreed sequence is reward extraction, human PGNs, Lichess puzzles,
+demonstration loss, dataset preparation, pretraining/evaluation, continued RL.
+At most three controlled training attempts are budgeted, with no automatic extra
+runs. Actual playing strength is primary; approximately 1200 Elo is an aspiration,
+not an established result. Do not train or download datasets without authorization.
 
-The next development focus is no longer checkpoint implementation. Return to the State-Action learning diagnosis: investigate the failure to convert material advantages into wins, including repeated moves, stalemates and missed mates. Preserve the distinction between measured evidence and hypotheses, and prioritize controlled comparisons before changing the learning algorithm.
-
-It trains end to end, but controlled evaluation has not yet demonstrated
-reliable greedy chess play.
-
-The project is currently investigating this learning behavior before:
-
-- scaling training;
-- further CUDA optimization without a measured need;
-- integrating State-Action DQN into the main self-play workflow.
-
-Read `CURRENT_STATE.md` for the exact current snapshot.
-
-Read `DIAGNOSTICS.md` for the active hypothesis tree and immediate diagnostic
-question.
-
-Read `TRAINING_STATUS.md` for the measured history of completed experiments.
+Read TRAINING_STATUS.md for historical measurements and DIAGNOSTICS.md for evidence
+and limitations. Older proposed next diagnostics are superseded, not erased.
 
 ---
 
